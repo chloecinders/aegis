@@ -1,14 +1,16 @@
+use std::collections::VecDeque;
+
 use crate::parser::ParseError;
 
 use super::token::Token;
 
 #[derive(Debug)]
 pub struct TokenStream {
-    pub tokens: Vec<Token>,
+    pub tokens: VecDeque<Token>,
 }
 
 impl TokenStream {
-    pub fn new(stream: Vec<Token>) -> Self {
+    pub fn new(stream: VecDeque<Token>) -> Self {
         Self { tokens: stream }
     }
 
@@ -47,5 +49,9 @@ impl TokenStream {
 
     pub fn len(&self) -> usize {
         self.tokens.len()
+    }
+
+    pub fn push_front(&mut self, token: Token) {
+        self.tokens.push_front(token);
     }
 }

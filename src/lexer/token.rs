@@ -1,6 +1,7 @@
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Word(String),
+    Sentence(String),
     String(String),
     Int(i64),
     Float(f64),
@@ -20,6 +21,8 @@ pub enum Keyword {
     If,
     Let,
     Fn,
+    Elseif,
+    Else,
 }
 
 #[derive(Debug, PartialEq, Clone)]

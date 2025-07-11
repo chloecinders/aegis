@@ -1,40 +1,46 @@
 use std::any::Any;
 
-use crate::executor::primitives::{FloatPrimitive, IntPrimitive};
+use crate::{
+    executor::primitives::{BoolPrimitive, FloatPrimitive, IntPrimitive, StringPrimitive},
+    lexer::Token,
+};
 
 #[derive(Debug)]
 pub struct Program {
     pub ast: Vec<AstNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AstNode {
     Expr(Expr),
     Cmd(Cmd),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cmd {
-    name: String,
-    args: Vec<String>,
+    pub name: String,
+    pub args: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct IfCondition {
+    pub condition: Box<Expr>,
+    pub body: Vec<Box<AstNode>>,
+    pub implicit_return: bool,
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
+    None,
     Int(IntPrimitive),
     Float(FloatPrimitive),
-    String(String),
-    Bool(bool),
-    Variable(String),
-    Operation {
-        left: Box<Expr>,
-        op: Operator,
-        right: Box<Expr>,
-    },
-    If {
-        condition: Box<Expr>,
-        body: Vec<Box<AstNode>>,
-    },
+    String(StringPrimitive),
+    Bool(BoolPrimitive),
+    Function(),
+    Word(String),
+    VariableAssign { name: String, value: Box<Expr> },
+    Operation { stack: Vec<Box<Token>> },
+    If { conditions: Vec<IfCondition> },
 }
 
 impl Expr {
@@ -43,13 +49,13 @@ impl Expr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     Add,
     Subtract,
     Multiply,
     Divide,
     Modulo,
-    Asign,
+    Assign,
     Compare,
 }

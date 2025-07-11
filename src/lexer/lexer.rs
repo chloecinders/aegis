@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Stdout};
+use std::collections::VecDeque;
 
 use super::{Operator, token::Token, token_stream::TokenStream};
 
@@ -11,7 +11,7 @@ pub enum LexerError {
 pub struct Lexer;
 
 impl Lexer {
-    const KEYWORDS: [&'static str; 2] = ["if", "let"];
+    const KEYWORDS: [&'static str; 4] = ["if", "let", "elif", "else"];
     const CHAR_MAP: [(char, Token); 12] = [
         ('(', Token::OpenBracket),
         (')', Token::ClosedBracket),
@@ -28,7 +28,7 @@ impl Lexer {
     ];
 
     pub fn parse<'a>(input: &'a str) -> Result<TokenStream, LexerError> {
-        let mut tokens: Vec<Token> = Vec::new();
+        let mut tokens: VecDeque<Token> = VecDeque::new();
         let mut chars = input.chars().peekable();
         let mut pos: usize = 0;
 
@@ -37,7 +37,7 @@ impl Lexer {
                 chars.next();
                 pos += 1;
             } else if Self::is_char(char) {
-                tokens.push(
+                tokens.push_back(
                     Self::CHAR_MAP
                         .iter()
                         .find(|c| c.0 == char)
@@ -48,11 +48,14 @@ impl Lexer {
                 chars.next();
                 pos += 1;
             } else if char.is_ascii_digit() || char == '.' {
-                tokens.push(Self::parse_number(&mut chars, &mut pos)?);
+                tokens.push_back(Self::parse_number(&mut chars, &mut pos)?);
             } else if char == '"' || char == '\'' {
-                tokens.push(Self::parse_string(&mut chars, &mut pos)?);
+                tokens.push_back(Self::parse_string(&mut chars, &mut pos)?);
             } else {
-                tokens.push(Self::parse_else(&mut chars, &mut pos)?);
+                tokens.push_back(Self::parse_else(&mut chars, &mut pos, {
+                    let last = tokens.iter().last();
+                    last.is_none() || matches!(last, Some(Token::Semicolon))
+                })?);
             }
         }
 
@@ -123,6 +126,7 @@ impl Lexer {
     fn parse_else<I: Iterator<Item = char>>(
         chars: &mut std::iter::Peekable<I>,
         pos: &mut usize,
+        is_alone: bool,
     ) -> Result<Token, LexerError> {
         let mut full_word = String::new();
 
@@ -136,16 +140,45 @@ impl Lexer {
             *pos += 1;
         }
 
-        match full_word.as_str().to_lowercase().as_str() {
-            "true" => Ok(Token::Bool(true)),
-            "false" => Ok(Token::Bool(false)),
+        let mut sentence = full_word.clone();
+        let copy = full_word.clone();
+
+        let res = match full_word.as_str().to_lowercase().as_str() {
+            "true" => Some(Token::Bool(true)),
+            "false" => Some(Token::Bool(false)),
             str if Self::KEYWORDS.contains(&str) => match str {
-                "if" => Ok(Token::Keyword(super::Keyword::If)),
-                "let" => Ok(Token::Keyword(super::Keyword::If)),
-                _ => Ok(Token::Word(full_word)),
+                "if" => Some(Token::Keyword(super::Keyword::If)),
+                "let" => Some(Token::Keyword(super::Keyword::Let)),
+                "elif" => Some(Token::Keyword(super::Keyword::Elseif)),
+                "else" => Some(Token::Keyword(super::Keyword::Else)),
+                _ => Some(Token::Word(full_word)),
             },
-            _ => Ok(Token::Word(full_word)),
+            _ => None,
+        };
+
+        if !is_alone {
+            return Ok(Token::Word(String::from(copy.trim())));
         }
+
+        if let Some(t) = res {
+            return Ok(t);
+        }
+
+        while let Some(&char) = chars.peek() {
+            if char == ';' {
+                break;
+            }
+
+            sentence.push(char);
+            chars.next();
+            *pos += 1;
+        }
+
+        if sentence.trim().len() != copy.trim().len() {
+            return Ok(Token::Sentence(sentence));
+        }
+
+        Ok(Token::Word(String::from(sentence.trim())))
     }
 
     fn is_char(char: char) -> bool {

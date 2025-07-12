@@ -1,7 +1,10 @@
 use std::{
+    collections::HashMap,
     env::current_dir,
+    ffi::OsStr,
     fs::File,
     io::{self, Read, Write},
+    path::PathBuf,
     process::exit,
 };
 
@@ -11,16 +14,36 @@ use crate::{
     lexer::Lexer,
     parser::Parser,
     win32::{
+        Environment,
         WRCONRawCreateError::{CreateErr, InputErr},
-        wrcon,
+        get_clipboard_data, get_current_system, get_current_user, get_environment_variables, wrcon,
     },
 };
 
-pub struct Shell;
+pub struct Shell {
+    directory: PathBuf,
+    user: String,
+    system: String,
+}
 
 impl Shell {
     pub fn new() -> Self {
-        Self {}
+        let directory = match current_dir() {
+            Ok(d) => d,
+            Err(_) => {
+                eprintln!("Couldnt get current directory!");
+                PathBuf::default()
+            }
+        };
+
+        let user = get_current_user().unwrap_or(String::default());
+        let system = get_current_system().unwrap_or(String::default());
+
+        Self {
+            directory,
+            user,
+            system,
+        }
     }
 
     pub fn run(&mut self) {
@@ -55,7 +78,8 @@ impl Shell {
                 exit(1);
             }
 
-            self.exec(&contents.as_str());
+            let env = get_environment_variables();
+            self.exec(&env, &contents.as_str());
             return;
         }
 
@@ -63,6 +87,8 @@ impl Shell {
     }
 
     pub fn consume(&self) {
+        let env = get_environment_variables();
+
         let mut wrcon = match wrcon::new() {
             Ok(w) => w,
             Err(e) => {
@@ -80,7 +106,17 @@ impl Shell {
         };
 
         'outer: loop {
-            print!(" >\0");
+            let dir = self
+                .directory
+                .iter()
+                .map(|s| format!(" {}", s.to_string_lossy().to_string()))
+                .last()
+                .unwrap_or(String::default());
+
+            print!(
+                "\x1b[38;5;212m{}\x1b[0m@\x1b[38;5;186m{}\x1b[38;5;152m{}\x1b[0m A>",
+                self.user, self.system, dir
+            );
 
             io::stdout().flush().unwrap();
 
@@ -100,7 +136,16 @@ impl Shell {
                             }
                         }
                         // Ctrl + V
-                        0x16 => println!("Got CTRL + V"),
+                        0x16 if event.ctrl_pressed => {
+                            if let Some(data) = get_clipboard_data() {
+                                input.push_str(data.as_str());
+                                print!("{data}");
+                            }
+                        }
+                        // Ctrl + D
+                        0x44 if event.ctrl_pressed => {
+                            break 'outer;
+                        }
                         // Ctrl + C
                         0x03 => {
                             println!("");
@@ -137,11 +182,13 @@ impl Shell {
                 break;
             }
 
-            self.exec(input);
+            self.exec(&env, input);
         }
     }
 
     pub fn fallback_loop(&self) {
+        let env = Box::new(get_environment_variables());
+
         loop {
             print!(" > ");
 
@@ -164,11 +211,11 @@ impl Shell {
                 break;
             }
 
-            self.exec(input);
+            self.exec(&env, input);
         }
     }
 
-    pub fn exec(&self, input: &str) {
+    pub fn exec(&self, env: &Environment, input: &str) {
         let token_stream = match Lexer::parse(input) {
             Ok(p) => p,
             Err(e) => {
@@ -189,7 +236,7 @@ impl Shell {
 
         debug!("AST: {:?}", program);
 
-        if let Err(e) = Executor::execute(program) {
+        if let Err(e) = Executor::execute(program, env) {
             eprintln!("Error during execution; err = {e:?}");
         }
     }

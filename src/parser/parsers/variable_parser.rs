@@ -19,14 +19,14 @@ pub fn parse_variable_assignment(stream: &mut TokenStream) -> Result<Expr, Parse
             expr_vec.push_back(stream.next().unwrap());
         }
 
-        let inner_cond_stream = TokenStream::new(expr_vec);
+        let inner_expr_stream = TokenStream::new(expr_vec);
 
-        if let Some(Token::Word(_)) = inner_cond_stream.peek() {
+        if let Some(Token::Word(_)) = inner_expr_stream.peek() {
             return Err(ParseError::MustBeExpr);
         }
 
-        let cond_expr = {
-            if let Ok(AstNode::Expr(expr)) = Parser::parse_stmt_borrow(inner_cond_stream).1 {
+        let expr = {
+            if let Ok(AstNode::Expr(expr)) = Parser::parse_stmt_borrow(inner_expr_stream).1 {
                 Ok(expr)
             } else {
                 Err(ParseError::UnexpectedToken)
@@ -37,7 +37,7 @@ pub fn parse_variable_assignment(stream: &mut TokenStream) -> Result<Expr, Parse
 
         Ok(Expr::VariableAssign {
             name: name,
-            value: Box::new(cond_expr),
+            value: Box::new(expr),
         })
     } else {
         Err(ParseError::UnexpectedToken)

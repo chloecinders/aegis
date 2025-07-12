@@ -2,26 +2,27 @@ use crate::{
     executor::{
         Scope,
         evaluations::{
-            evaluate_if_statement, evaluate_math, evaluate_word,
+            evaluate_command, evaluate_if_statement, evaluate_math, evaluate_word,
             variables::evaluate_variable_assignment,
         },
         executor::ExecutorError,
         primitives::traits::PrimitiveValue,
     },
-    parser::Expr,
+    parser::{AstNode, Cmd, Expr},
 };
 
-pub fn execute_expression(scope: &mut Scope, expr: Expr) -> Result<String, ExecutorError> {
-    let res: Option<String> = match expr {
-        Expr::None => Some(String::default()),
-        Expr::Int(i) => Some(i.display()),
-        Expr::String(s) => Some(s.display()),
-        Expr::Float(f) => Some(f.display()),
-        Expr::Bool(b) => Some(b.display()),
-        _ => {
+pub fn execute_expression(scope: &mut Scope, node: AstNode) -> Result<String, ExecutorError> {
+    let res: Option<String> = match node {
+        AstNode::Expr(Expr::None) => Some(String::default()),
+        AstNode::Expr(Expr::Int(i)) => Some(i.display()),
+        AstNode::Expr(Expr::String(s)) => Some(s.display()),
+        AstNode::Expr(Expr::Float(f)) => Some(f.display()),
+        AstNode::Expr(Expr::Bool(b)) => Some(b.display()),
+        AstNode::Expr(expr) => {
             let evaluted = evaluate_expression(scope, expr)?;
-            Some(execute_expression(scope, evaluted)?)
+            Some(execute_expression(scope, AstNode::Expr(evaluted))?)
         }
+        AstNode::Cmd(Cmd { name, args }) => Some(evaluate_command(scope, name, args)?),
     };
 
     Ok(res.unwrap_or(String::default()))
@@ -35,8 +36,8 @@ pub fn evaluate_till_primitive(scope: &mut Scope, expr: Expr) -> Result<Expr, Ex
         Expr::Float(_) => Ok(expr),
         Expr::Bool(_) => Ok(expr),
         _ => {
-            let evaluted = evaluate_till_primitive(scope, expr)?;
-            Ok(evaluted)
+            let evaluted = evaluate_expression(scope, expr)?;
+            Ok(evaluate_till_primitive(scope, evaluted)?)
         }
     }
 }

@@ -11,3 +11,6 @@ mod variables;
 
 mod word;
 pub use word::evaluate_word;
+
+mod command;
+pub use command::evaluate_command;

@@ -1,10 +1,16 @@
-use std::{ffi::c_int, os::windows::raw::HANDLE};
+use std::{
+    ffi::{c_int, c_uint, c_void},
+    os::windows::raw::HANDLE,
+};
 
 pub type BOOL = i32;
 pub type DWORD = u32;
 pub type WORD = u16;
 pub type WCHAR = u16;
 pub type BYTE = u8;
+pub type STR = i8;
+pub type WSTR = u16;
+pub type HWND = *mut c_void;
 
 pub const STD_INPUT_HANDLE: DWORD = -10i32 as DWORD;
 
@@ -36,6 +42,11 @@ pub union CHAR_UNION {
     AsciiChar: u8,
 }
 
+#[link(name = "advapi32")]
+unsafe extern "system" {
+    pub fn GetUserNameA(lpBuffer: *mut STR, pcbBuffer: *mut DWORD) -> BOOL;
+}
+
 #[link(name = "kernel32")]
 unsafe extern "system" {
     pub fn GetStdHandle(nStdHandle: DWORD) -> HANDLE;
@@ -47,6 +58,11 @@ unsafe extern "system" {
         nLength: DWORD,
         lpNumberOfEventsRead: *mut DWORD,
     ) -> BOOL;
+    pub fn GlobalLock(hMem: HANDLE) -> *mut c_void;
+    pub fn GlobalUnlock(hMem: HANDLE) -> BOOL;
+    pub fn GetComputerNameA(lpBuffer: *mut STR, nSize: *mut DWORD) -> BOOL;
+    pub fn GetEnvironmentStringsW() -> *const WSTR;
+    pub fn FreeEnvironmentStringsW(penv: *const WSTR) -> BOOL;
 }
 
 #[link(name = "user32")]
@@ -59,6 +75,8 @@ unsafe extern "system" {
         cchBuff: c_int,
         wFlags: u32,
     ) -> c_int;
-
     pub fn GetKeyboardState(lpKeyState: *mut BYTE) -> i32;
+    pub fn OpenClipboard(hWndNewOwner: *mut HWND) -> BOOL;
+    pub fn CloseClipboard() -> BOOL;
+    pub fn GetClipboardData(uFormat: c_uint) -> HANDLE;
 }

@@ -1,4 +1,4 @@
-use crate::parser::Expr;
+use crate::{parser::Expr, win32::Environment};
 
 #[derive(Debug)]
 pub struct Variable {
@@ -7,13 +7,17 @@ pub struct Variable {
 }
 
 #[derive(Debug)]
-pub struct Scope {
+pub struct Scope<'a> {
+    pub environment: &'a Environment,
     variables: Vec<Box<Variable>>,
 }
 
-impl Scope {
-    pub fn new() -> Self {
-        Self { variables: vec![] }
+impl<'a> Scope<'a> {
+    pub fn new(env: &'a Environment) -> Self {
+        Self {
+            variables: vec![],
+            environment: env,
+        }
     }
 
     pub fn push(&mut self, var: Variable) -> &Self {

@@ -62,6 +62,25 @@ impl Lexer {
         Ok(TokenStream::new(tokens))
     }
 
+    pub fn parse_strings<'a>(input: &'a str) -> Result<TokenStream, LexerError> {
+        let mut tokens: VecDeque<Token> = VecDeque::new();
+        let mut chars = input.chars().peekable();
+        let mut pos: usize = 0;
+
+        while let Some(&char) = chars.peek() {
+            if char.is_whitespace() {
+                chars.next();
+                pos += 1;
+            } else if char == '"' || char == '\'' {
+                tokens.push_back(Self::parse_string(&mut chars, &mut pos)?);
+            } else {
+                tokens.push_back(Self::parse_word(&mut chars, &mut pos));
+            }
+        }
+
+        Ok(TokenStream::new(tokens))
+    }
+
     fn parse_number<I: Iterator<Item = char>>(
         chars: &mut std::iter::Peekable<I>,
         pos: &mut usize,
@@ -179,6 +198,25 @@ impl Lexer {
         }
 
         Ok(Token::Word(String::from(sentence.trim())))
+    }
+
+    fn parse_word<I: Iterator<Item = char>>(
+        chars: &mut std::iter::Peekable<I>,
+        pos: &mut usize,
+    ) -> Token {
+        let mut full_word = String::new();
+
+        while let Some(&char) = chars.peek() {
+            if char.is_whitespace() {
+                break;
+            }
+
+            full_word.push(char);
+            chars.next();
+            *pos += 1;
+        }
+
+        Token::Word(full_word)
     }
 
     fn is_char(char: char) -> bool {

@@ -1,15 +1,19 @@
 use crate::{
-    lexer::{Operator, Token, TokenStream},
+    lexer::{Operator, Token, TokenKind, TokenStream},
     parser::Expr,
 };
 
-pub fn parse_math_expr(leading: Token, stream: &mut TokenStream) -> Expr {
+pub fn parse_math(leading: Token, stream: &mut TokenStream) -> Expr {
     stream.push_front(leading);
 
     let mut chunk: Vec<Token> = Vec::new();
 
     while let Some(token) = stream.next() {
-        if let Token::Semicolon = token {
+        if let Token {
+            kind: TokenKind::Semicolon,
+            ..
+        } = token
+        {
             break;
         }
 
@@ -30,9 +34,9 @@ fn infix_to_postfix(stream: Vec<Token>) -> Vec<Token> {
     let mut output: Vec<Token> = Vec::new();
     let mut stack: Vec<Token> = Vec::new();
 
-    fn precedence(op: &Token) -> u8 {
+    fn precedence(op: &TokenKind) -> u8 {
         match op {
-            Token::Operator(o) => match o {
+            TokenKind::Operator(o) => match o {
                 Operator::Plus | Operator::Minus => 1,
                 Operator::Multiply | Operator::Divide => 2,
                 _ => 0,
@@ -42,18 +46,22 @@ fn infix_to_postfix(stream: Vec<Token>) -> Vec<Token> {
     }
 
     for token in stream {
-        match token {
-            Token::Word(_)
-            | Token::String(_)
-            | Token::Int(_)
-            | Token::Float(_)
-            | Token::Bool(_) => {
+        match token.kind {
+            TokenKind::Word(_)
+            | TokenKind::String(_)
+            | TokenKind::Int(_)
+            | TokenKind::Float(_)
+            | TokenKind::Bool(_) => {
                 output.push(token);
             }
-            Token::Operator(_) => {
+            TokenKind::Operator(_) => {
                 while let Some(top) = stack.last() {
-                    if let Token::Operator(_) = top {
-                        if precedence(&token) <= precedence(top) {
+                    if let Token {
+                        kind: TokenKind::Operator(_),
+                        ..
+                    } = top
+                    {
+                        if precedence(&token.kind) <= precedence(&top.kind) {
                             output.push(stack.pop().unwrap());
                         } else {
                             break;
@@ -64,12 +72,16 @@ fn infix_to_postfix(stream: Vec<Token>) -> Vec<Token> {
                 }
                 stack.push(token);
             }
-            Token::OpenBracket => {
+            TokenKind::OpenBracket => {
                 stack.push(token);
             }
-            Token::ClosedBracket => {
+            TokenKind::ClosedBracket => {
                 while let Some(top) = stack.pop() {
-                    if let Token::OpenBracket = top {
+                    if let Token {
+                        kind: TokenKind::OpenBracket,
+                        ..
+                    } = top
+                    {
                         break;
                     } else {
                         output.push(top);

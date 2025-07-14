@@ -1,23 +1,22 @@
 use std::{
-    collections::HashMap,
     env::current_dir,
-    ffi::OsStr,
     fs::File,
     io::{self, Read, Write},
     path::PathBuf,
     process::exit,
+    vec,
 };
 
 use crate::{
-    debug,
     executor::Executor,
+    info,
     lexer::Lexer,
-    parser::Parser,
-    win32::{
-        Environment,
-        WRCONRawCreateError::{CreateErr, InputErr},
-        get_clipboard_data, get_current_system, get_current_user, get_environment_variables, wrcon,
+    native::{
+        Console, Environment, get_clipboard_data, get_current_system, get_current_user,
+        get_environment,
     },
+    parser::Parser,
+    shell::shell_cmds,
 };
 
 pub struct Shell {
@@ -78,28 +77,20 @@ impl Shell {
                 exit(1);
             }
 
-            let env = get_environment_variables();
-            self.exec(&env, &contents.as_str());
+            let env = Self::get_env();
+            self.exec(env, &contents.as_str());
             return;
         }
 
         self.consume();
     }
 
-    pub fn consume(&self) {
-        let env = get_environment_variables();
+    pub fn consume(&mut self) {
+        let env = Self::get_env();
 
-        let mut wrcon = match wrcon::new() {
-            Ok(w) => w,
-            Err(e) => {
-                match e {
-                    InputErr(_) => println!("Could not set raw input mode."),
-                    CreateErr(_) => println!("Could not obtain STDIN handle."),
-                };
-                println!(
-                    "Special control sequences such as CTRL + C may not work/have unintended behavior!"
-                );
-
+        let mut raw_console = match Console::new() {
+            Ok(c) => c,
+            Err(_) => {
                 self.fallback_loop();
                 exit(0)
             }
@@ -115,7 +106,7 @@ impl Shell {
 
             print!(
                 "\x1b[38;5;212m{}\x1b[0m@\x1b[38;5;186m{}\x1b[38;5;152m{}\x1b[0m A>",
-                self.user, self.system, dir
+                self.user, self.system, dir,
             );
 
             io::stdout().flush().unwrap();
@@ -123,9 +114,10 @@ impl Shell {
             let mut input = String::new();
 
             loop {
-                if let Ok(event) = wrcon.read() {
+                if let Ok(event) = raw_console.read() {
                     match event.virtual_key {
                         0 => continue,
+
                         // Enter
                         0x0D => {
                             if event.shift_pressed {
@@ -135,6 +127,7 @@ impl Shell {
                                 break;
                             }
                         }
+
                         // Ctrl + V
                         0x16 if event.ctrl_pressed => {
                             if let Some(data) = get_clipboard_data() {
@@ -142,18 +135,22 @@ impl Shell {
                                 print!("{data}");
                             }
                         }
+
                         // Ctrl + D
                         0x44 if event.ctrl_pressed => {
                             break 'outer;
                         }
+
                         // Ctrl + C
                         0x03 => {
                             println!("");
                             continue 'outer;
                         }
+
                         0x1b => {
                             println!("test");
                         }
+
                         // Backspace
                         0x08 => {
                             if !input.is_empty() {
@@ -162,6 +159,7 @@ impl Shell {
                                 io::stdout().flush().unwrap()
                             }
                         }
+
                         _ => {
                             if let Some(char) = event.character {
                                 input.push(char);
@@ -182,12 +180,12 @@ impl Shell {
                 break;
             }
 
-            self.exec(&env, input);
+            self.exec(env, input);
         }
     }
 
     pub fn fallback_loop(&self) {
-        let env = Box::new(get_environment_variables());
+        let env = Self::get_env();
 
         loop {
             print!(" > ");
@@ -211,11 +209,11 @@ impl Shell {
                 break;
             }
 
-            self.exec(&env, input);
+            self.exec(env, input);
         }
     }
 
-    pub fn exec(&self, env: &Environment, input: &str) {
+    pub fn exec(&self, env: &'static Environment, input: &str) {
         let token_stream = match Lexer::parse(input) {
             Ok(p) => p,
             Err(e) => {
@@ -224,7 +222,7 @@ impl Shell {
             }
         };
 
-        debug!("Token Stream: {token_stream:?}");
+        info!("Token Stream: {token_stream:?}");
 
         let program = match Parser::parse(token_stream) {
             Ok(p) => p,
@@ -234,10 +232,17 @@ impl Shell {
             }
         };
 
-        debug!("AST: {:?}", program);
+        info!("AST: {:#?}", program);
 
         if let Err(e) = Executor::execute(program, env) {
             eprintln!("Error during execution; err = {e:?}");
         }
+    }
+
+    pub fn get_env() -> &'static Environment {
+        let env = Box::leak(Box::new(get_environment()));
+        env.cmds = vec![(String::from("echo"), Box::new(shell_cmds::echo))];
+
+        env
     }
 }

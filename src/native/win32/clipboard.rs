@@ -1,10 +1,10 @@
-use crate::win32::shared::{
+use crate::native::win32::shared::{
     CloseClipboard, DWORD, GetClipboardData, GlobalLock, GlobalUnlock, OpenClipboard,
 };
 
 const CF_UNICODE_TEXT: DWORD = 13;
 
-pub fn get_clipboard_data() -> Option<String> {
+pub fn win_get_clipboard_data() -> Option<String> {
     unsafe {
         if OpenClipboard(std::ptr::null_mut()) == 0 {
             return None;

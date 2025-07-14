@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     executor::{
         Scope,
@@ -8,9 +10,10 @@ use crate::{
     parser::{AstNode, Cmd, Expr},
 };
 
-pub fn evaluate_word(scope: &mut Scope, word: String) -> Result<Expr, ExecutorError> {
+pub fn evaluate_word(scope: Rc<RefCell<Scope>>, word: String) -> Result<Expr, ExecutorError> {
     let cloned = word.clone();
-    if let Some(var) = scope.find(word) {
+
+    if let Some(var) = scope.borrow().lookup(word) {
         Ok(var.value.clone())
     } else {
         let cmd = Cmd {

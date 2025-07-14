@@ -1,30 +1,31 @@
 use std::collections::VecDeque;
 
-use super::{Operator, token::Token, token_stream::TokenStream};
+use crate::lexer::Token;
+
+use super::{Operator, token::TokenKind, token_stream::TokenStream};
 
 #[derive(Debug)]
 pub enum LexerError {
-    InvalidNumber(usize),
-    UnterminatedString(usize),
+    InvalidNumber,
+    UnterminatedString,
 }
 
 pub struct Lexer;
 
 impl Lexer {
-    const KEYWORDS: [&'static str; 4] = ["if", "let", "elif", "else"];
-    const CHAR_MAP: [(char, Token); 12] = [
-        ('(', Token::OpenBracket),
-        (')', Token::ClosedBracket),
-        ('{', Token::OpenCurlyBracket),
-        ('}', Token::ClosedCurlyBracket),
-        ('.', Token::Period),
-        (';', Token::Semicolon),
-        ('+', Token::Operator(Operator::Plus)),
-        ('-', Token::Operator(Operator::Minus)),
-        ('*', Token::Operator(Operator::Multiply)),
-        ('/', Token::Operator(Operator::Divide)),
-        ('=', Token::Operator(Operator::Equal)),
-        ('%', Token::Operator(Operator::Modulo)),
+    const CHAR_MAP: [(char, TokenKind); 12] = [
+        ('(', TokenKind::OpenBracket),
+        (')', TokenKind::ClosedBracket),
+        ('{', TokenKind::OpenCurlyBracket),
+        ('}', TokenKind::ClosedCurlyBracket),
+        ('.', TokenKind::Period),
+        (';', TokenKind::Semicolon),
+        ('+', TokenKind::Operator(Operator::Plus)),
+        ('-', TokenKind::Operator(Operator::Minus)),
+        ('*', TokenKind::Operator(Operator::Multiply)),
+        ('/', TokenKind::Operator(Operator::Divide)),
+        ('=', TokenKind::Operator(Operator::Equal)),
+        ('%', TokenKind::Operator(Operator::Modulo)),
     ];
 
     pub fn parse<'a>(input: &'a str) -> Result<TokenStream, LexerError> {
@@ -37,14 +38,15 @@ impl Lexer {
                 chars.next();
                 pos += 1;
             } else if Self::is_char(char) {
-                tokens.push_back(
-                    Self::CHAR_MAP
+                tokens.push_back(Token {
+                    kind: Self::CHAR_MAP
                         .iter()
                         .find(|c| c.0 == char)
                         .unwrap()
                         .1
                         .clone(),
-                );
+                    pos: pos.clone(),
+                });
                 chars.next();
                 pos += 1;
             } else if char.is_ascii_digit() || char == '.' {
@@ -52,10 +54,7 @@ impl Lexer {
             } else if char == '"' || char == '\'' {
                 tokens.push_back(Self::parse_string(&mut chars, &mut pos)?);
             } else {
-                tokens.push_back(Self::parse_else(&mut chars, &mut pos, {
-                    let last = tokens.iter().last();
-                    last.is_none() || matches!(last, Some(Token::Semicolon))
-                })?);
+                tokens.push_back(Self::parse_else(&mut chars, &mut pos)?);
             }
         }
 
@@ -85,8 +84,8 @@ impl Lexer {
         chars: &mut std::iter::Peekable<I>,
         pos: &mut usize,
     ) -> Result<Token, LexerError> {
-        let starting_pos = pos.clone();
         let mut number_str = String::new();
+        let current_pos = pos.clone();
 
         while let Some(&char) = chars.peek() {
             if char.is_ascii_alphanumeric() || char == '.' || char == '_' {
@@ -101,17 +100,19 @@ impl Lexer {
         number_str.remove_matches("_");
 
         if number_str.contains('.') {
-            let value: f64 = number_str
-                .parse()
-                .map_err(|_| LexerError::InvalidNumber(starting_pos))?;
+            let value: f64 = number_str.parse().map_err(|_| LexerError::InvalidNumber)?;
 
-            Ok(Token::Float(value))
+            Ok(Token {
+                kind: TokenKind::Float(value),
+                pos: current_pos,
+            })
         } else {
-            let value: i64 = number_str
-                .parse()
-                .map_err(|_| LexerError::InvalidNumber(starting_pos))?;
+            let value: i64 = number_str.parse().map_err(|_| LexerError::InvalidNumber)?;
 
-            Ok(Token::Int(value))
+            Ok(Token {
+                kind: TokenKind::Int(value),
+                pos: current_pos,
+            })
         }
     }
 
@@ -136,18 +137,21 @@ impl Lexer {
         }
 
         if !terminated {
-            return Err(LexerError::UnterminatedString(starting_pos));
+            return Err(LexerError::UnterminatedString);
         }
 
-        Ok(Token::String(full_string))
+        Ok(Token {
+            kind: TokenKind::String(full_string),
+            pos: starting_pos,
+        })
     }
 
     fn parse_else<I: Iterator<Item = char>>(
         chars: &mut std::iter::Peekable<I>,
         pos: &mut usize,
-        is_alone: bool,
     ) -> Result<Token, LexerError> {
         let mut full_word = String::new();
+        let current_pos = pos.clone();
 
         while let Some(&char) = chars.peek() {
             if char.is_whitespace() || Self::is_char(char) {
@@ -163,29 +167,53 @@ impl Lexer {
         let copy = full_word.clone();
 
         let res = match full_word.as_str().to_lowercase().as_str() {
-            "true" => Some(Token::Bool(true)),
-            "false" => Some(Token::Bool(false)),
-            str if Self::KEYWORDS.contains(&str) => match str {
-                "if" => Some(Token::Keyword(super::Keyword::If)),
-                "let" => Some(Token::Keyword(super::Keyword::Let)),
-                "elif" => Some(Token::Keyword(super::Keyword::Elseif)),
-                "else" => Some(Token::Keyword(super::Keyword::Else)),
-                _ => Some(Token::Word(full_word)),
-            },
+            "true" => Some(TokenKind::Bool(true)),
+            "false" => Some(TokenKind::Bool(false)),
+            "if" => Some(TokenKind::Keyword(super::Keyword::If)),
+            "let" => Some(TokenKind::Keyword(super::Keyword::Let)),
+            "elif" => Some(TokenKind::Keyword(super::Keyword::Elseif)),
+            "else" => Some(TokenKind::Keyword(super::Keyword::Else)),
+            "fn" => Some(TokenKind::Keyword(super::Keyword::Fn)),
+            "while" => Some(TokenKind::Keyword(super::Keyword::While)),
             _ => None,
         };
 
-        if !is_alone {
-            return Ok(Token::Word(String::from(copy.trim())));
-        }
-
         if let Some(t) = res {
-            return Ok(t);
+            return Ok(Token {
+                kind: t,
+                pos: current_pos,
+            });
         }
 
-        while let Some(&char) = chars.peek() {
+        let mut checked = false;
+
+        'outer: while let Some(&char) = chars.peek() {
             if char == ';' {
                 break;
+            }
+
+            while !checked
+                && char.is_whitespace()
+                && let Some(inner_char) = chars.peek()
+            {
+                if char == ';' {
+                    break 'outer;
+                }
+
+                if !inner_char.is_alphanumeric() && !inner_char.is_whitespace() {
+                    return Ok(Token {
+                        kind: TokenKind::Word(String::from(copy.trim())),
+                        pos: current_pos,
+                    });
+                }
+
+                if inner_char.is_alphabetic() {
+                    checked = true;
+                    continue 'outer;
+                }
+
+                sentence.push(*inner_char);
+                chars.next();
             }
 
             sentence.push(char);
@@ -194,10 +222,16 @@ impl Lexer {
         }
 
         if sentence.trim().len() != copy.trim().len() {
-            return Ok(Token::Sentence(sentence));
+            return Ok(Token {
+                kind: TokenKind::Sentence(sentence),
+                pos: current_pos,
+            });
         }
 
-        Ok(Token::Word(String::from(sentence.trim())))
+        Ok(Token {
+            kind: TokenKind::Word(String::from(sentence.trim())),
+            pos: current_pos,
+        })
     }
 
     fn parse_word<I: Iterator<Item = char>>(
@@ -205,6 +239,7 @@ impl Lexer {
         pos: &mut usize,
     ) -> Token {
         let mut full_word = String::new();
+        let current_pos = pos.clone();
 
         while let Some(&char) = chars.peek() {
             if char.is_whitespace() {
@@ -216,7 +251,10 @@ impl Lexer {
             *pos += 1;
         }
 
-        Token::Word(full_word)
+        Token {
+            kind: TokenKind::Word(full_word),
+            pos: current_pos,
+        }
     }
 
     fn is_char(char: char) -> bool {

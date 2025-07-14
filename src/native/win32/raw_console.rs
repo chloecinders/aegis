@@ -1,8 +1,11 @@
 use std::{mem::zeroed, os::windows::raw::HANDLE};
 
-use crate::win32::shared::{
-    DWORD, GetConsoleMode, GetKeyboardState, GetStdHandle, INPUT_RECORD, ReadConsoleInputW,
-    STD_INPUT_HANDLE, SetConsoleMode, ToUnicode, WORD,
+use crate::native::{
+    console::ReadEvent,
+    win32::shared::{
+        DWORD, GetConsoleMode, GetKeyboardState, GetStdHandle, INPUT_RECORD, ReadConsoleInputW,
+        STD_INPUT_HANDLE, SetConsoleMode, ToUnicode, WORD,
+    },
 };
 
 const ENABLE_ECHO_INPUT: DWORD = 0x4;
@@ -18,89 +21,75 @@ const VK_CONTROL: DWORD = 0x11;
 const VK_MENU: DWORD = 0x12;
 const VK_CAPITAL: DWORD = 0x14;
 
-pub enum WRCONRawInputError {
+pub enum InputError {
     NoSTDINHandle,
     SetConsoleMode,
 }
 
-pub enum WRCONCreateError {
+pub enum CreateError {
     NoSTDINHandle,
 }
 
-pub enum WRCONRawCreateError {
-    InputErr(WRCONRawInputError),
-    CreateErr(WRCONCreateError),
+pub enum RawCreateError {
+    InputErr,
+    CreateErr(CreateError),
 }
 
-pub enum WRCONReadError {
+pub enum ReadError {
     FailedConsoleRead,
     InvalidEventType,
 }
 
-#[derive(Debug)]
-#[allow(unused)]
-pub struct ReadEvent {
-    pub virtual_key: u16,
-    pub character: Option<char>,
-    pub ralt_pressed: bool,
-    pub lalt_pressed: bool,
-    pub shift_pressed: bool,
-    pub ctrl_pressed: bool,
-}
-
 #[allow(non_camel_case_types)]
 /// Raw console input from the win32 API
-/// w = windows, r = raw, con = console
-pub struct wrcon {
+pub struct WinRawConsole {
     handle: HANDLE,
 }
 
-impl wrcon {
-    pub fn new() -> Result<Self, WRCONRawCreateError> {
-        if let Err(e) = Self::enable_raw_mode() {
-            return Err(WRCONRawCreateError::InputErr(e));
+impl WinRawConsole {
+    pub fn new() -> Result<Self, RawCreateError> {
+        if let Err(_) = Self::enable_raw_mode() {
+            return Err(RawCreateError::InputErr);
         }
 
         let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
 
         if handle.is_null() {
-            Err(WRCONRawCreateError::CreateErr(
-                WRCONCreateError::NoSTDINHandle,
-            ))
+            Err(RawCreateError::CreateErr(CreateError::NoSTDINHandle))
         } else {
             Ok(Self { handle: handle })
         }
     }
 
-    fn enable_raw_mode() -> Result<DWORD, WRCONRawInputError> {
+    fn enable_raw_mode() -> Result<DWORD, InputError> {
         unsafe {
             let h_stdin = GetStdHandle(STD_INPUT_HANDLE);
             if h_stdin.is_null() {
-                return Err(WRCONRawInputError::NoSTDINHandle);
+                return Err(InputError::NoSTDINHandle);
             }
 
             let mut mode: DWORD = 0;
             if GetConsoleMode(h_stdin, &mut mode) == 0 {
-                return Err(WRCONRawInputError::SetConsoleMode);
+                return Err(InputError::SetConsoleMode);
             }
 
             let raw_mode = mode & !(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
 
             if SetConsoleMode(h_stdin, raw_mode) == 0 {
-                return Err(WRCONRawInputError::SetConsoleMode);
+                return Err(InputError::SetConsoleMode);
             }
 
             Ok(mode)
         }
     }
 
-    pub fn read(&mut self) -> Result<ReadEvent, WRCONReadError> {
+    pub fn read(&mut self) -> Result<ReadEvent, ReadError> {
         unsafe {
             let mut record: INPUT_RECORD = zeroed();
             let mut read = 0;
 
             if ReadConsoleInputW(self.handle, &mut record, 1, &mut read) == 0 {
-                return Err(WRCONReadError::FailedConsoleRead);
+                return Err(ReadError::FailedConsoleRead);
             }
 
             if record.event_type == KEY_EVENT && record.event.bKeyDown != 0 {
@@ -117,7 +106,7 @@ impl wrcon {
                     ctrl_pressed: mods & CTRL_PRESSED != 0,
                 })
             } else {
-                Err(WRCONReadError::InvalidEventType)
+                Err(ReadError::InvalidEventType)
             }
         }
     }

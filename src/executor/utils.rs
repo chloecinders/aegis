@@ -1,7 +1,7 @@
 use crate::executor::executor::ExecutorError;
 use crate::parser::Expr;
 use crate::{
-    lexer::{self, Token},
+    lexer::{self, TokenKind},
     parser::Operator,
 };
 
@@ -15,12 +15,12 @@ pub fn expr_is_truthy(expr: Expr) -> bool {
     }
 }
 
-pub fn parse_operator_token(token: &Token) -> Result<Operator, ExecutorError> {
+pub fn parse_operator_token(token: &TokenKind) -> Result<Operator, ExecutorError> {
     match token {
-        Token::Operator(lexer::Operator::Plus) => Ok(Operator::Add),
-        Token::Operator(lexer::Operator::Minus) => Ok(Operator::Subtract),
-        Token::Operator(lexer::Operator::Divide) => Ok(Operator::Divide),
-        Token::Operator(lexer::Operator::Multiply) => Ok(Operator::Multiply),
+        TokenKind::Operator(lexer::Operator::Plus) => Ok(Operator::Add),
+        TokenKind::Operator(lexer::Operator::Minus) => Ok(Operator::Subtract),
+        TokenKind::Operator(lexer::Operator::Divide) => Ok(Operator::Divide),
+        TokenKind::Operator(lexer::Operator::Multiply) => Ok(Operator::Multiply),
         _ => Err(ExecutorError::Placeholder),
     }
 }

@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token {
+pub enum TokenKind {
     Word(String),
     Sentence(String),
     String(String),
@@ -23,6 +23,7 @@ pub enum Keyword {
     Fn,
     Elseif,
     Else,
+    While,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -33,4 +34,10 @@ pub enum Operator {
     Multiply,
     Divide,
     Modulo,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub pos: usize,
 }

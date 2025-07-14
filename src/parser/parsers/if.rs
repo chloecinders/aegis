@@ -2,22 +2,22 @@ use std::collections::VecDeque;
 
 use crate::{
     executor::primitives::{BoolPrimitive, traits::PrimitiveValue},
-    lexer::{Keyword, Token, TokenStream},
-    parser::{AstNode, Expr, IfCondition, ParseError, Parser},
+    lexer::{Keyword, Token, TokenKind, TokenStream},
+    parser::{AstNode, Expr, IfCondition, ParseError, Parser, parsers::parse_body},
 };
 
-pub fn parse_if_expr(stream: &mut TokenStream) -> Result<Expr, ParseError> {
+pub fn parse_if(stream: &mut TokenStream) -> Result<Expr, ParseError> {
     fn consume(inner_stream: &mut TokenStream) -> Result<IfCondition, ParseError> {
         let mut cond_stream: Option<TokenStream> = None;
         let is_else = inner_stream
             .peek()
-            .is_some_and(|t| matches!(t, &Token::OpenCurlyBracket));
+            .is_some_and(|t| matches!(t.kind, TokenKind::OpenCurlyBracket));
 
         if !is_else {
             let mut cond_vec: VecDeque<Token> = VecDeque::new();
 
             while let Some(token) = inner_stream.peek() {
-                if *token == Token::OpenCurlyBracket {
+                if (*token).kind == TokenKind::OpenCurlyBracket {
                     break;
                 }
 
@@ -26,34 +26,22 @@ pub fn parse_if_expr(stream: &mut TokenStream) -> Result<Expr, ParseError> {
 
             let inner_cond_stream = TokenStream::new(cond_vec);
 
-            if let Some(Token::Word(_)) = inner_cond_stream.peek() {
+            if let Some(Token {
+                kind: TokenKind::Word(_),
+                ..
+            }) = inner_cond_stream.peek()
+            {
                 return Err(ParseError::MustBeExpr);
             }
 
             cond_stream = Some(inner_cond_stream);
         }
 
-        inner_stream.expect(Token::OpenCurlyBracket)?;
+        inner_stream.expect(TokenKind::OpenCurlyBracket)?;
 
-        let mut body_vec: VecDeque<Token> = VecDeque::new();
-
-        while let Some(token) = inner_stream.peek() {
-            if *token == Token::ClosedCurlyBracket {
-                break;
-            }
-
-            body_vec.push_back(inner_stream.next().unwrap());
-        }
-
-        inner_stream.expect(Token::ClosedCurlyBracket)?;
-
-        let is_last_return = body_vec
-            .iter()
-            .nth_back(0)
-            .is_some_and(|t| !matches!(t, Token::Semicolon));
-        let program = Parser::parse(TokenStream::new(body_vec))?;
+        let (statement_body, is_last_return) = parse_body(inner_stream)?;
         let statement_body: Vec<Box<AstNode>> =
-            program.ast.into_iter().map(|expr| Box::new(expr)).collect();
+            statement_body.into_iter().map(|n| Box::new(n)).collect();
 
         if is_else {
             Ok(IfCondition {
@@ -63,7 +51,7 @@ pub fn parse_if_expr(stream: &mut TokenStream) -> Result<Expr, ParseError> {
             })
         } else {
             let cond_expr = {
-                if let Ok(AstNode::Expr(expr)) = Parser::parse_stmt_borrow(cond_stream.unwrap()).1 {
+                if let Ok(AstNode::Expr(expr)) = Parser::parse_single(&mut cond_stream.unwrap()) {
                     Ok(expr)
                 } else {
                     Err(ParseError::UnexpectedToken)
@@ -81,11 +69,13 @@ pub fn parse_if_expr(stream: &mut TokenStream) -> Result<Expr, ParseError> {
     let mut conditions: Vec<IfCondition> = vec![];
     conditions.push(consume(stream)?);
 
-    while let Some(next_token) = stream.next() {
-        if matches!(next_token, Token::Keyword(Keyword::Elseif)) {
+    while let Some(next_token) = stream.peek() {
+        if matches!(next_token.kind, TokenKind::Keyword(Keyword::Elseif)) {
             conditions.push(consume(stream)?);
-        } else if matches!(next_token, Token::Keyword(Keyword::Else)) {
+        } else if matches!(next_token.kind, TokenKind::Keyword(Keyword::Else)) {
             conditions.push(consume(stream)?);
+            break;
+        } else {
             break;
         }
     }

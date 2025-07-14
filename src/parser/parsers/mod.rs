@@ -1,11 +1,20 @@
-mod if_parser;
-pub use if_parser::parse_if_expr;
+mod r#if;
+pub use r#if::parse_if;
 
-mod math_parser;
-pub use math_parser::parse_math_expr;
+mod math;
+pub use math::parse_math;
 
-mod variable_parser;
-pub use variable_parser::parse_variable_assignment;
+mod variable;
+pub use variable::parse_variable_assignment;
 
-mod word_parser;
-pub use word_parser::parse_sentence;
+mod word;
+pub use word::parse_word;
+
+mod sentence;
+pub use sentence::parse_sentence;
+
+mod r#while;
+pub use r#while::parse_while;
+
+mod body;
+pub use body::parse_body;

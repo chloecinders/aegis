@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::parser::ParseError;
+use crate::{lexer::TokenKind, parser::ParseError};
 
 use super::token::Token;
 
@@ -12,10 +12,6 @@ pub struct TokenStream {
 impl TokenStream {
     pub fn new(stream: VecDeque<Token>) -> Self {
         Self { tokens: stream }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Token> {
-        self.tokens.iter()
     }
 
     pub fn into_iter(self) -> impl Iterator<Item = Token> {
@@ -40,9 +36,9 @@ impl TokenStream {
         current
     }
 
-    pub fn expect(&mut self, expected: Token) -> Result<(), ParseError> {
+    pub fn expect(&mut self, expected: TokenKind) -> Result<(), ParseError> {
         match self.next() {
-            Some(token) if token == expected => Ok(()),
+            Some(Token { kind: token, .. }) if token == expected => Ok(()),
             _ => Err(ParseError::TokenNotFound),
         }
     }

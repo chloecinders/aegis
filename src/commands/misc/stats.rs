@@ -68,7 +68,7 @@ impl Command for Stats {
         let memory = {
             let refresh_kind = RefreshKind::nothing().with_memory(MemoryRefreshKind::everything());
             let mut sys = System::new_with_specifics(refresh_kind);
-            sys.refresh_memory();
+            sys.refresh_all();
 
             sys.process((std::process::id() as usize).into())
                 .map(|p| p.memory() as f64 / 1024.0 / 1024.0)

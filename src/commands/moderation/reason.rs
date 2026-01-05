@@ -133,9 +133,8 @@ impl Command for Reason {
             CreateMessage::new().add_embed(
                 CreateEmbed::new()
                     .description(format!(
-                        "**ACTION UPDATED**\n-# Log ID: `{id}` | Actor: {} `{}`\n```\n{}\n```",
+                        "**ACTION UPDATED**\n-# Log ID: `{id}` | Actor: {}\n```\n{}\n```",
                         msg.author.mention(),
-                        msg.author.id.get(),
                         reason
                     ))
                     .color(BRAND_BLUE),

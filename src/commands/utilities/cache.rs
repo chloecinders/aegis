@@ -128,11 +128,9 @@ impl Command for Cache {
             CreateMessage::new().add_embed(
                 CreateEmbed::new()
                     .description(format!(
-                        "**MEMBER CACHED**\n-# Actor: {} `{}` | Target: {} `{}`",
+                        "**MEMBER CACHED**\n-# Actor: {} | Target: {}",
                         msg.author.mention(),
-                        msg.author.id.get(),
                         user.mention(),
-                        user.id.get()
                     ))
                     .color(BRAND_BLUE),
             ),

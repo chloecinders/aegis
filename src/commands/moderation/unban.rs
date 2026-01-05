@@ -173,11 +173,9 @@ impl Command for Unban {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MEMBER UNBANNED**\n-# Log ID: `{db_id}` | Actor: {} `{}` | Target: {} `{}`\n```\n{reason}\n```",
+                            "**MEMBER UNBANNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             user.mention(),
-                            user.id.get()
                         ))
                         .color(BRAND_BLUE)
                 )

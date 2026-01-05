@@ -186,11 +186,9 @@ impl Command for Unmute {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MEMBER UNMUTED**\n-# Log ID: `{db_id}` | Actor: {} `{}` | Target: {} `{}`\n```\n{reason}\n```",
+                            "**MEMBER UNMUTED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             member.mention(),
-                            member.user.id.get()
                         ))
                         .color(BRAND_BLUE)
                 )

@@ -171,11 +171,9 @@ impl Command for Warn {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MEMBER WARNED**\n-# Log ID: `{db_id}` | Actor: {} `{}` | Target: {} `{}`\n```\n{reason}\n```",
+                            "**MEMBER WARNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             member.mention(),
-                            member.user.id.get()
                         ))
                         .color(BRAND_BLUE)
                 )

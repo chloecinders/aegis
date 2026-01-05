@@ -194,11 +194,9 @@ impl Command for Kick {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MEMBER KICKED**\n-# Log ID: `{db_id}` | Actor: {} `{}` | Target: {} `{}`\n```\n{reason}\n```",
+                            "**MEMBER KICKED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             member.mention(),
-                            member.user.id.get()
                         ))
                         .color(BRAND_BLUE)
                 )

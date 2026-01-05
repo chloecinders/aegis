@@ -79,7 +79,7 @@ impl CommandMessageResponse {
         } else {
             let mut lock = self.join_thread.lock().await;
 
-            let res = match lock.as_mut().map(|h| h.now_or_never()) {
+            let res = match lock.as_mut().map(|h| if h.is_finished() { h.now_or_never() } else { None }) {
                 Some(Some(Ok(b))) if b => String::new(),
                 _ => String::from(" | DM failed")
             };

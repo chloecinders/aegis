@@ -256,11 +256,9 @@ impl Command for Mute {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MEMBER TIMEOUT**\n-# Log ID: `{db_id}` | Actor: {} `{}` | Target: {} `{}` | Duration: {time_string}\n```\n{reason}\n```",
+                            "**MEMBER TIMEOUT**\n-# Log ID: `{db_id}` | Actor: {} | Target: {} | Duration: {time_string}\n```\n{reason}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             member.mention(),
-                            member.user.id.get()
                         ))
                         .color(BRAND_BLUE)
                 )

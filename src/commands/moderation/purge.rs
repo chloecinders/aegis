@@ -194,9 +194,8 @@ impl Command for Purge {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MESSAGES PURGED**\n-# Actor: {} `{}` | Channel: <#{}> | Count: {}\n```\n{}\n```",
+                            "**MESSAGES PURGED**\n-# Actor: {} | Channel: <#{}> | Count: {}\n```\n{}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             msg.channel_id.get(),
                             final_count,
                             ids.join("\n")

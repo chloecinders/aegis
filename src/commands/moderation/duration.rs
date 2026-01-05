@@ -225,9 +225,8 @@ impl Command for Duration {
             CreateMessage::new().add_embed(
                 CreateEmbed::new()
                     .description(format!(
-                        "**ACTION UPDATED**\n-# Log ID: `{id}` | Actor: {} `{}` | New Expiry: {}",
+                        "**ACTION UPDATED**\n-# Log ID: `{id}` | Actor: {} | New Expiry: {}",
                         msg.author.mention(),
-                        msg.author.id.get(),
                         new_expiry_date.format("%Y-%m-%d %H:%M:%S")
                     ))
                     .color(BRAND_BLUE),

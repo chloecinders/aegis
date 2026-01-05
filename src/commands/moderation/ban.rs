@@ -323,11 +323,9 @@ impl Command for Ban {
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MEMBER BANNED**\n-# Log ID: `{db_id}` | Actor: {} `{}` | Target: {} `{}` | Duration: {time_string}{clear_msg}\n```\n{reason}\n```",
+                            "**MEMBER BANNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {} | Duration: {time_string}{clear_msg}\n```\n{reason}\n```",
                             msg.author.mention(),
-                            msg.author.id.get(),
                             user.mention(),
-                            user.id.get()
                         ))
                         .color(BRAND_BLUE)
                 )

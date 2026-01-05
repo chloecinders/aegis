@@ -104,11 +104,9 @@ pub async fn guild_member_removal(
                     .add_embed(
                         CreateEmbed::new()
                             .description(format!(
-                                "**MEMBER KICKED**\n-# Actor: {} `{}` | Target: {} `{}`\n```\n{reason}\n```",
+                                "**MEMBER KICKED**\n-# Actor: {} | Target: {}\n```\n{reason}\n```",
                                 actor.mention(),
-                                actor.get(),
                                 user.mention(),
-                                user.id.get()
                             ))
                             .color(BRAND_BLUE)
                     )
@@ -127,11 +125,9 @@ pub async fn guild_member_removal(
                     .add_embed(
                         CreateEmbed::new()
                             .description(format!(
-                                "**MEMBER BANNED**\n-# Actor: {} `{}` | Target: {} `{}`\n```\n{reason}\n```",
+                                "**MEMBER BANNED**\n-# Actor: {} | Target: {}\n```\n{reason}\n```",
                                 actor.mention(),
-                                actor.get(),
                                 user.mention(),
-                                user.id.get()
                             ))
                             .color(BRAND_BLUE)
                     )

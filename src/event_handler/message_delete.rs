@@ -85,7 +85,9 @@ pub async fn message_delete(
         for attachment in msg.attachment_urls.iter() {
             let name = attachment.name.clone();
             if let Ok(bytes) = attachment.download().await {
-                files.push(CreateAttachment::bytes(bytes, name));
+                if bytes.len() > 0 {
+                    files.push(CreateAttachment::bytes(bytes, name));
+                }
             };
         }
     }

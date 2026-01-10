@@ -23,5 +23,7 @@ pub struct Environment {
     pub whitelist: Option<Vec<u64>>,
     pub repository: Option<String>,
     pub github_token: Option<String>,
-    pub webhook: Option<String>
+    pub webhook: Option<String>,
+    pub ocr_training_data: Option<String>,
+    pub ocr_character_whitelist: Option<String>,
 }

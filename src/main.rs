@@ -32,6 +32,8 @@ mod tasks;
 mod transformers;
 mod utils;
 mod auto_once;
+mod event_engine;
+mod moderation;
 
 pub static START_TIME: AutoOnceLock<Instant> = AutoOnceLock::new();
 pub static SQL: AutoOnceLock<PgPool> = AutoOnceLock::new();

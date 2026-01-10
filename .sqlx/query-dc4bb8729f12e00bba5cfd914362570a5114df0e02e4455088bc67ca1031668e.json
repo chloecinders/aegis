@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                name,\n                guild_id,\n                type,\n                rule,\n                is_regex,\n                created_at,\n                reason,\n                punishment_type as \"punishment_type!: ActionType\",\n                duration,\n                silent,\n                day_clear_amount\n            FROM automod_rules;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "rule",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_regex",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 7,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "punishment_type!: ActionType",
+        "type_info": {
+          "Custom": {
+            "name": "action_type",
+            "kind": {
+              "Enum": [
+                "warn",
+                "ban",
+                "kick",
+                "softban",
+                "timeout",
+                "unban",
+                "mute",
+                "unmute"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "duration",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "silent",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "day_clear_amount",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "dc4bb8729f12e00bba5cfd914362570a5114df0e02e4455088bc67ca1031668e"
+}

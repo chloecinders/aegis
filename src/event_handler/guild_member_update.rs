@@ -68,73 +68,73 @@ pub async fn guild_member_update(
         String::new()
     };
 
-    // if let Some(old) = old_if_available.clone() && let Some(new) = new.clone() {
-    //     let lhs = old.avatar.or(old.user.avatar);
-    //     let rhs = new.avatar.or(new.user.avatar);
+    if let Some(old) = old_if_available.clone() && let Some(new) = new.clone() {
+        let lhs = old.avatar.or(old.user.avatar);
+        let rhs = new.avatar.or(new.user.avatar);
 
-    //     if matches!(
-    //         (lhs, rhs, old.user.avatar, new.user.avatar),
-    //         (Some(a), Some(b), Some(ua_old), Some(ua_new))
-    //             if a == ua_old && b == ua_new
-    //     ) {
-    //         let client = Client::new();
+        if matches!(
+            (lhs, rhs, old.user.avatar, new.user.avatar),
+            (Some(a), Some(b), Some(ua_old), Some(ua_new))
+                if a == ua_old && b == ua_new
+        ) {
+            let client = Client::new();
 
-    //         if let (Some(old_image), Some(new_image)) = (
-    //             get_member_avatar_image(&client, old).await,
-    //             get_member_avatar_image(&client, new).await,
-    //         ) {
-    //             let target_height = old_image.height();
+            if let (Some(old_image), Some(new_image)) = (
+                get_member_avatar_image(&client, old).await,
+                get_member_avatar_image(&client, new).await,
+            ) {
+                let target_height = old_image.height();
 
-    //             let old_image = old_image.resize(
-    //                 old_image.width() * target_height / old_image.height(),
-    //                 target_height,
-    //                 FilterType::Lanczos3,
-    //             );
+                let old_image = old_image.resize(
+                    old_image.width() * target_height / old_image.height(),
+                    target_height,
+                    FilterType::Lanczos3,
+                );
 
-    //             let new_image = new_image.resize(
-    //                 new_image.width() * target_height / new_image.height(),
-    //                 target_height,
-    //                 FilterType::Lanczos3,
-    //             );
+                let new_image = new_image.resize(
+                    new_image.width() * target_height / new_image.height(),
+                    target_height,
+                    FilterType::Lanczos3,
+                );
 
-    //             let total_width = target_height * 2;
-    //             let mut output = DynamicImage::new_rgba8(total_width, target_height);
+                let total_width = target_height * 2;
+                let mut output = DynamicImage::new_rgba8(total_width, target_height);
 
-    //             output.copy_from(&old_image, 0, 0).unwrap();
-    //             output.copy_from(&new_image, new_image.width(), 0).unwrap();
+                output.copy_from(&old_image, 0, 0).unwrap();
+                output.copy_from(&new_image, new_image.width(), 0).unwrap();
 
-    //             let mut buff = Vec::new();
-    //             if output
-    //                 .write_to(&mut Cursor::new(&mut buff), image::ImageFormat::WebP)
-    //                 .is_ok()
-    //             {
-    //                 let description = format!(
-    //                     "**AVATAR UPDATE**\n-# <@{}>",
-    //                     event.user.id
-    //                 );
+                let mut buff = Vec::new();
+                if output
+                    .write_to(&mut Cursor::new(&mut buff), image::ImageFormat::WebP)
+                    .is_ok()
+                {
+                    let description = format!(
+                        "**AVATAR UPDATE**\n-# <@{}>",
+                        event.user.id
+                    );
 
-    //                 let embed = CreateEmbed::new()
-    //                     .color(BRAND_BLUE)
-    //                     .description(description)
-    //                     .author(
-    //                         CreateEmbedAuthor::new(format!("{}: {}", event.user.name, event.user.id.get()))
-    //                             .icon_url(
-    //                                 event
-    //                                     .user
-    //                                     .avatar_url()
-    //                                     .unwrap_or(event.user.default_avatar_url()),
-    //                             ),
-    //                     ).image("attachment://avatar.webp");
+                    let embed = CreateEmbed::new()
+                        .color(BRAND_BLUE)
+                        .description(description)
+                        .author(
+                            CreateEmbedAuthor::new(format!("{}: {}", event.user.name, event.user.id.get()))
+                                .icon_url(
+                                    event
+                                        .user
+                                        .avatar_url()
+                                        .unwrap_or(event.user.default_avatar_url()),
+                                ),
+                        ).image("attachment://avatar.webp");
 
-    //                 let msg = CreateMessage::new().add_embed(embed)
-    //                     .add_file(CreateAttachment::bytes(buff, "avatar.webp"));
+                    let msg = CreateMessage::new().add_embed(embed)
+                        .add_file(CreateAttachment::bytes(buff, "avatar.webp"));
 
-    //                 guild_log(&ctx, LogType::AvatarUpdate, event.guild_id, msg).await;
-    //                 return;
-    //             }
-    //         };
-    //     }
-    // };
+                    guild_log(&ctx, LogType::AvatarUpdate, event.guild_id, msg).await;
+                    return;
+                }
+            };
+        }
+    };
 
     let roles = if let Some(old) = old_if_available && let Some(new) = new {
         let old_set: HashSet<_> = old.roles.iter().cloned().map(|r| (r, ())).collect();

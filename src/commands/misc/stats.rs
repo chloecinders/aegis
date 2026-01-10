@@ -11,7 +11,7 @@ use crate::{
     START_TIME,
     commands::{Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax},
     constants::BRAND_BLUE,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
 };
 
@@ -53,6 +53,7 @@ impl Command for Stats {
         &self,
         ctx: Context,
         msg: Message,
+        _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
     ) -> Result<(), CommandError> {

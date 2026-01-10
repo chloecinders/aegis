@@ -22,7 +22,7 @@ use crate::{
         CommandSyntax, TransformerFnArc,
     },
     constants::BRAND_BLUE,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
     utils::{LogType, consume_pgsql_error, consume_serenity_error},

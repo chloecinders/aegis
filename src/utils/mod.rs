@@ -39,3 +39,9 @@ mod webhook;
 pub use webhook::send_error;
 pub use webhook::consume_serenity_error;
 pub use webhook::consume_pgsql_error;
+
+pub mod ocr;
+pub mod rule_cache;
+
+mod other;
+pub use other::clamp_chars;

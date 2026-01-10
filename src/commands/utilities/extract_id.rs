@@ -9,7 +9,7 @@ use tracing::warn;
 use crate::{
     commands::{Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax},
     constants::BRAND_BLUE,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
 };
 
@@ -51,6 +51,7 @@ impl Command for ExtractId {
         &self,
         ctx: Context,
         msg: Message,
+        _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
     ) -> Result<(), CommandError> {

@@ -12,7 +12,7 @@ use crate::{
         TransformerFnArc,
     },
     constants::BRAND_BLUE,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
     utils::{LogType, get_all_guilds, guild_log, is_developer},

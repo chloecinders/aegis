@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{Attribute, FnArg, Generics, ItemFn, Pat, PatType, WhereClause, parse_macro_input};
+use syn::{
+    parse_macro_input, Attribute, FnArg, Generics, ItemFn, Pat, PatIdent, PatType, WhereClause,
+};
 
 #[proc_macro_attribute]
 pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -9,162 +11,157 @@ pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let sig = &input.sig;
     let block = &input.block;
 
-    let mut transformers: Vec<String> = Vec::new();
-    let mut arg_bindings: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut new_fn_args: Vec<FnArg> = Vec::new();
+    let mut transformers = Vec::new();
+    let mut arg_bindings = Vec::new();
+    let mut new_fn_args = Vec::new();
 
     for arg in &sig.inputs {
-        if let FnArg::Typed(PatType { attrs, pat, ty, .. }) = arg {
-            for attr in attrs {
-                let Some(a) = parse_transformer_attr(attr.clone()) else {
-                    continue;
-                };
+        let FnArg::Typed(PatType { attrs, pat, ty, .. }) = arg else {
+            new_fn_args.push(arg.clone());
+            continue;
+        };
 
-                let binding = match &**pat {
-                    Pat::Ident(id) => &id.ident,
-                    _ => panic!("Invalid pattern binding"),
-                };
+        let Pat::Ident(PatIdent { ident: binding, .. }) = &**pat else {
+            panic!("Invalid pattern binding");
+        };
+        let binding_arg = format_ident!("_{}_arg", binding, span = binding.span());
 
-                transformers.push(a.clone());
+        for attr in attrs {
+            let Some(transformer) = parse_transformer_attr(attr.clone()) else {
+                continue;
+            };
 
-                let variant_ident = match &**ty {
-                    syn::Type::Path(type_path) => {
-                        let last_segment = type_path.path.segments.last().unwrap();
+            transformers.push(transformer);
 
-                        if last_segment.ident == "Option" {
-                            if let syn::PathArguments::AngleBracketed(args) =
-                                &last_segment.arguments
-                            {
-                                if let Some(syn::GenericArgument::Type(syn::Type::Path(
-                                    inner_type_path,
-                                ))) = args.args.first()
-                                {
-                                    format_ident!(
-                                        "{}",
-                                        inner_type_path.path.segments.last().unwrap().ident
-                                    )
-                                } else {
-                                    panic!("Unsupported Option inner type")
-                                }
-                            } else {
-                                panic!("Unsupported Option generic")
-                            }
-                        } else {
-                            format_ident!("{}", last_segment.ident)
-                        }
-                    }
-                    _ => panic!("Unsupported argument type"),
-                };
+            let (variant_ident, is_option) = match &**ty {
+                syn::Type::Path(type_path) => {
+                    let seg = type_path.path.segments.last().unwrap();
 
-                let variant_str = variant_ident.to_string();
-                let binding_str = binding.to_string();
-                let binding_exp = if let syn::Type::Path(type_path) = &**ty {
-                    if type_path.path.segments.last().unwrap().ident == "Option" {
-                        let inner_type = match &type_path.path.segments.last().unwrap().arguments {
-                            syn::PathArguments::AngleBracketed(args) => args.args.first().unwrap(),
-                            _ => panic!("Unsupported Option type"),
-                        };
-                        quote! {
-                            let #binding: Option<#inner_type> = match args_iter.next() {
-                                Some(arg) => match arg.contents {
-                                    Some(CommandArgument::#variant_ident(inner)) => Some(inner),
-                                    _ => None,
-                                },
-                                None => None,
+                    match (seg.ident == "Option", &seg.arguments) {
+                        (true, syn::PathArguments::AngleBracketed(args)) => {
+                            let syn::GenericArgument::Type(syn::Type::Path(inner)) =
+                                args.args.first().unwrap()
+                            else {
+                                panic!("Unsupported Option inner type");
                             };
+
+                            (
+                                format_ident!("{}", inner.path.segments.last().unwrap().ident),
+                                true,
+                            )
                         }
-                    } else {
-                        quote! {
-                            let #binding = {
-                                let Some(Token { contents: Some(CommandArgument::#variant_ident(b)), .. }) = args_iter.next() else {
-                                    return Box::pin(async move {
-                                        Err(CommandError::arg_not_found(#binding_str, Some(#variant_str)))
-                                    })
-                                };
-                                b
-                            };
-                        }
+                        (false, _) => (format_ident!("{}", seg.ident), false),
+                        _ => panic!("Unsupported Option type"),
                     }
-                } else {
+                }
+                _ => panic!("Unsupported argument type"),
+            };
+
+            let binding_str = binding.to_string();
+            let variant_str = variant_ident.to_string();
+
+            let binding_exp = match is_option {
+                true => {
+                    let syn::Type::Path(type_path) = &**ty else {
+                        unreachable!()
+                    };
+                    let inner_ty = match &type_path.path.segments.last().unwrap().arguments {
+                        syn::PathArguments::AngleBracketed(args) => args.args.first().unwrap(),
+                        _ => unreachable!(),
+                    };
+
                     quote! {
-                        let #binding = {
-                            let Some(Token { contents: Some(CommandArgument::#variant_ident(b)), .. }) = args_iter.next() else {
-                                return Box::pin(async move {
-                                    Err(CommandError::arg_not_found(#binding_str, Some(#variant_str)))
-                                })
-                            };
-                            b
+                        let (#binding_arg, #binding): (Option<Token>, Option<#inner_ty>) = {
+                            let tok = args_iter.next();
+                            match tok.clone() {
+                                Some(Token { contents: Some(CommandArgument::#variant_ident(inner_v)), .. }) => {
+                                    (tok.clone(), Some(inner_v))
+                                },
+                                Some(tok) => (Some(tok), None),
+                                None => (None, None),
+                            }
                         };
                     }
-                };
+                },
+                false => quote! {
+                    let #binding_arg = match args_iter.next() {
+                        Some(tok @ Token { contents: Some(CommandArgument::#variant_ident(_)), .. }) => tok,
+                        _ => return Box::pin(async move {
+                            Err(CommandError::arg_not_found(#binding_str, Some(#variant_str)))
+                        }),
+                    };
 
-                arg_bindings.push(binding_exp);
-            }
-            new_fn_args.push(arg.clone());
-        } else {
-            new_fn_args.push(arg.clone());
+                    let #binding = match &#binding_arg {
+                        Token { contents: Some(CommandArgument::#variant_ident(v)), .. } => v.clone(),
+                        _ => unreachable!(),
+                    };
+                }
+            };
+
+            arg_bindings.push(binding_exp);
         }
-    }
 
-    let args_ident: syn::Ident = syn::parse_str("args").unwrap();
-    let args_ty: syn::Type = syn::parse_str("Vec<Token>").unwrap();
+        new_fn_args.push(arg.clone());
+    }
 
     new_fn_args.push(FnArg::Typed(PatType {
         attrs: Vec::new(),
-        pat: Box::new(Pat::Ident(syn::PatIdent {
+        pat: Box::new(Pat::Ident(PatIdent {
             attrs: Vec::new(),
             by_ref: None,
             mutability: None,
-            ident: args_ident,
+            ident: syn::parse_str("args").unwrap(),
             subpat: None,
         })),
         colon_token: Default::default(),
-        ty: Box::new(args_ty),
+        ty: Box::new(syn::parse_str("Vec<Token>").unwrap()),
     }));
 
-    let transformer_fns: Vec<_> = transformers
-        .iter()
-        .map(|tr| {
-            let ident = format_ident!("{}", tr);
-            quote! { Arc::new(Transformers::#ident) }
-        })
-        .collect();
+    let transformer_fns = transformers.iter().map(|t| {
+        let ident = format_ident!("{}", t);
+        quote! { Arc::new(Transformers::#ident) }
+    });
 
     let fn_name = &sig.ident;
     let fn_async = &sig.asyncness;
     let fn_output = &sig.output;
-    let fn_generics: Generics = syn::parse_quote! {<'life0, 'life1, 'async_trait>};
+
+    let fn_generics: Generics =
+        syn::parse_quote! {<'life0, 'life1, 'life2, 'async_trait>};
+
     let fn_where: WhereClause = syn::parse_quote! {
         where
             'life0: 'async_trait,
             'life1: 'async_trait,
+            'life2: 'async_trait,
             Self: 'async_trait
     };
 
     let stmts = &block.stmts;
 
-    let expanded = quote! {
-        #vis #fn_async fn #fn_name #fn_generics (&'life0 self, ctx: Context, msg: Message, args: Vec<Token>, params: std::collections::HashMap<&'life1 str, (bool, CommandArgument)>) #fn_output #fn_where {
+    TokenStream::from(quote! {
+        #vis #fn_async fn #fn_name #fn_generics (
+            &'life0 self,
+            ctx: Context,
+            msg: Message,
+            _handler: &'life1 Handler,
+            args: Vec<Token>,
+            params: std::collections::HashMap<&'life2 str, (bool, CommandArgument)>
+        ) #fn_output #fn_where {
             let mut args_iter = args.clone().into_iter();
             #(#arg_bindings)*
-
             #(#stmts)*
         }
 
         fn get_transformers(&self) -> Vec<TransformerFnArc> {
-            vec![ #(#transformer_fns),* ]
+            vec![#(#transformer_fns),*]
         }
-    };
-
-    TokenStream::from(expanded)
+    })
 }
 
 fn parse_transformer_attr(attr: Attribute) -> Option<String> {
-    let mut segments_iter = attr.meta.path().segments.clone().into_iter();
-
-    if segments_iter.next()?.ident != "transformers" {
-        return None;
-    }
-
-    segments_iter.next().map(|s| s.ident.to_string())
+    let mut it = attr.meta.path().segments.iter();
+    matches!(it.next()?.ident.to_string().as_str(), "transformers")
+        .then(|| it.next().map(|s| s.ident.to_string()))
+        .flatten()
 }

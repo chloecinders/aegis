@@ -17,11 +17,11 @@ use tracing::{info, warn};
 use crate::{
     SQL,
     commands::{
-        About, Ban, Cache, ColonThree, Command, DefineLog, Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, PermDbg, Ping, Purge, Reason, Say, ScheduleDowntime, Softban, Stats, Unban, Unmute, Update, Warn
+        About, Ban, Cache, ColonThree, Command, CreateOcrRule, DefineLog, Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping, Purge, Reason, Say, ScheduleDowntime, Softban, Stats, Unban, Unmute, Update, Warn
     },
     constants::BRAND_RED,
     lexer::Token,
-    utils::{cache::{message_cache::MessageCache, permission_cache::PermissionCache}, consume_serenity_error},
+    utils::{cache::{message_cache::MessageCache, permission_cache::PermissionCache}, consume_serenity_error, rule_cache::RuleCache},
 };
 #[derive(Debug)]
 pub struct CommandError {
@@ -93,6 +93,7 @@ pub struct Handler {
     pub commands: Vec<Arc<dyn Command>>,
     pub message_cache: Arc<Mutex<MessageCache>>,
     pub permission_cache: Arc<Mutex<PermissionCache>>,
+    pub rule_cache: Arc<Mutex<RuleCache>>,
 }
 
 impl Handler {
@@ -122,6 +123,8 @@ impl Handler {
             Arc::new(DefineLog::new()),
             Arc::new(PermDbg::new()),
             Arc::new(ScheduleDowntime::new()),
+            Arc::new(OcrCheck::new()),
+            Arc::new(CreateOcrRule::new()),
         ];
 
         let cache = Arc::new(Mutex::new(MessageCache::new()));
@@ -135,11 +138,19 @@ impl Handler {
             }
         });
 
+        let rule_cache = Arc::new(Mutex::new(RuleCache::new()));
+        let populate_clone = rule_cache.clone();
+        tokio::spawn(async move {
+            let mut lock = populate_clone.lock().await;
+            lock.populate_from_db().await;
+        });
+
         Self {
             prefix,
             commands,
             message_cache: cache,
             permission_cache: Arc::new(Mutex::new(PermissionCache::new())),
+            rule_cache: rule_cache,
         }
     }
 }
@@ -155,11 +166,17 @@ impl Handler {
                 hint = format!("**hint:** {h}");
             }
 
+            let arrow_amount = if arg.quoted {
+                arg.length + 2
+            } else {
+                arg.length
+            };
+
             error_message = format!(
                 "**error:** argument {}\n```\n{input}\n{}{}\n{}\n```\n{}",
                 arg.iteration,
                 " ".repeat(arg.position + 1),
-                "^".repeat(arg.length),
+                "^".repeat(arrow_amount),
                 err.title,
                 hint
             );

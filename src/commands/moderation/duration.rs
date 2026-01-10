@@ -20,7 +20,7 @@ use crate::{
     },
     constants::BRAND_BLUE,
     database::ActionType,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
     utils::{LogType, guild_log},

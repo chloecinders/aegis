@@ -8,7 +8,7 @@ use crate::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax,
         TransformerFnArc,
     },
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
     utils::is_developer,
 };
@@ -51,6 +51,7 @@ impl Command for ScheduleDowntime {
     #[command]
     async fn run(&self, ctx: Context, msg: Message) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
+            // coming soon
             let _ = msg
                 .channel_id
                 .send_message(&ctx, CreateMessage::new().content("fuck you"))

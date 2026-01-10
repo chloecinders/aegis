@@ -20,7 +20,7 @@ use crate::{
     },
     constants::BRAND_BLUE,
     database::ActionType,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
 };
@@ -225,6 +225,7 @@ impl Command for Log {
         &self,
         ctx: Context,
         msg: Message,
+        _handler: &Handler,
         args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
     ) -> Result<(), CommandError> {

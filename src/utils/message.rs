@@ -1,4 +1,4 @@
-use std::{collections::HashMap, panic, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use serenity::{
     FutureExt,

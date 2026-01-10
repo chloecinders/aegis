@@ -8,7 +8,7 @@ use crate::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
     },
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::{Token, lex},
     utils::{consume_serenity_error, is_developer},
 };

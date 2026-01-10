@@ -41,6 +41,8 @@ pub async fn run_migrations() {
     add_message_cache_store_133120250922().await;
     add_last_reapplied_at_to_actions_160120250923().await;
     migrate_log_types_231320251115().await;
+    create_flags_table_205120260105().await;
+    create_automod_rules_022920260107().await;
 }
 
 pub async fn create_actions_223320250818() {
@@ -233,3 +235,53 @@ pub async fn migrate_log_types_231320251115() {
         panic!("Couldnt run database migration migrate_log_types_231320251115; Err = {err:?}");
     }
 }
+
+pub async fn create_flags_table_205120260105() {
+    let r = query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.user_flags (
+            user_id TEXT NOT NULL,
+            flag TEXT NOT NULL,
+            value BIGINT NOT NULL,
+            expires_at TIMESTAMPTZ,
+
+            PRIMARY KEY (user_id, flag)
+        );
+        "#
+    )
+    .execute(&*SQL)
+    .await;
+
+    if let Err(err) = r {
+        panic!("Couldnt run database migration create_flags_table_205120260105; Err = {err:?}");
+    }
+}
+
+pub async fn create_automod_rules_022920260107() {
+    if let Err(err) = query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.automod_rules
+        (
+            id character varying(128) COLLATE pg_catalog."default" NOT NULL,
+            guild_id bigint NOT NULL,
+            name character varying(128) COLLATE pg_catalog."default" NOT NULL,
+            type character varying(128) COLLATE pg_catalog."default" NOT NULL,
+            rule character varying(512) COLLATE pg_catalog."default" NOT NULL,
+            is_regex boolean NOT NULL,
+            created_at timestamp without time zone NOT NULL DEFAULT now(),
+            reason text COLLATE pg_catalog."default" NOT NULL,
+            punishment_type action_type NOT NULL DEFAULT 'warn'::action_type,
+            duration BIGINT,
+            day_clear_amount SMALLINT,
+            silent BOOL,
+            CONSTRAINT automod_rules_pkey PRIMARY KEY (id)
+        )
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!("Couldnt run database migration create_automod_rules_022920260107; Err = {err:?}");
+    }
+}
+

@@ -15,8 +15,12 @@ ouroboros_macros = { path = "./ouroboros_macros" }
 sqlx = { version = "0.8.6", features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio", "tls-native-tls"] }
 chrono = "0.4.41"
 reqwest = { version = "0.12.23", features = ["json"] }
-zip = "4.5.0"
+zip = "2.4.2"
 image = "0.25.6"
+mlua = { version = "0.11.5", features = ["lua54", "serialize", "vendored", "async"] }
+thiserror = "2.0.17"
+tesseract-rs = { version = "0.1.20", features = ["build-tesseract"] }
+regex = "1.12.2"
 
 [workspace]
 members = ["ouroboros_macros"]

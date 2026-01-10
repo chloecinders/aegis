@@ -10,7 +10,7 @@ use crate::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax,
         TransformerFnArc,
     },
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
     utils::is_developer,

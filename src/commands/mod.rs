@@ -2,7 +2,7 @@ use core::fmt;
 use std::{collections::HashMap, fmt::Debug, iter::Peekable, pin::Pin, sync::Arc, vec::IntoIter};
 
 use crate::{
-    event_handler::{CommandError, MissingArgumentError},
+    event_handler::{CommandError, Handler, MissingArgumentError},
     lexer::Token,
 };
 use serenity::{
@@ -202,6 +202,7 @@ pub trait Command: Send + Sync {
         &self,
         ctx: Context,
         msg: Message,
+        _handler: &Handler,
         args: Vec<Token>,
         params: HashMap<&str, (bool, CommandArgument)>,
     ) -> Result<(), CommandError>;
@@ -228,6 +229,8 @@ pub trait Command: Send + Sync {
 mod admin;
 // pub use admin::Config;
 pub use admin::DefineLog;
+pub use admin::OcrCheck;
+pub use admin::CreateOcrRule;
 
 mod developer;
 pub use developer::MsgDbg;

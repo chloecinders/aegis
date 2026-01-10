@@ -14,10 +14,6 @@ use crate::{
 };
 
 pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
-    if !msg.content.starts_with(handler.prefix.as_str()) || msg.guild_id.is_none() {
-        return;
-    }
-
     let mut contents = msg.content.clone();
     let strip = contents.strip_prefix(handler.prefix.as_str()).unwrap_or("");
     let tokens = lex(String::from(strip));
@@ -254,7 +250,7 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             }
         }
 
-        let res = c.run(ctx.clone(), msg.clone(), args, command_params).await;
+        let res = c.run(ctx.clone(), msg.clone(), handler, args, command_params).await;
 
         if let Err(err) = res {
             handler.send_error(&ctx, &msg, contents, err).await;

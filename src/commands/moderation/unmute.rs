@@ -19,7 +19,7 @@ use crate::{
         CommandSyntax, TransformerFnArc,
     },
     constants::BRAND_BLUE,
-    event_handler::CommandError,
+    event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
     transformers::Transformers,
     utils::{LogType, can_target, guild_log, tinyid},

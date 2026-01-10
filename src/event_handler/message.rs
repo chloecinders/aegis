@@ -32,9 +32,9 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
     }
 
     for attachment in &msg.attachments {
-        let Ok(req) = reqwest::get(attachment.proxy_url.clone()).await else { return };
-        let Ok(bytes) = req.bytes().await else { return };
-        let Ok(img) = image::load_from_memory(&bytes) else { return };
+        let Ok(req) = reqwest::get(attachment.proxy_url.clone()).await else { continue };
+        let Ok(bytes) = req.bytes().await else { continue; };
+        let Ok(img) = image::load_from_memory(&bytes) else { continue };
 
         let img = img.to_rgba8();
 
@@ -46,9 +46,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
 
         let image_str = match image_to_string(image_data).await {
             Ok(d) => d,
-            Err(e) => {
-                dbg!(e);
-                return;
+            Err(_) => {
+                continue;
             },
         };
 
@@ -60,9 +59,9 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
 
         if let Some(rule) = rule {
             let current_user_id = ctx.cache.current_user().id;
-            let Some(guild_id) = msg.guild_id else { return };
-            let Ok(author) = guild_id.member(ctx, current_user_id).await else { return };
-            let Ok(member) = guild_id.member(ctx, msg.author.id).await else { return };
+            let Some(guild_id) = msg.guild_id else { continue };
+            let Ok(author) = guild_id.member(ctx, current_user_id).await else { continue };
+            let Ok(member) = guild_id.member(ctx, msg.author.id).await else { continue };
             let db_id = tinyid().await;
 
             match rule.punishment {
@@ -79,6 +78,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                 },
                 _ => todo!()
             }
+
+            break;
         }
     }
 }

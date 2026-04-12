@@ -113,7 +113,9 @@ impl Command for Mute {
         let db_id = tinyid().await;
 
         if inferred && let Some(reply) = msg.referenced_message.clone() {
-            let _ = reply.delete(&ctx).await;
+            if reply.author.id != ctx.cache.current_user().id {
+                let _ = reply.delete(&ctx).await;
+            }
         }
 
         let guild_name = {

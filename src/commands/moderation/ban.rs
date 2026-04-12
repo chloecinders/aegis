@@ -269,7 +269,9 @@ impl Command for Ban {
         let msg_clone = msg.clone();
 
         if inferred && let Some(reply) = msg_clone.referenced_message.clone() {
-            let _ = reply.delete(ctx_clone.clone()).await;
+            if reply.author.id != ctx_clone.cache.current_user().id {
+                let _ = reply.delete(ctx_clone.clone()).await;
+            }
         }
 
         cmd_response.send_response(&ctx, &msg).await;

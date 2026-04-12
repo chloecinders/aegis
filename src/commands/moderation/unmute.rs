@@ -104,7 +104,6 @@ impl Command for Unmute {
             reason.push_str("...");
         }
 
-        trace.point("generating_log_id");
         let db_id = tinyid().await;
 
         trace.point("executing_sanctions");
@@ -141,7 +140,9 @@ impl Command for Unmute {
         };
 
         if inferred && let Some(reply) = msg.referenced_message.clone() {
-            let _ = reply.delete(&ctx).await;
+            if reply.author.id != ctx.cache.current_user().id {
+                let _ = reply.delete(&ctx).await;
+            }
         }
 
         if inferred {

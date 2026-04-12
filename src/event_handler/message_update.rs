@@ -133,5 +133,11 @@ pub async fn message_update(
         _ => new_msg.guild_id.map(|g| g.get()).unwrap_or(1),
     };
 
-    guild_log(&ctx, LogType::MessageUpdate, guild_id.into(), message).await;
+    guild_log(&ctx, LogType::MessageUpdate, guild_id.into(), message, Some(
+        crate::utils::logging::LogContext {
+            target_id: new_msg.author.id.get(),
+            moderator_id: new_msg.author.id.get(),
+            db_id: None,
+        }
+    )).await;
 }

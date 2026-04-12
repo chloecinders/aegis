@@ -9,3 +9,9 @@ pub use ocr_check::OcrCheck;
 
 mod create_ocr_rule;
 pub use create_ocr_rule::CreateOcrRule;
+
+mod rules;
+pub use rules::Rules;
+
+mod delete_rule;
+pub use delete_rule::DeleteRule;

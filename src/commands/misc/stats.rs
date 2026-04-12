@@ -56,6 +56,7 @@ impl Command for Stats {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let guild_count = ctx.cache.guild_count();
 
@@ -67,6 +68,8 @@ impl Command for Stats {
         };
 
         let memory = {
+            trace.point("fetching_sys_memory_usage");
+
             let refresh_kind = RefreshKind::nothing().with_memory(MemoryRefreshKind::everything());
             let mut sys = System::new_with_specifics(refresh_kind);
             sys.refresh_all();
@@ -87,6 +90,8 @@ impl Command for Stats {
 
             format!("**STATS**\nServers: {guild_count}\nUptime: {uptime}\nMemory: {memory:.2}MB")
         };
+
+        trace.point("sending_response");
 
         let reply = CreateMessage::new()
             .add_embed(

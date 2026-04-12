@@ -5,8 +5,16 @@ use serenity::{
 
 use crate::{
     commands::{
-        Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions, CommandSyntax, TransformerFnArc
-    }, constants::BRAND_BLUE, event_handler::{CommandError, Handler}, lexer::Token, utils::{consume_serenity_error, ocr::{ImageData, image_to_string}}
+        Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
+        CommandSyntax, TransformerFnArc,
+    },
+    constants::BRAND_BLUE,
+    event_handler::{CommandError, Handler},
+    lexer::Token,
+    utils::{
+        consume_serenity_error,
+        ocr::{ImageData, image_to_string},
+    },
 };
 use ouroboros_macros::command;
 
@@ -45,20 +53,37 @@ impl Command for OcrCheck {
     }
 
     #[command]
-    async fn run(
-        &self,
-        ctx: Context,
-        msg: Message,
-    ) -> Result<(), CommandError> {
+    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
         let Some(attachment) = msg.attachments.first() else {
-            return Err(CommandError { title: String::from("missing attachment"), hint: None, arg: None });
+            return Err(CommandError {
+                title: String::from("missing attachment"),
+                hint: None,
+                arg: None,
+            });
         };
 
+        trace.point("fetching_image");
         let Ok(req) = reqwest::get(attachment.proxy_url.clone()).await else {
-            return Err(CommandError { title: String::from("failed to download provided attachment"), hint: None, arg: None });
+            return Err(CommandError {
+                title: String::from("failed to download provided attachment"),
+                hint: None,
+                arg: None,
+            });
         };
-        let Ok(bytes) = req.bytes().await else { return Err(CommandError { title: String::from("failed to download provided attachment"), hint: None, arg: None }); };
-        let Ok(img) = image::load_from_memory(&bytes) else { return Err(CommandError { title: String::from("failed to decode provided attachment"), hint: None, arg: None }); };
+        let Ok(bytes) = req.bytes().await else {
+            return Err(CommandError {
+                title: String::from("failed to download provided attachment"),
+                hint: None,
+                arg: None,
+            });
+        };
+        let Ok(img) = image::load_from_memory(&bytes) else {
+            return Err(CommandError {
+                title: String::from("failed to decode provided attachment"),
+                hint: None,
+                arg: None,
+            });
+        };
 
         let img = img.to_rgba8();
 
@@ -68,19 +93,32 @@ impl Command for OcrCheck {
             raw: img.into_raw(),
         };
 
-        let image_str = match image_to_string(image_data).await {
+        trace.point("processing_ocr");
+        let image_str = match image_to_string(&image_data).await {
             Ok(d) => d,
             Err(_) => {
-                return Err(CommandError { title: String::from("failed to ocr provided attachment"), hint: None, arg: None });
-            },
+                return Err(CommandError {
+                    title: String::from("failed to ocr provided attachment"),
+                    hint: None,
+                    arg: None,
+                });
+            }
         };
 
-        if let Err(e) = msg.channel_id.send_message(
-            &ctx,
-            CreateMessage::new()
-                .add_embed(CreateEmbed::new().color(BRAND_BLUE).description(format!("**OCR CHECK**\n```\n{image_str}\n```")))
-                .reference_message(&msg)
-        ).await {
+        if let Err(e) = msg
+            .channel_id
+            .send_message(
+                &ctx,
+                CreateMessage::new()
+                    .add_embed(
+                        CreateEmbed::new()
+                            .color(BRAND_BLUE)
+                            .description(format!("**OCR CHECK**\n```\n{image_str}\n```")),
+                    )
+                    .reference_message(&msg),
+            )
+            .await
+        {
             consume_serenity_error("OCR CHECK".into(), e);
         }
 

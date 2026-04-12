@@ -49,12 +49,13 @@ impl Command for MsgDbg {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message) -> Result<(), CommandError> {
+    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let Some(reply) = msg.referenced_message.clone() else {
                 return Ok(());
             };
 
+            trace.point("lexing_reply");
             let r = CreateMessage::new().add_file(CreateAttachment::bytes(
                 format!(
                     "{:?}\n{reply:#?}",

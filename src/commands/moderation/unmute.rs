@@ -8,12 +8,10 @@ use serenity::{
     },
     async_trait,
 };
-use sqlx::query;
 use tokio::time::sleep;
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::{
-    SQL,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
@@ -22,7 +20,7 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
     transformers::Transformers,
-    utils::{LogType, can_target, guild_log, tinyid},
+    utils::{can_target, tinyid},
 };
 
 pub struct Unmute;
@@ -69,6 +67,7 @@ impl Command for Unmute {
         msg: Message,
         #[transformers::reply_member] mut member: Member,
         #[transformers::reply_consume] reason: Option<String>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
@@ -78,6 +77,7 @@ impl Command for Unmute {
             });
         };
 
+        trace.point("verifying_permissions");
         let res = can_target(&ctx, &author_member, &member, Permissions::MODERATE_MEMBERS).await;
 
         if !res {
@@ -88,10 +88,7 @@ impl Command for Unmute {
             });
         }
 
-        let inferred = args
-            .first()
-            .map(|a| matches!(a.inferred, Some(InferType::Message)))
-            .unwrap_or(false);
+        let inferred = matches!(_member_arg.inferred, Some(InferType::Message));
         let mut reason = reason
             .map(|s| {
                 if s.is_empty() || s.chars().all(char::is_whitespace) {
@@ -107,62 +104,19 @@ impl Command for Unmute {
             reason.push_str("...");
         }
 
-        let res = query!(
-            "UPDATE actions SET active = false, expires_at = NULL WHERE guild_id = $1 AND user_id = $2 AND type = 'mute' AND active = true;",
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            member.user.id.get() as i64,
-        ).execute(&*SQL).await;
-
-        if let Err(err) = res {
-            warn!("Got error while unmuting; err = {err:?}");
-            return Err(CommandError {
-                title: String::from("Could not unmute member"),
-                hint: Some(String::from("please try again later")),
-                arg: None,
-            });
-        }
-
+        trace.point("generating_log_id");
         let db_id = tinyid().await;
 
-        let res = query!(
-            "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason) VALUES ($1, 'unmute', $2, $3, $4, $5)",
-            db_id,
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            member.user.id.get() as i64,
-            msg.author.id.get() as i64,
-            reason.clone()
-        ).execute(&*SQL).await;
-
-        if let Err(err) = res {
-            warn!("Got error while unmuting; err = {err:?}");
-            return Err(CommandError {
-                title: String::from("Could not unmute member"),
-                hint: Some(String::from("please try again later")),
-                arg: None,
-            });
-        }
-
-        if let Err(err) = member.enable_communication(&ctx).await {
-            warn!("Got error while unmuting; err = {err:?}");
-
-            if query!("DELETE FROM actions WHERE id = $1", db_id)
-                .execute(&*SQL)
-                .await
-                .is_err()
-            {
-                error!(
-                    "Got an error while unmuting and an error with the database! Stray unmute entry in DB & manual action required; id = {db_id}; err = {err:?}"
-                );
-            }
-
-            return Err(CommandError {
-                title: String::from("Could not unmute member"),
-                hint: Some(String::from(
-                    "check if the bot has the timeout members permission or try again later",
-                )),
-                arg: None,
-            });
-        }
+        trace.point("executing_sanctions");
+        crate::moderation::unmute_member(
+            &ctx,
+            author_member,
+            member.clone(),
+            msg.guild_id.unwrap_or_default(),
+            db_id.clone(),
+            reason.clone(),
+        )
+        .await?;
 
         let reply = CreateMessage::new()
             .add_embed(
@@ -177,22 +131,6 @@ impl Command for Unmute {
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
         let reply_msg = msg.channel_id.send_message(&ctx, reply).await;
-
-        guild_log(
-            &ctx,
-            LogType::MemberModeration,
-            msg.guild_id.unwrap(),
-            CreateMessage::new()
-                .add_embed(
-                    CreateEmbed::new()
-                        .description(format!(
-                            "**MEMBER UNMUTED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
-                            msg.author.mention(),
-                            member.mention(),
-                        ))
-                        .color(BRAND_BLUE)
-                )
-        ).await;
 
         let reply_msg = match reply_msg {
             Ok(m) => m,

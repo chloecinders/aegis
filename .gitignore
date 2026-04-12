@@ -2,3 +2,4 @@ target
 Config.toml
 .jj
 tesseract
+dhat-heap.json

@@ -3,7 +3,8 @@ use std::{collections::HashSet, io::Cursor};
 use image::{DynamicImage, GenericImage, imageops::FilterType};
 use reqwest::Client;
 use serenity::all::{
-    Context, CreateAttachment, CreateEmbed, CreateEmbedAuthor, CreateMessage, GuildMemberUpdateEvent, Member, MemberAction, Mentionable, audit_log::Action
+    Context, CreateAttachment, CreateEmbed, CreateEmbedAuthor, CreateMessage,
+    GuildMemberUpdateEvent, Member, MemberAction, Mentionable, audit_log::Action,
 };
 
 use crate::{
@@ -38,18 +39,17 @@ pub async fn guild_member_update(
         &ctx,
         event.guild_id,
         Action::Member(MemberAction::Update),
-        |a| {
-            a.target_id.map(|id| id.get()).unwrap_or(0) == event.user.id.get()
-        }
-    ).await.or(
-        find_audit_log(
+        |a| a.target_id.map(|id| id.get()).unwrap_or(0) == event.user.id.get(),
+    )
+    .await
+    .or(find_audit_log(
         &ctx,
         event.guild_id,
         Action::Member(MemberAction::RoleUpdate),
-        |a| {
-            a.target_id.map(|id| id.get()).unwrap_or(0) == event.user.id.get()
-        }
-    ).await) {
+        |a| a.target_id.map(|id| id.get()).unwrap_or(0) == event.user.id.get(),
+    )
+    .await)
+    {
         moderator_id = Some(log.user_id.get());
         reason = log.reason.clone();
     }
@@ -68,7 +68,9 @@ pub async fn guild_member_update(
         String::new()
     };
 
-    if let Some(old) = old_if_available.clone() && let Some(new) = new.clone() {
+    if let Some(old) = old_if_available.clone()
+        && let Some(new) = new.clone()
+    {
         let lhs = old.avatar.or(old.user.avatar);
         let rhs = new.avatar.or(new.user.avatar);
 
@@ -108,35 +110,40 @@ pub async fn guild_member_update(
                     .write_to(&mut Cursor::new(&mut buff), image::ImageFormat::WebP)
                     .is_ok()
                 {
-                    let description = format!(
-                        "**AVATAR UPDATE**\n-# <@{}>",
-                        event.user.id
-                    );
+                    let description = format!("**AVATAR UPDATE**\n-# <@{}>", event.user.id);
 
                     let embed = CreateEmbed::new()
                         .color(BRAND_BLUE)
                         .description(description)
                         .author(
-                            CreateEmbedAuthor::new(format!("{}: {}", event.user.name, event.user.id.get()))
-                                .icon_url(
-                                    event
-                                        .user
-                                        .avatar_url()
-                                        .unwrap_or(event.user.default_avatar_url()),
-                                ),
-                        ).image("attachment://avatar.webp");
+                            CreateEmbedAuthor::new(format!(
+                                "{}: {}",
+                                event.user.name,
+                                event.user.id.get()
+                            ))
+                            .icon_url(
+                                event
+                                    .user
+                                    .avatar_url()
+                                    .unwrap_or(event.user.default_avatar_url()),
+                            ),
+                        )
+                        .image("attachment://avatar.webp");
 
-                    let msg = CreateMessage::new().add_embed(embed)
+                    let msg = CreateMessage::new()
+                        .add_embed(embed)
                         .add_file(CreateAttachment::bytes(buff, "avatar.webp"));
 
-                    guild_log(&ctx, LogType::AvatarUpdate, event.guild_id, msg).await;
+                    guild_log(&ctx, LogType::AvatarUpdate, event.guild_id, msg, None).await;
                     return;
                 }
             };
         }
     };
 
-    let roles = if let Some(old) = old_if_available && let Some(new) = new {
+    let roles = if let Some(old) = old_if_available
+        && let Some(new) = new
+    {
         let old_set: HashSet<_> = old.roles.iter().cloned().map(|r| (r, ())).collect();
         let new_set: HashSet<_> = new.roles.iter().cloned().map(|r| (r, ())).collect();
 
@@ -157,9 +164,21 @@ pub async fn guild_member_update(
         if !added.is_empty() || !removed.is_empty() {
             format!(
                 "\n\nRoles:\n{}{}{}",
-                if added.is_empty() { String::new() } else { format!("+{added}") },
-                if !added.is_empty() && !removed.is_empty() { "\n" } else { "" },
-                if removed.is_empty() { String::new() } else { format!("-{removed}") }
+                if added.is_empty() {
+                    String::new()
+                } else {
+                    format!("+{added}")
+                },
+                if !added.is_empty() && !removed.is_empty() {
+                    "\n"
+                } else {
+                    ""
+                },
+                if removed.is_empty() {
+                    String::new()
+                } else {
+                    format!("-{removed}")
+                }
             )
         } else {
             String::new()
@@ -168,9 +187,10 @@ pub async fn guild_member_update(
         String::new()
     };
 
-    if
-        (name.is_empty() && roles.is_empty())
-        || (name.is_empty() && !roles.is_empty() && moderator_id.unwrap_or(0) == event.user.id.get())
+    if (name.is_empty() && roles.is_empty())
+        || (name.is_empty()
+            && !roles.is_empty()
+            && moderator_id.unwrap_or(0) == event.user.id.get())
     {
         return;
     }
@@ -205,7 +225,7 @@ pub async fn guild_member_update(
         );
     let msg = CreateMessage::new().add_embed(embed);
 
-    guild_log(&ctx, LogType::MemberUpdate, event.guild_id, msg).await;
+    guild_log(&ctx, LogType::MemberUpdate, event.guild_id, msg, None).await;
 }
 
 async fn get_member_avatar_image(client: &Client, member: Member) -> Option<image::DynamicImage> {

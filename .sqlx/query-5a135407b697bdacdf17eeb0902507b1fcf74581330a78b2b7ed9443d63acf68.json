@@ -1,0 +1,105 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as \"punishment_type!: ActionType\", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "rule",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_regex",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 7,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "punishment_type!: ActionType",
+        "type_info": {
+          "Custom": {
+            "name": "action_type",
+            "kind": {
+              "Enum": [
+                "warn",
+                "ban",
+                "kick",
+                "softban",
+                "timeout",
+                "unban",
+                "mute",
+                "unmute",
+                "log"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "duration",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "day_clear_amount",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 11,
+        "name": "silent",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "5a135407b697bdacdf17eeb0902507b1fcf74581330a78b2b7ed9443d63acf68"
+}

@@ -1,7 +1,11 @@
 #![allow(unused_variables)] // while we still have the huge match
 
 use chrono::Local;
-use serenity::{Error as SerenityError, all::{CreateEmbed, CreateMessage, ModelError}, json};
+use serenity::{
+    Error as SerenityError,
+    all::{CreateEmbed, CreateMessage, ModelError},
+    json,
+};
 use sqlx::Error as SqlxError;
 use tracing::warn;
 
@@ -15,12 +19,11 @@ pub fn send_error(title: String, body: String) {
     let time = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
     tokio::spawn(async move {
-        let msg = CreateMessage::new()
-            .embed(
-                CreateEmbed::new()
-                    .color(BRAND_RED)
-                    .description(format!("**{title}**\n`{time}` {body}"))
-            );
+        let msg = CreateMessage::new().embed(
+            CreateEmbed::new()
+                .color(BRAND_RED)
+                .description(format!("**{title}**\n`{time}` {body}")),
+        );
 
         let body = json::to_string(&msg);
         let err = reqwest::Client::new()
@@ -31,7 +34,10 @@ pub fn send_error(title: String, body: String) {
             .await;
 
         match err {
-            Ok(body) => warn!("Sent error; response = {}", body.text().await.unwrap_or_default()),
+            Ok(body) => warn!(
+                "Sent error; response = {}",
+                body.text().await.unwrap_or_default()
+            ),
             Err(e) => warn!("Error while sending error... {e:?}"),
         }
     });
@@ -62,7 +68,11 @@ pub fn consume_serenity_error(action: String, err: SerenityError) {
             ModelError::MessageAlreadyCrossposted => String::from("UNHANDLED"),
             ModelError::CannotCrosspostMessage => String::from("UNHANDLED"),
             ModelError::Hierarchy => String::from("UNHANDLED"),
-            ModelError::InvalidPermissions { required, present } => format!("Not enough permissions; required {}; present {}", required.bits(), present.bits()),
+            ModelError::InvalidPermissions { required, present } => format!(
+                "Not enough permissions; required {}; present {}",
+                required.bits(),
+                present.bits()
+            ),
             ModelError::InvalidUser => String::from("UNHANDLED"),
             ModelError::ItemMissing => String::from("UNHANDLED"),
             ModelError::WrongGuild => String::from("UNHANDLED"),
@@ -93,12 +103,9 @@ pub fn consume_serenity_error(action: String, err: SerenityError) {
     warn!("Encountered Error: {action}; {body}; {err:?}");
 
     tokio::spawn(async move {
-        let msg = CreateMessage::new()
-            .embed(
-                CreateEmbed::new()
-                    .color(BRAND_RED)
-                    .description(format!("**SERENITY ERROR: {action}**\n`{time}` {body}\nOriginal: {err:?}"))
-            );
+        let msg = CreateMessage::new().embed(CreateEmbed::new().color(BRAND_RED).description(
+            format!("**SERENITY ERROR: {action}**\n`{time}` {body}\nOriginal: {err:?}"),
+        ));
 
         let body = json::to_string(&msg);
         let err = reqwest::Client::new()
@@ -109,7 +116,10 @@ pub fn consume_serenity_error(action: String, err: SerenityError) {
             .await;
 
         match err {
-            Ok(body) => warn!("Sent error; response = {}", body.text().await.unwrap_or(String::from("(None)"))),
+            Ok(body) => warn!(
+                "Sent error; response = {}",
+                body.text().await.unwrap_or(String::from("(None)"))
+            ),
             Err(e) => warn!("Error while sending error... {e:?}"),
         }
     });
@@ -150,12 +160,9 @@ pub fn consume_pgsql_error(action: String, err: SqlxError) {
     warn!("Encountered Error: {action}; {body}; {err:?}");
 
     tokio::spawn(async move {
-        let msg = CreateMessage::new()
-            .embed(
-                CreateEmbed::new()
-                    .color(BRAND_RED)
-                    .description(format!("**PGSQL ERROR: {action}**\n`{time}` {body}\nOriginal: {err:?}"))
-            );
+        let msg = CreateMessage::new().embed(CreateEmbed::new().color(BRAND_RED).description(
+            format!("**PGSQL ERROR: {action}**\n`{time}` {body}\nOriginal: {err:?}"),
+        ));
 
         let body = json::to_string(&msg);
         let err = reqwest::Client::new()
@@ -166,7 +173,10 @@ pub fn consume_pgsql_error(action: String, err: SqlxError) {
             .await;
 
         match err {
-            Ok(body) => warn!("Sent error; response = {}", body.text().await.unwrap_or(String::from("(None)"))),
+            Ok(body) => warn!(
+                "Sent error; response = {}",
+                body.text().await.unwrap_or(String::from("(None)"))
+            ),
             Err(e) => warn!("Error while sending error... {e:?}"),
         }
     });

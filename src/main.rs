@@ -1,5 +1,7 @@
 use std::{
-    env, fs, panic, sync::Arc, time::{Duration, Instant}
+    env, fs, panic,
+    sync::Arc,
+    time::{Duration, Instant},
 };
 
 use serenity::{
@@ -12,7 +14,10 @@ use tokio::{fs::File, io::AsyncReadExt, sync::Mutex, time::sleep};
 use tracing::error;
 
 use crate::{
-    auto_once::AutoOnceLock, config::{Config, Environment}, event_handler::Handler, utils::{GuildSettings, send_error}
+    auto_once::AutoOnceLock,
+    config::{Config, Environment},
+    event_handler::Handler,
+    utils::{GuildSettings, send_error},
 };
 use std::process::Command as SystemCommand;
 
@@ -22,18 +27,20 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<ShardManager>;
 }
 
+mod auto_once;
 mod commands;
 mod config;
 mod constants;
 mod database;
 mod event_handler;
 mod lexer;
+mod moderation;
 mod tasks;
 mod transformers;
 mod utils;
-mod auto_once;
-mod event_engine;
-mod moderation;
+
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
 
 pub static START_TIME: AutoOnceLock<Instant> = AutoOnceLock::new();
 pub static SQL: AutoOnceLock<PgPool> = AutoOnceLock::new();
@@ -42,6 +49,7 @@ pub static BOT_CONFIG: AutoOnceLock<Environment> = AutoOnceLock::new();
 
 #[tokio::main]
 async fn main() {
+    let _profiler = dhat::Profiler::new_heap();
     tracing_subscriber::fmt::fmt().init();
 
     #[cfg(target_os = "windows")]
@@ -111,7 +119,10 @@ async fn main() {
             None
         };
 
-        send_error(String::from("Thread Panic"), format!("Panic info: {info:?}; Payload: {payload_str:?}"));
+        send_error(
+            String::from("Thread Panic"),
+            format!("Panic info: {info:?}; Payload: {payload_str:?}"),
+        );
     }));
 
     let intents = GatewayIntents::all();
@@ -143,8 +154,31 @@ async fn main() {
         }
     });
 
-    if let Err(e) = client.start().await {
-        error!("Client error: {e:?}")
+    #[cfg(unix)]
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("Failed to bind SIGTERM listener");
+
+    tokio::select! {
+        res = client.start() => {
+            if let Err(e) = res {
+                error!("Client error: {e:?}");
+            }
+        },
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Received Ctrl-C! Shutting down to write DHAT heap profile...");
+        },
+        _ = async {
+            #[cfg(unix)]
+            {
+                sigterm.recv().await
+            }
+            #[cfg(not(unix))]
+            {
+                std::future::pending::<()>().await
+            }
+        } => {
+            tracing::info!("Received SIGTERM! Shutting down to write DHAT heap profile...");
+        }
     }
 }
 

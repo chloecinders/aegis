@@ -66,12 +66,13 @@ impl Command for Purge {
         msg: Message,
         #[transformers::i32] count: i32,
         #[transformers::consume] filters: String,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         if !(2..=99).contains(&count) {
             return Err(CommandError {
                 title: String::from("Message count must be between 2 and 99"),
                 hint: None,
-                arg: Some(args.first().unwrap().clone()),
+                arg: Some(_count_arg.clone()),
             });
         }
 
@@ -101,6 +102,8 @@ impl Command for Purge {
             }
         }
 
+        trace.point("fetching_channel_messages");
+
         let mut messages = match msg
             .channel_id
             .messages(&ctx, GetMessages::new().limit(100))
@@ -123,6 +126,8 @@ impl Command for Purge {
         let two_weeks = Duration::weeks(2);
 
         messages.remove(0);
+
+        trace.point("applying_filters");
 
         let mut filtered = messages
             .iter()
@@ -171,6 +176,8 @@ impl Command for Purge {
 
         let final_count = ids.len();
 
+        trace.point("executing_sanctions");
+
         if msg
             .channel_id
             .delete_messages(&ctx, filtered)
@@ -185,6 +192,8 @@ impl Command for Purge {
                 arg: None,
             });
         };
+
+        trace.point("submitting_guild_log");
 
         guild_log(
             &ctx,
@@ -201,7 +210,8 @@ impl Command for Purge {
                             ids.join("\n")
                         ))
                         .color(BRAND_BLUE)
-                )
+                ),
+            None,
         ).await;
 
         let _ = msg.delete(&ctx).await;

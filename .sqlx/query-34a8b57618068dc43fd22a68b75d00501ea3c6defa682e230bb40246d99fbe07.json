@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        CREATE TABLE IF NOT EXISTS public.log_messages_context\n        (\n            message_id bigint NOT NULL PRIMARY KEY,\n            guild_id bigint NOT NULL,\n            target_id bigint NOT NULL,\n            moderator_id bigint NOT NULL,\n            db_id character varying(128) COLLATE pg_catalog.\"default\"\n        );\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "34a8b57618068dc43fd22a68b75d00501ea3c6defa682e230bb40246d99fbe07"
+}

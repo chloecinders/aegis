@@ -71,6 +71,7 @@ impl Command for DefineLog {
         ctx: Context,
         msg: Message,
         #[transformers::guild_channel] channel: Option<GuildChannel>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let channel = channel.unwrap_or_else(|| {
             msg.guild(&ctx.cache)
@@ -82,6 +83,8 @@ impl Command for DefineLog {
         });
 
         let channel_ids: HashMap<LogType, u64>;
+
+        trace.point("fetching_log_channel_ids");
 
         {
             let mut lock = GUILD_SETTINGS.lock().await;
@@ -162,6 +165,8 @@ impl Command for DefineLog {
                 return Ok(());
             }
         };
+
+        trace.point("awaiting_user_interaction");
 
         loop {
             let interaction = match new_msg
@@ -308,6 +313,8 @@ impl Command for DefineLog {
                     ]),
                 )
                 .await;
+
+            trace.point("updating_database");
 
             let res = query!(
                 "UPDATE guild_settings SET log_channel_ids = $2 WHERE guild_id = $1",

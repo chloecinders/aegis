@@ -1,6 +1,9 @@
 mod msgdbg;
 pub use msgdbg::MsgDbg;
 
+mod cache_size;
+pub use cache_size::CacheSize;
+
 mod permdbg;
 pub use permdbg::PermDbg;
 
@@ -12,3 +15,6 @@ pub use update::Update;
 
 mod schedule_downtime;
 pub use schedule_downtime::ScheduleDowntime;
+
+mod trace;
+pub use trace::Trace;

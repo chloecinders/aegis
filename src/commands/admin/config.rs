@@ -82,6 +82,7 @@ impl Command for Config {
         msg: Message,
         args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         // find the config subcommand first
         let mut args_iter = args.into_iter();
@@ -116,6 +117,7 @@ impl Command for Config {
             None => None,
         };
 
+        trace.point("fetching_guild_settings");
         // grab the settings struct
         let mut global = GUILD_SETTINGS.get().unwrap().lock().await;
         let settings = match global.get(msg.guild_id.map(|g| g.get()).unwrap_or(1)).await {
@@ -215,6 +217,7 @@ impl Command for Config {
 
             Ok(())
         } else if subcommand == "set" {
+            trace.point("updating_guild_settings");
             // the set subcommand which sets the value of a config option
             let Some(setting) = arg1 else {
                 return Err(CommandError::arg_not_found("String", Some("arg1")));

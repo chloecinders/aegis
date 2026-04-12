@@ -9,7 +9,9 @@ use crate::{
     lexer::{Token, lex},
     utils::{
         cache::permission_cache::{CommandPermissionRequest, CommandPermissionResult},
+        cache::trace_cache::CommandTrace,
         extract_command_parameters, is_developer,
+        trace::TraceContext,
     },
 };
 
@@ -58,6 +60,9 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
         .find(|c| c.get_name() == command_name.to_lowercase());
 
     if let Some(c) = command {
+        let mut trace = TraceContext::new();
+        trace.point("lexing_and_finding");
+
         {
             let typing_http = ctx.http.clone();
             tokio::spawn(msg.channel_id.broadcast_typing(typing_http));
@@ -140,6 +145,8 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 guild: guild,
             };
 
+            trace.point("fetch_context");
+
             let mut lock = handler.permission_cache.lock().await;
 
             let result = lock.can_run(request).await;
@@ -154,7 +161,7 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                         "You do not have one of the permissions required to execute this command.",
                     ),
                     CommandPermissionResult::FailedUserRequired => String::from(
-                        "You do not have the required permissiosn to execute this command.",
+                        "You do not have the required permissions to execute this command.",
                     ),
                     CommandPermissionResult::Uninitialised => {
                         String::from("You arent supposed to see this! Report this to the devs ;(")
@@ -177,6 +184,8 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             }
         }
 
+        trace.point("permission_check");
+
         let mut command_params = HashMap::new();
 
         if !c.get_params().is_empty() {
@@ -191,6 +200,8 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 parts.next();
             }
         }
+
+        trace.point("extract_params");
 
         let mut transformers = c.get_transformers().into_iter();
         let mut args: Vec<Token> = vec![];
@@ -250,7 +261,30 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             }
         }
 
-        let res = c.run(ctx.clone(), msg.clone(), handler, args, command_params).await;
+        trace.point("transform_args");
+
+        let res = c
+            .run(ctx.clone(), msg.clone(), handler, args, command_params, &mut trace)
+            .await;
+
+        trace.point("execution");
+
+        let trace_record = CommandTrace {
+            message_id: msg.id,
+            command_name: c.get_name().to_string(),
+            total_duration: trace.start_time().elapsed(),
+            points: trace.points,
+            success: res.is_ok(),
+            error: match &res {
+                Err(err) => Some(err.title.clone()),
+                Ok(_) => None,
+            },
+        };
+
+        {
+            let mut trace_cache = handler.trace_cache.lock().await;
+            trace_cache.insert(trace_record);
+        }
 
         if let Err(err) = res {
             handler.send_error(&ctx, &msg, contents, err).await;

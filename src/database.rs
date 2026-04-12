@@ -13,6 +13,7 @@ pub enum ActionType {
     Mute,
     Unban,
     Unmute,
+    Log,
 }
 
 impl std::fmt::Display for ActionType {
@@ -25,6 +26,7 @@ impl std::fmt::Display for ActionType {
             ActionType::Mute => write!(f, "mute"),
             ActionType::Unban => write!(f, "unban"),
             ActionType::Unmute => write!(f, "unmute"),
+            ActionType::Log => write!(f, "log"),
         }
     }
 }
@@ -43,6 +45,8 @@ pub async fn run_migrations() {
     migrate_log_types_231320251115().await;
     create_flags_table_205120260105().await;
     create_automod_rules_022920260107().await;
+    update_automod_rules_for_log_030420261902().await;
+    create_log_messages_context_030420262050().await;
 }
 
 pub async fn create_actions_223320250818() {
@@ -285,3 +289,53 @@ pub async fn create_automod_rules_022920260107() {
     }
 }
 
+pub async fn update_automod_rules_for_log_030420261902() {
+    if let Err(err) = sqlx::query(
+        r#"
+        ALTER TYPE public.action_type ADD VALUE IF NOT EXISTS 'log';
+        "#,
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!(
+            "Couldnt run database migration update_automod_rules_for_log_030420261902; Err = {err:?}"
+        );
+    }
+
+    if let Err(err) = query!(
+        r#"
+        ALTER TABLE public.automod_rules
+        ADD COLUMN IF NOT EXISTS log_channel_id bigint;
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!(
+            "Couldnt run database migration update_automod_rules_for_log_030420261902; Err = {err:?}"
+        );
+    }
+}
+
+pub async fn create_log_messages_context_030420262050() {
+    if let Err(err) = query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.log_messages_context
+        (
+            message_id bigint NOT NULL PRIMARY KEY,
+            guild_id bigint NOT NULL,
+            target_id bigint NOT NULL,
+            moderator_id bigint NOT NULL,
+            db_id character varying(128) COLLATE pg_catalog."default"
+        );
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!(
+            "Couldnt run database migration create_log_messages_context_030420262050; Err = {err:?}"
+        );
+    }
+}

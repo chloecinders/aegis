@@ -73,6 +73,38 @@ impl PermissionCache {
         self.user_valid = false;
         self.inner.insert(guild_id, Default::default());
     }
+
+    pub async fn byte_footprint(&self) -> usize {
+        let mut size = std::mem::size_of::<Self>();
+        size += self.inner.capacity()
+            * (std::mem::size_of::<u64>() + std::mem::size_of::<GuildPermissionCache>());
+        size += self.user.capacity()
+            * (std::mem::size_of::<u64>()
+                + std::mem::size_of::<HashMap<String, (bool, CommandPermissionResult)>>());
+
+        for map in self.user.values() {
+            size += map.capacity()
+                * (std::mem::size_of::<String>()
+                    + std::mem::size_of::<(bool, CommandPermissionResult)>());
+            for k in map.keys() {
+                size += k.capacity();
+            }
+        }
+
+        for guild_cache in self.inner.values() {
+            for arc in guild_cache.inner.values() {
+                let lock = arc.lock().await;
+                size += std::mem::size_of::<tokio::sync::Mutex<CommandPermissionCacheInfo>>();
+                size += lock.allowed.capacity()
+                    * (std::mem::size_of::<String>()
+                        + std::mem::size_of::<CommandPermissionResult>());
+                for k in lock.allowed.keys() {
+                    size += k.capacity();
+                }
+            }
+        }
+        size
+    }
 }
 
 #[derive(Default)]

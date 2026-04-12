@@ -49,9 +49,10 @@ impl Command for ScheduleDowntime {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message) -> Result<(), CommandError> {
+    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             // coming soon
+            trace.point("sending_response");
             let _ = msg
                 .channel_id
                 .send_message(&ctx, CreateMessage::new().content("fuck you"))

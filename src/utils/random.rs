@@ -4,14 +4,17 @@ use tokio::sync::Mutex;
 static COUNTER: Mutex<u64> = Mutex::const_new(0);
 
 pub async fn random() -> u64 {
-    let mut c = COUNTER.lock().await;
+    let mut state = COUNTER.lock().await;
 
-    if *c == 0 {
-        *c = Timestamp::now().timestamp() as u64;
+    if *state == 0 {
+        *state = Timestamp::now().timestamp() as u64;
     }
 
-    *c = c.wrapping_mul(54329072133).wrapping_add(9081523890);
-    *c
+    *state ^= *state >> 12;
+    *state ^= *state << 25;
+    *state ^= *state >> 27;
+    *state = state.wrapping_mul(2685821657736338717);
+    *state
 }
 
 const CHAR_MAP: &str = "ABCDEFGHJKLMNPRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789";

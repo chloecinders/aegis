@@ -48,7 +48,13 @@ impl Command for ColonThree {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message) -> Result<(), CommandError> {
+    async fn run(
+        &self,
+        ctx: Context,
+        msg: Message,
+        trace: &mut crate::utils::TraceContext,
+    ) -> Result<(), CommandError> {
+        trace.point("reply");
         let _ = msg.reply(&ctx, ":3").await;
         Ok(())
     }

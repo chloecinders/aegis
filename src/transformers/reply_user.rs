@@ -1,6 +1,7 @@
 use std::{iter::Peekable, vec::IntoIter};
 
 use serenity::all::{Context, Message, MessageType};
+use sqlx::Row;
 
 use crate::{
     commands::{CommandArgument, TransformerError, TransformerReturn},
@@ -25,6 +26,20 @@ impl Transformers {
             }
 
             if let Some(reply) = msg.referenced_message.clone() {
+                let mut target_user = reply.author.clone();
+
+                if let Ok(Some(row)) = sqlx::query(
+                    "SELECT target_id FROM log_messages_context WHERE message_id = $1"
+                )
+                .bind(reply.id.get() as i64)
+                .fetch_optional(&*crate::SQL).await {
+                    let target_id_i64: i64 = row.try_get("target_id").unwrap_or(0);
+                    if target_id_i64 > 0 {
+                        if let Ok(user) = ctx.http.get_user((target_id_i64 as u64).into()).await {
+                            target_user = user;
+                        }
+                    }
+                }
                 let infer_type = if matches!(reply.kind, MessageType::AutoModAction) {
                     InferType::SystemMessage
                 } else {
@@ -32,7 +47,7 @@ impl Transformers {
                 };
 
                 Ok(Token {
-                    contents: Some(CommandArgument::User(reply.author)),
+                    contents: Some(CommandArgument::User(target_user)),
                     raw: String::new(),
                     position: 0,
                     length: 0,

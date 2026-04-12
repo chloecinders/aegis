@@ -68,6 +68,7 @@ impl Command for Reason {
         msg: Message,
         #[transformers::some_string] id: String,
         #[transformers::consume] reason: Option<String>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let mut reason = reason
             .map(|s| {
@@ -83,6 +84,8 @@ impl Command for Reason {
             reason.truncate(500);
             reason.push_str("...");
         }
+
+        trace.point("updating_database");
 
         let res = query!(
             r#"
@@ -126,6 +129,8 @@ impl Command for Reason {
             warn!("Could not send message; err = {err:?}");
         }
 
+        trace.point("submitting_guild_log");
+
         guild_log(
             &ctx,
             LogType::ActionUpdate,
@@ -139,6 +144,7 @@ impl Command for Reason {
                     ))
                     .color(BRAND_BLUE),
             ),
+            None,
         )
         .await;
 

@@ -23,7 +23,8 @@
                 "timeout",
                 "unban",
                 "mute",
-                "unmute"
+                "unmute",
+                "log"
               ]
             }
           }

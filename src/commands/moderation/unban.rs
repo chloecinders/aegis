@@ -1,19 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use ouroboros_macros::command;
-use serenity::{
-    all::{
-        Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Mentionable, Message,
-        Permissions,
-    },
-    async_trait,
-};
-use sqlx::query;
-use tokio::time::sleep;
-use tracing::{error, warn};
-
 use crate::{
-    SQL,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
@@ -22,8 +9,18 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
     transformers::Transformers,
-    utils::{LogType, guild_log, tinyid},
+    utils::tinyid,
 };
+use ouroboros_macros::command;
+use serenity::{
+    all::{
+        Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Mentionable, Message,
+        Permissions,
+    },
+    async_trait,
+};
+use tokio::time::sleep;
+use tracing::warn;
 
 pub struct Unban;
 
@@ -69,11 +66,9 @@ impl Command for Unban {
         msg: Message,
         #[transformers::reply_user] user: User,
         #[transformers::reply_consume] reason: Option<String>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
-        let inferred = args
-            .first()
-            .map(|a| matches!(a.inferred, Some(InferType::Message)))
-            .unwrap_or(false);
+        let inferred = matches!(_user_arg.inferred, Some(InferType::Message));
         let mut reason = reason
             .map(|s| {
                 if s.is_empty() || s.chars().all(char::is_whitespace) {
@@ -89,67 +84,26 @@ impl Command for Unban {
             reason.push_str("...");
         }
 
-        let res = query!(
-            "UPDATE actions SET active = false, expires_at = NULL WHERE guild_id = $1 AND user_id = $2 AND type = 'ban' AND active = true;",
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            user.id.get() as i64,
-        ).execute(&*SQL).await;
-
-        if let Err(err) = res {
-            warn!("Got error while unbanning; err = {err:?}");
-            return Err(CommandError {
-                title: String::from("Could not unban member"),
-                hint: Some(String::from("please try again later")),
-                arg: None,
-            });
-        }
-
         let db_id = tinyid().await;
 
-        let res = query!(
-            "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason) VALUES ($1, 'unban', $2, $3, $4, $5)",
-            db_id,
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            user.id.get() as i64,
-            msg.author.id.get() as i64,
-            reason.clone()
-        ).execute(&*SQL).await;
-
-        if let Err(err) = res {
-            warn!("Got error while unbanning; err = {err:?}");
+        let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
-                title: String::from("Could not unban member"),
-                hint: Some(String::from("please try again later")),
+                title: String::from("Unexpected error has occured."),
+                hint: Some(String::from("could not get author member")),
                 arg: None,
             });
-        }
+        };
 
-        if let Err(err) = ctx
-            .http
-            .as_ref()
-            .remove_ban(msg.guild_id.unwrap(), user.id, Some(&reason))
-            .await
-        {
-            warn!("Got error while unbanning; err = {err:?}");
-
-            if query!("DELETE FROM actions WHERE id = $1", db_id)
-                .execute(&*SQL)
-                .await
-                .is_err()
-            {
-                error!(
-                    "Got an error while unbanning and an error with the database! Stray unban entry in DB & manual action required; id = {db_id}; err = {err:?}"
-                );
-            }
-
-            return Err(CommandError {
-                title: String::from("Could not unban member"),
-                hint: Some(String::from(
-                    "check if the bot has the ban members permission or try again later",
-                )),
-                arg: None,
-            });
-        }
+        trace.point("executing_sanctions");
+        crate::moderation::unban_user(
+            &ctx,
+            author_member,
+            user.clone(),
+            msg.guild_id.unwrap_or_default(),
+            db_id.clone(),
+            reason.clone(),
+        )
+        .await?;
 
         let reply = CreateMessage::new()
             .add_embed(
@@ -164,22 +118,6 @@ impl Command for Unban {
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
         let reply_msg = msg.channel_id.send_message(&ctx, reply).await;
-
-        guild_log(
-            &ctx,
-            LogType::MemberModeration,
-            msg.guild_id.unwrap(),
-            CreateMessage::new()
-                .add_embed(
-                    CreateEmbed::new()
-                        .description(format!(
-                            "**MEMBER UNBANNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
-                            msg.author.mention(),
-                            user.mention(),
-                        ))
-                        .color(BRAND_BLUE)
-                )
-        ).await;
 
         let reply_msg = match reply_msg {
             Ok(m) => m,

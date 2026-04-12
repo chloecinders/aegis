@@ -73,7 +73,10 @@ impl Command for Duration {
         msg: Message,
         #[transformers::some_string] id: String,
         #[transformers::duration] duration: Duration,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
+        trace.point("fetching_log_record");
+
         let res = query!(
             r#"
                 SELECT type as "type!: ActionType", user_id, created_at, expires_at, reason FROM actions WHERE guild_id = $1 AND id = $2;
@@ -116,6 +119,8 @@ impl Command for Duration {
 
         match data.r#type {
             ActionType::Ban => {
+                trace.point("updating_database");
+
                 if let Err(err) = query!(
                     "UPDATE actions SET expires_at = $1 WHERE guild_id = $2 AND id = $3",
                     data.created_at + duration,
@@ -134,6 +139,8 @@ impl Command for Duration {
                 }
             }
             ActionType::Mute => {
+                trace.point("updating_mute_duration");
+
                 let time = data.created_at + duration;
                 let edit = EditMember::new()
                     .audit_log_reason(&data.reason)
@@ -218,6 +225,8 @@ impl Command for Duration {
             warn!("Could not send message; err = {err:?}");
         }
 
+        trace.point("submitting_guild_log");
+
         guild_log(
             &ctx,
             LogType::ActionUpdate,
@@ -231,6 +240,7 @@ impl Command for Duration {
                     ))
                     .color(BRAND_BLUE),
             ),
+            None,
         )
         .await;
 

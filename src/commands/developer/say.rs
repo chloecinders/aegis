@@ -57,6 +57,7 @@ impl Command for Say {
         ctx: Context,
         msg: Message,
         #[transformers::consume] say: String,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let _ = msg.delete(&ctx).await;
@@ -66,6 +67,7 @@ impl Command for Say {
                 response = response.reference_message(&*reply);
             }
 
+            trace.point("sending_response");
             let _ = msg.channel_id.send_message(&ctx, response).await;
         }
 

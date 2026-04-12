@@ -19,7 +19,7 @@ impl<T> Deref for AutoOnceLock<T> {
     fn deref(&self) -> &Self::Target {
         match self.0.get() {
             Some(v) => v,
-            _ => panic!("not initialized")
+            _ => panic!("not initialized"),
         }
     }
 }

@@ -49,11 +49,12 @@ impl Command for PermDbg {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message) -> Result<(), CommandError> {
+    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let channel_id = msg.channel_id;
             let cache = ctx.cache.clone();
 
+            trace.point("fetching_channel");
             let channel = channel_id.to_channel(&ctx).await.unwrap().guild().unwrap();
             let guild = {
                 let cache_ref = cache.clone();
@@ -67,6 +68,7 @@ impl Command for PermDbg {
                 .unwrap()
                 .into_owned();
 
+            trace.point("calculating_permissions");
             let permissions = permissions_for_channel(&guild.into(), &channel, &member);
 
             let mut perms = Permissions::all()

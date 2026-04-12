@@ -9,7 +9,12 @@ use crate::{
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
-    }, event_handler::{CommandError, Handler}, lexer::{InferType, Token}, moderation, transformers::Transformers, utils::{CommandMessageResponse, can_target, tinyid}
+    },
+    event_handler::{CommandError, Handler},
+    lexer::{InferType, Token},
+    moderation,
+    transformers::Transformers,
+    utils::{CommandMessageResponse, can_target, tinyid},
 };
 use ouroboros_macros::command;
 
@@ -72,6 +77,8 @@ impl Command for Softban {
         msg: Message,
         #[transformers::reply_member] member: Member,
         #[transformers::reply_consume] reason: Option<String>,
+        params: std::collections::HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
@@ -81,6 +88,7 @@ impl Command for Softban {
             });
         };
 
+        trace.point("verifying_permissions");
         let res = can_target(&ctx, &author_member, &member, Permissions::MODERATE_MEMBERS).await;
 
         if !res {
@@ -91,10 +99,7 @@ impl Command for Softban {
             });
         }
 
-        let inferred = args
-            .first()
-            .map(|a| matches!(a.inferred, Some(InferType::Message)))
-            .unwrap_or(false);
+        let inferred = matches!(_member_arg.inferred, Some(InferType::Message));
         let reason = reason
             .map(|s| {
                 if s.is_empty() || s.chars().all(char::is_whitespace) {
@@ -162,6 +167,7 @@ impl Command for Softban {
             .automatically_delete(inferred)
             .mark_silent(params.contains_key("silent"));
 
+        trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
 
         let Ok(author_member) = msg.member(&ctx).await else {
@@ -172,7 +178,17 @@ impl Command for Softban {
             });
         };
 
-        moderation::softban(&ctx, author_member, member, msg.guild_id.unwrap_or(GuildId::new(1)), db_id, reason, days).await?;
+        trace.point("executing_sanctions");
+        moderation::softban(
+            &ctx,
+            author_member,
+            member,
+            msg.guild_id.unwrap_or(GuildId::new(1)),
+            db_id,
+            reason,
+            days,
+        )
+        .await?;
 
         cmd_response.send_response(&ctx, &msg).await;
 

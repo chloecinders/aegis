@@ -56,7 +56,10 @@ impl Command for About {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
+        trace.point("fetching_guild_count");
+
         let guild_count = ctx.cache.guild_count();
 
         let uptime = {
@@ -67,6 +70,8 @@ impl Command for About {
         };
 
         let memory = {
+            trace.point("fetching_sys_memory_usage");
+
             let mut sys = System::new_all();
             sys.refresh_all();
 

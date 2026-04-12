@@ -63,6 +63,7 @@ impl Command for Update {
         #[transformers::bool] send_announcement: Option<bool>,
         #[transformers::string] title: Option<String>,
         #[transformers::consume] description: Option<String>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         if !is_developer(&msg.author) {
             return Ok(());
@@ -89,6 +90,7 @@ impl Command for Update {
                                 "**OUROBOROS UPDATE: {title}**\n\n{description}\n"
                             )),
                         ),
+                        None,
                     )
                     .await
                 }
@@ -106,7 +108,8 @@ impl Command for Update {
             return Ok(());
         };
 
-        // Fetch the new github artifact first
+        trace.point("fetching_github_actions");
+
         let client = Client::new();
         let mut request = Request::new(
             Method::GET,
@@ -118,7 +121,6 @@ impl Command for Update {
         let headers = request.headers_mut();
         headers.append(
             "User-Agent",
-            // i think using this UA is funny
             HeaderValue::from_str(format!("Ouroboros Bot v{}", env!("CARGO_PKG_VERSION")).as_str())
                 .unwrap(),
         );
@@ -172,6 +174,8 @@ impl Command for Update {
                 return Ok(());
             }
 
+            trace.point("fetching_github_artifacts");
+
             let mut artifacts_req =
                 Request::new(Method::GET, Url::parse(&run.artifacts_url).unwrap());
             let headers = artifacts_req.headers_mut();
@@ -217,7 +221,6 @@ impl Command for Update {
                 }
             };
 
-            // i hope nobody is actually using a windows server but the option is here if anyone wants it lol!
             #[cfg(target_os = "windows")]
             fn artifact_matches(name: &str) -> bool {
                 name.ends_with(".exe")
@@ -239,6 +242,8 @@ impl Command for Update {
                 let _ = msg.reply(&ctx, err).await;
                 return Ok(());
             };
+
+            trace.point("downloading_artifact_zip");
 
             let mut download_req = Request::new(
                 Method::GET,
@@ -285,6 +290,8 @@ impl Command for Update {
             };
 
             let filename = String::from("new_") + artifact.name.as_str();
+
+            trace.point("extracting_artifact_zip");
 
             let unzip_result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
                 let reader = std::io::Cursor::new(bytes);
@@ -336,7 +343,6 @@ impl Command for Update {
                 return Ok(());
             }
 
-            // cleanup before exiting the process, to be restarted by task scheduler or systemd or whatever
             #[cfg(not(target_os = "windows"))]
             {
                 if let Some(handle) = log_thread_handle {
@@ -404,8 +410,6 @@ impl Command for Update {
 }
 
 use serde::Deserialize;
-
-// github api response structs
 
 #[derive(Debug, Deserialize)]
 pub struct WorkflowRunsResponse {

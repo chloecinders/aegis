@@ -1,24 +1,23 @@
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use serenity::{
-    all::{Context, CreateEmbed, CreateMessage, GuildId, Mentionable, Message, Permissions},
+    all::{
+        CacheHttp, Context, GuildId, LightMethod, Mentionable, Message, Permissions, Request, Route,
+    },
     async_trait,
 };
-use sqlx::query;
-use tracing::{error, warn};
 
 use crate::{
-    SQL,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
     },
-    constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
+    moderation,
     transformers::Transformers,
-    utils::{CommandMessageResponse, LogType, can_target, guild_log, tinyid},
+    utils::{CommandMessageResponse, tinyid},
 };
 use ouroboros_macros::command;
 
@@ -87,6 +86,8 @@ impl Command for Ban {
         #[transformers::reply_user] user: User,
         #[transformers::maybe_duration] duration: Option<Duration>,
         #[transformers::reply_consume] reason: Option<String>,
+        params: std::collections::HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let Some(guild_id) = msg.guild_id else {
             return Err(CommandError {
@@ -96,35 +97,28 @@ impl Command for Ban {
             });
         };
 
-        if let Ok(target_member) = guild_id.member(&ctx, user.id).await {
-            let Ok(author_member) = msg.member(&ctx).await else {
-                return Err(CommandError {
-                    title: String::from("Unexpected error has occured."),
-                    hint: Some(String::from("could not get author member")),
-                    arg: None,
-                });
-            };
+        trace.point("checking_discord_ban_cache");
 
-            let res = can_target(
-                &ctx,
-                &author_member,
-                &target_member,
-                Permissions::MODERATE_MEMBERS,
-            )
-            .await;
-            if !res {
-                return Err(CommandError {
-                    title: String::from("You may not target this member."),
-                    hint: None,
-                    arg: None,
-                });
-            }
+        if ctx
+            .http()
+            .request(Request::new(
+                Route::GuildBan {
+                    guild_id,
+                    user_id: user.id,
+                },
+                LightMethod::Get,
+            ))
+            .await
+            .is_ok()
+        {
+            return Err(CommandError {
+                title: String::from("User is already banned"),
+                hint: None,
+                arg: None,
+            });
         }
 
-        let inferred = args
-            .first()
-            .map(|a| matches!(a.inferred, Some(InferType::Message)))
-            .unwrap_or(false);
+        let inferred = matches!(_user_arg.inferred, Some(InferType::Message));
         let duration = duration.unwrap_or(Duration::zero());
         let mut reason = reason
             .map(|s| {
@@ -193,48 +187,6 @@ impl Command for Ban {
             String::from("permanent")
         };
 
-        let duration = if duration.is_zero() {
-            None
-        } else {
-            Some((Utc::now() + duration).naive_utc())
-        };
-
-        let disable_past = query!(
-            "UPDATE actions SET active = false WHERE guild_id = $1 AND user_id = $2 AND type = 'ban'",
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            user.id.get() as i64,
-        ).execute(&*SQL);
-
-        let insert_ban = query!(
-            "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, expires_at) VALUES ($1, 'ban', $2, $3, $4, $5, $6)",
-            db_id,
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            user.id.get() as i64,
-            msg.author.id.get() as i64,
-            reason.as_str(),
-            duration
-        ).execute(&*SQL);
-
-        let (res1, res2) = tokio::join!(disable_past, insert_ban);
-
-        if let Err(err) = res1 {
-            warn!("Got error while banning; err = {err:?}");
-            return Err(CommandError {
-                title: String::from("Could not ban member"),
-                hint: Some(String::from("please try again later")),
-                arg: None,
-            });
-        }
-
-        if let Err(err) = res2 {
-            warn!("Got error while banning; err = {err:?}");
-            return Err(CommandError {
-                title: String::from("Could not ban member"),
-                hint: Some(String::from("please try again later")),
-                arg: None,
-            });
-        }
-
         let mut clear_msg = String::new();
 
         if days != 0 {
@@ -275,63 +227,52 @@ impl Command for Ban {
             .automatically_delete(inferred)
             .mark_silent(params.contains_key("silent"));
 
+        trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
 
-        if let Err(err) = msg
-            .guild_id
-            .unwrap()
-            .ban_with_reason(&ctx, &user, days, &reason)
-            .await
-        {
-            warn!("Got error while banning; err = {err:?}");
-
-            if query!("DELETE FROM actions WHERE id = $1", db_id)
-                .execute(&*SQL)
-                .await
-                .is_err()
-            {
-                error!(
-                    "Got an error while banning and an error with the database! Stray ban entry in DB & manual action required; id = {db_id}; err = {err:?}"
-                );
-            }
-
+        let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
-                title: String::from("Could not ban member"),
-                hint: Some(String::from(
-                    "check if the bot has the ban members permission or try again later",
-                )),
+                title: String::from("Unexpected error has occured."),
+                hint: Some(String::from("could not get author member")),
                 arg: None,
             });
+        };
+
+        trace.point("executing_sanctions");
+        if let Ok(target_member) = guild_id.member(&ctx, user.id).await {
+            moderation::ban_member(
+                &ctx,
+                author_member,
+                target_member,
+                msg.guild_id.unwrap_or_default(),
+                db_id,
+                reason,
+                days,
+                duration,
+            )
+            .await?;
+        } else {
+            moderation::ban_user(
+                &ctx,
+                author_member,
+                user,
+                msg.guild_id.unwrap_or_default(),
+                db_id,
+                reason,
+                days,
+                duration,
+            )
+            .await?;
         }
 
         let ctx_clone = ctx.clone();
         let msg_clone = msg.clone();
 
-        let delete_user_msg = async move {
-            if inferred && let Some(reply) = msg_clone.referenced_message.clone() {
-                let _ = reply.delete(ctx_clone.clone()).await;
-            }
-        };
+        if inferred && let Some(reply) = msg_clone.referenced_message.clone() {
+            let _ = reply.delete(ctx_clone.clone()).await;
+        }
 
         cmd_response.send_response(&ctx, &msg).await;
-
-        let send_log = guild_log(
-            &ctx,
-            LogType::MemberModeration,
-            msg.guild_id.unwrap(),
-            CreateMessage::new()
-                .add_embed(
-                    CreateEmbed::new()
-                        .description(format!(
-                            "**MEMBER BANNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {} | Duration: {time_string}{clear_msg}\n```\n{reason}\n```",
-                            msg.author.mention(),
-                            user.mention(),
-                        ))
-                        .color(BRAND_BLUE)
-                )
-        );
-
-        tokio::join!(delete_user_msg, send_log);
 
         Ok(())
     }

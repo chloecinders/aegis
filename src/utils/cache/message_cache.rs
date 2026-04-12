@@ -85,6 +85,22 @@ impl MessageCache {
             .map(|c| c.len())
             .unwrap_or_default()
     }
+
+    pub fn byte_footprint(&self) -> usize {
+        let mut size = std::mem::size_of::<Self>();
+        size += self.sizes.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<usize>());
+        size +=
+            self.inserts.capacity() * (std::mem::size_of::<u64>() + std::mem::size_of::<usize>());
+        size += self.messages.capacity()
+            * (std::mem::size_of::<u64>() + std::mem::size_of::<MessageQueue>());
+
+        for queue in self.messages.values() {
+            size += queue.items.capacity() * std::mem::size_of::<PartialMessage>();
+            size += queue.index.capacity()
+                * (std::mem::size_of::<u64>() + std::mem::size_of::<usize>());
+        }
+        size
+    }
 }
 
 struct MessageQueue {

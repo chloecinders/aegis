@@ -17,11 +17,20 @@ use tracing::{info, warn};
 use crate::{
     SQL,
     commands::{
-        About, Ban, Cache, ColonThree, Command, CreateOcrRule, DefineLog, Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping, Purge, Reason, Say, ScheduleDowntime, Softban, Stats, Unban, Unmute, Update, Warn
+        About, Ban, Cache, CacheSize, ColonThree, Command, CreateOcrRule, DefineLog, DeleteRule,
+        Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping,
+        Purge, Reason, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update,
+        Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
-    utils::{cache::{message_cache::MessageCache, permission_cache::PermissionCache}, consume_serenity_error, rule_cache::RuleCache},
+    utils::{
+        cache::{
+            message_cache::MessageCache, permission_cache::PermissionCache, trace_cache::TraceCache,
+        },
+        consume_serenity_error,
+        rule_cache::RuleCache,
+    },
 };
 #[derive(Debug)]
 pub struct CommandError {
@@ -37,7 +46,7 @@ impl CommandError {
         Self {
             arg: None,
             title: format!("Missing argument, expected {arg_type}{name}"),
-            hint: Some(String::from("for more information run !help (command)")),
+            hint: Some(String::from("for more information run help (command)")),
         }
     }
 }
@@ -94,6 +103,7 @@ pub struct Handler {
     pub message_cache: Arc<Mutex<MessageCache>>,
     pub permission_cache: Arc<Mutex<PermissionCache>>,
     pub rule_cache: Arc<Mutex<RuleCache>>,
+    pub trace_cache: Arc<Mutex<TraceCache>>,
 }
 
 impl Handler {
@@ -125,6 +135,10 @@ impl Handler {
             Arc::new(ScheduleDowntime::new()),
             Arc::new(OcrCheck::new()),
             Arc::new(CreateOcrRule::new()),
+            Arc::new(Rules::new()),
+            Arc::new(DeleteRule::new()),
+            Arc::new(Trace::new()),
+            Arc::new(CacheSize::new()),
         ];
 
         let cache = Arc::new(Mutex::new(MessageCache::new()));
@@ -151,6 +165,7 @@ impl Handler {
             message_cache: cache,
             permission_cache: Arc::new(Mutex::new(PermissionCache::new())),
             rule_cache: rule_cache,
+            trace_cache: Arc::new(Mutex::new(TraceCache::new())),
         }
     }
 }
@@ -188,7 +203,7 @@ impl Handler {
             }
 
             error_message = format!(
-                "**error:** command failed to run```\n{input}\n\n{}\n```\n{}",
+                "**error:** command failed to run```\n{input}\n{}\n```\n{}",
                 err.title, hint
             );
         }

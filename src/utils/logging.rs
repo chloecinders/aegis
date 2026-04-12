@@ -3,7 +3,14 @@ use serde::{Deserialize, Serialize};
 use serenity::all::{CacheHttp, ChannelId, CreateMessage, GuildId};
 use tracing::warn;
 
-use crate::GUILD_SETTINGS;
+use crate::{GUILD_SETTINGS, SQL};
+
+#[derive(Clone, Debug)]
+pub struct LogContext {
+    pub target_id: u64,
+    pub moderator_id: u64,
+    pub db_id: Option<String>,
+}
 
 #[derive(Hash, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -24,7 +31,7 @@ impl LogType {
             LogType::ActionUpdate => "Action Update",
             LogType::MessageUpdate => "Message Delete",
             LogType::OuroborosAnnonucements => "Ouroboros Announcements",
-            LogType::AvatarUpdate => "Member Avatar Updates"
+            LogType::AvatarUpdate => "Member Avatar Updates",
         })
     }
 
@@ -67,13 +74,31 @@ pub async fn guild_log(
     log_type: LogType,
     guild: GuildId,
     msg: CreateMessage,
+    context: Option<LogContext>,
 ) {
     let Some(channel) = log_type.channel_id(guild).await else {
         return;
     };
 
-    if let Err(err) = channel.send_message(http, msg).await {
-        warn!("Cannot not send log message; err = {err:?}");
+    match channel.send_message(http, msg).await {
+        Ok(message) => {
+            if let Some(ctx) = context {
+                if let Err(err) = sqlx::query(
+                    "INSERT INTO log_messages_context (message_id, guild_id, target_id, moderator_id, db_id) VALUES ($1, $2, $3, $4, $5)",
+                )
+                .bind(message.id.get() as i64)
+                .bind(guild.get() as i64)
+                .bind(ctx.target_id as i64)
+                .bind(ctx.moderator_id as i64)
+                .bind(ctx.db_id)
+                .execute(&*SQL).await {
+                    warn!("Cannot save log message context into log_messages_context; err = {err:?}");
+                }
+            }
+        }
+        Err(err) => {
+            warn!("Cannot not send log message; err = {err:?}");
+        }
     }
 }
 

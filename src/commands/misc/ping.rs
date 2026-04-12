@@ -58,9 +58,11 @@ impl Command for Ping {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         // the time it takes to request the current user object and get it back
         let http = {
+            trace.point("testing_http_latency");
             let start = Instant::now();
             let _ = ctx.http.get_current_user().await;
             start.elapsed().as_millis()
@@ -68,6 +70,7 @@ impl Command for Ping {
 
         // the websocket gateway latency, may take a bit to produce an actual number after restart due to the weird way serenity measures latency
         let gateway = {
+            trace.point("testing_gateway_latency");
             let data_read = ctx.data.read().await;
             let shard_manager = data_read.get::<ShardManagerContainer>().unwrap().clone();
             let runners = shard_manager.runners.lock().await;

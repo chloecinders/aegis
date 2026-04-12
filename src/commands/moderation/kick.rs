@@ -1,25 +1,20 @@
 use std::sync::Arc;
 
-use serenity::{
-    all::{Context, CreateEmbed, CreateMessage, GuildId, Mentionable, Message, Permissions},
-    async_trait,
-};
-use sqlx::query;
-use tracing::{error, warn};
-
 use crate::{
-    SQL,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
     },
-    constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
     transformers::Transformers,
-    utils::{CommandMessageResponse, LogType, can_target, guild_log, tinyid},
+    utils::{CommandMessageResponse, can_target, tinyid},
 };
 use ouroboros_macros::command;
+use serenity::{
+    all::{Context, CreateEmbed, CreateMessage, GuildId, Mentionable, Message, Permissions},
+    async_trait,
+};
 
 pub struct Kick;
 
@@ -70,6 +65,8 @@ impl Command for Kick {
         msg: Message,
         #[transformers::reply_member] member: Member,
         #[transformers::reply_consume] reason: Option<String>,
+        params: std::collections::HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
@@ -78,6 +75,8 @@ impl Command for Kick {
                 arg: None,
             });
         };
+
+        trace.point("verifying_permissions");
 
         let res = can_target(&ctx, &author_member, &member, Permissions::MODERATE_MEMBERS).await;
 
@@ -89,10 +88,7 @@ impl Command for Kick {
             });
         }
 
-        let inferred = args
-            .first()
-            .map(|a| matches!(a.inferred, Some(InferType::Message)))
-            .unwrap_or(false);
+        let inferred = matches!(_member_arg.inferred, Some(InferType::Message));
         let mut reason = reason
             .map(|s| {
                 if s.is_empty() || s.chars().all(char::is_whitespace) {
@@ -109,24 +105,6 @@ impl Command for Kick {
         }
 
         let db_id = tinyid().await;
-
-        let res = query!(
-            "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason) VALUES ($1, 'kick', $2, $3, $4, $5)",
-            db_id,
-            msg.guild_id.map(|g| g.get() as i64).unwrap_or(0),
-            member.user.id.get() as i64,
-            msg.author.id.get() as i64,
-            reason.as_str()
-        ).execute(&*SQL).await;
-
-        if let Err(err) = res {
-            warn!("Got error while kicking; err = {err:?}");
-            return Err(CommandError {
-                title: String::from("Could not kick member"),
-                hint: Some(String::from("please try again later")),
-                arg: None,
-            });
-        }
 
         if inferred && let Some(reply) = msg.referenced_message.clone() {
             let _ = reply.delete(&ctx).await;
@@ -160,47 +138,21 @@ impl Command for Kick {
             .automatically_delete(inferred)
             .mark_silent(params.contains_key("silent"));
 
+        trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
 
-        if let Err(err) = member.kick_with_reason(&ctx, &reason).await {
-            warn!("Got error while kicking; err = {err:?}");
-
-            if query!("DELETE FROM actions WHERE id = $1", db_id)
-                .execute(&*SQL)
-                .await
-                .is_err()
-            {
-                error!(
-                    "Got an error while kicking and an error with the database! Stray kick entry in DB & manual action required; id = {db_id}; err = {err:?}"
-                );
-            }
-
-            return Err(CommandError {
-                title: String::from("Could not kick member"),
-                hint: Some(String::from(
-                    "check if the bot has the kick members permission or try again later",
-                )),
-                arg: None,
-            });
-        }
+        trace.point("executing_sanctions");
+        crate::moderation::kick_member(
+            &ctx,
+            author_member,
+            member,
+            msg.guild_id.unwrap_or_default(),
+            db_id,
+            reason,
+        )
+        .await?;
 
         cmd_response.send_response(&ctx, &msg).await;
-
-        guild_log(
-            &ctx,
-            LogType::MemberModeration,
-            msg.guild_id.unwrap(),
-            CreateMessage::new()
-                .add_embed(
-                    CreateEmbed::new()
-                        .description(format!(
-                            "**MEMBER KICKED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
-                            msg.author.mention(),
-                            member.mention(),
-                        ))
-                        .color(BRAND_BLUE)
-                )
-        ).await;
 
         Ok(())
     }

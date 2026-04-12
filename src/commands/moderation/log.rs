@@ -228,6 +228,7 @@ impl Command for Log {
         _handler: &Handler,
         args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let mut args_iter = args.clone().into_iter().peekable();
         let Ok(token) = Transformers::user(&ctx, &msg, &mut args_iter).await else {
@@ -257,6 +258,8 @@ impl Command for Log {
                 Some("User || String"),
             ));
         };
+
+        trace.point("fetching_logs");
 
         let res = query_as!(
             LogRecord,
@@ -348,6 +351,8 @@ impl Command for Log {
 
         let response = self.create_chunked_response(chunk);
 
+        trace.point("sending_chunked_response");
+
         let reply = CreateMessage::new()
             .add_embed(CreateEmbed::new().description(response).color(BRAND_BLUE))
             .components(vec![
@@ -405,6 +410,8 @@ impl Command for Log {
 
             new
         };
+
+        trace.point("awaiting_user_interaction");
 
         loop {
             let interaction = match new_msg

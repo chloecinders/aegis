@@ -1,44 +1,53 @@
-name: Rust
+name: Publish
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-env:
-  CARGO_TERM_COLOR: always
-  SQLX_OFFLINE: true
+    push:
+        tags:
+            - "v*"
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    publish:
+        permissions:
+            contents: write
+        runs-on: ${{ matrix.platform }}
+        strategy:
+            fail-fast: false
+            matrix:
+                platform: [macos-latest, ubuntu-22.04, windows-latest]
+        steps:
+            - uses: actions/checkout@v4
 
-    steps:
-    - uses: actions/checkout@v4
+            - name: setup node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: lts/*
 
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            - name: install rust stable
+              uses: dtolnay/rust-toolchain@stable
 
-    - name: Fmt
-      run: cargo fmt --all
+            - name: install dependencies (ubuntu only)
+              if: matrix.platform == 'ubuntu-22.04'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                    libgtk-3-dev \
+                    libwebkit2gtk-4.1-dev \
+                    libsoup-3.0-dev \
+                    libjavascriptcoregtk-4.1-dev \
+                    libappindicator3-dev \
+                    librsvg2-dev \
+                    patchelf
 
-    - name: Build
-      run: cargo build --release --verbose
+            - name: install frontend dependencies
+              run: pnpm install
 
-    - name: Upload binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: ouroboros-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-        path: |
-          target/**/release/Ouroboros
-          target/**/release/Ouroboros.exe
+            - uses: tauri-apps/tauri-action@v0.6.1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              with:
+                  tagName: ${{ github.ref_name }}
+                  releaseName: "App ${{ github.ref_name }}"
+                  releaseBody: "See the assets below for the latest installers."
+                  releaseDraft: true

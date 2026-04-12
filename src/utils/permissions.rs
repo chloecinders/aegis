@@ -122,7 +122,8 @@ pub fn permissions_for_channel(
 
 /// Checks if a user is a developer using the BOT_CONFIG.
 pub fn is_developer(user: &User) -> bool {
-    BOT_CONFIG.dev_ids
+    BOT_CONFIG
+        .dev_ids
         .clone()
         .is_some_and(|i| i.contains(&user.id.get()))
 }
@@ -152,7 +153,10 @@ pub async fn can_target(
                 roles
             } else {
                 if let Ok(roles) = mem.guild_id.roles(&ctx).await {
-                    mem.roles.iter().filter_map(|r| roles.get(r).cloned()).collect()
+                    mem.roles
+                        .iter()
+                        .filter_map(|r| roles.get(r).cloned())
+                        .collect()
                 } else {
                     vec![]
                 }
@@ -162,9 +166,7 @@ pub async fn can_target(
         roles.sort();
 
         for role in roles {
-            if role.has_permission(permission)
-                || role.has_permission(Permissions::ADMINISTRATOR)
-            {
+            if role.has_permission(permission) || role.has_permission(Permissions::ADMINISTRATOR) {
                 matching = role.position as i32;
             }
         }

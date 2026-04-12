@@ -64,11 +64,10 @@ impl Command for Cache {
         ctx: Context,
         msg: Message,
         #[transformers::reply_user] user: User,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
-        let inferred = args
-            .first()
-            .map(|a| matches!(a.inferred, Some(InferType::Message)))
-            .unwrap_or(false);
+        let inferred = matches!(_user_arg.inferred, Some(InferType::Message));
+        trace.point("checking_guild_member");
         if msg.guild_id.unwrap().member(&ctx, user.id).await.is_ok() {
             return Err(CommandError {
                 title: String::from("User was found in the server"),
@@ -77,6 +76,7 @@ impl Command for Cache {
             });
         }
 
+        trace.point("executing_ban");
         if let Err(err) = msg
             .guild_id
             .unwrap()
@@ -94,6 +94,7 @@ impl Command for Cache {
             });
         }
 
+        trace.point("executing_unban");
         if let Err(err) = msg.guild_id.unwrap().unban(&ctx, &user).await {
             warn!("Got error while unbanning; err = {err:?}");
 
@@ -119,8 +120,10 @@ impl Command for Cache {
             .reference_message(&msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
+        trace.point("sending_response");
         let reply_msg = msg.channel_id.send_message(&ctx, reply).await;
 
+        trace.point("submitting_guild_log");
         guild_log(
             &ctx,
             LogType::MemberModeration,
@@ -134,6 +137,7 @@ impl Command for Cache {
                     ))
                     .color(BRAND_BLUE),
             ),
+            None,
         )
         .await;
 

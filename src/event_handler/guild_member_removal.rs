@@ -100,17 +100,18 @@ pub async fn guild_member_removal(
                 &ctx,
                 LogType::MemberModeration,
                 guild_id,
-                CreateMessage::new()
-                    .add_embed(
-                        CreateEmbed::new()
-                            .description(format!(
-                                "**MEMBER KICKED**\n-# Actor: {} | Target: {}\n```\n{reason}\n```",
-                                actor.mention(),
-                                user.mention(),
-                            ))
-                            .color(BRAND_BLUE)
-                    )
-            ).await;
+                CreateMessage::new().add_embed(
+                    CreateEmbed::new()
+                        .description(format!(
+                            "**MEMBER KICKED**\n-# Actor: {} | Target: {}\n```\n{reason}\n```",
+                            actor.mention(),
+                            user.mention(),
+                        ))
+                        .color(BRAND_BLUE),
+                ),
+                None,
+            )
+            .await;
         }
         LeaveType::Ban(actor, reason) => {
             if actor.get() == ctx.cache.current_user().id.get() {
@@ -121,17 +122,18 @@ pub async fn guild_member_removal(
                 &ctx,
                 LogType::MemberModeration,
                 guild_id,
-                CreateMessage::new()
-                    .add_embed(
-                        CreateEmbed::new()
-                            .description(format!(
-                                "**MEMBER BANNED**\n-# Actor: {} | Target: {}\n```\n{reason}\n```",
-                                actor.mention(),
-                                user.mention(),
-                            ))
-                            .color(BRAND_BLUE)
-                    )
-            ).await;
+                CreateMessage::new().add_embed(
+                    CreateEmbed::new()
+                        .description(format!(
+                            "**MEMBER BANNED**\n-# Actor: {} | Target: {}\n```\n{reason}\n```",
+                            actor.mention(),
+                            user.mention(),
+                        ))
+                        .color(BRAND_BLUE),
+                ),
+                None,
+            )
+            .await;
         }
         _ => {}
     }

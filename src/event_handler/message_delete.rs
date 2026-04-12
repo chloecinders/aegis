@@ -74,8 +74,7 @@ pub async fn message_delete(
     let mut files = vec![];
     let mut embed = CreateEmbed::new().color(BRAND_RED);
 
-    if let Some(author) = msg.author.to_user(&ctx).await
-    {
+    if let Some(author) = msg.author.to_user(&ctx).await {
         description.push_str(&format!("| Target: <@{}> ", msg.author.id));
         embed = embed.author(
             CreateEmbedAuthor::new(format!("{}: {}", msg.author.name, msg.author.id))
@@ -113,6 +112,11 @@ pub async fn message_delete(
         CreateMessage::new()
             .add_embed(embed.description(description))
             .add_files(files),
+        Some(crate::utils::logging::LogContext {
+            target_id: msg.author.id,
+            moderator_id: actor_id.unwrap_or(msg.author.id),
+            db_id: None,
+        })
     )
     .await;
 }

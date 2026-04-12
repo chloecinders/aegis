@@ -54,6 +54,7 @@ impl Command for ExtractId {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         let Some(reply) = &msg.referenced_message else {
             return Err(CommandError {
@@ -65,6 +66,7 @@ impl Command for ExtractId {
 
         let mut search_text = reply.content.clone();
 
+        trace.point("extracting_ids");
         for embed in &reply.embeds {
             let mut embed_locations = vec![
                 embed.title.clone(),
@@ -88,6 +90,7 @@ impl Command for ExtractId {
             .map(|s| s.to_string())
             .collect();
 
+        trace.point("sending_response");
         if ids.is_empty() {
             let reply = CreateMessage::new()
                 .add_embed(

@@ -205,6 +205,7 @@ pub trait Command: Send + Sync {
         _handler: &Handler,
         args: Vec<Token>,
         params: HashMap<&str, (bool, CommandArgument)>,
+        _trace: &mut crate::utils::trace::TraceContext,
     ) -> Result<(), CommandError>;
 
     // Run helpers
@@ -228,16 +229,20 @@ pub trait Command: Send + Sync {
 
 mod admin;
 // pub use admin::Config;
-pub use admin::DefineLog;
-pub use admin::OcrCheck;
 pub use admin::CreateOcrRule;
+pub use admin::DefineLog;
+pub use admin::DeleteRule;
+pub use admin::OcrCheck;
+pub use admin::Rules;
 
 mod developer;
+pub use developer::CacheSize;
 pub use developer::MsgDbg;
 pub use developer::PermDbg;
 pub use developer::Say;
-pub use developer::Update;
 pub use developer::ScheduleDowntime;
+pub use developer::Trace;
+pub use developer::Update;
 
 mod misc;
 pub use misc::About;

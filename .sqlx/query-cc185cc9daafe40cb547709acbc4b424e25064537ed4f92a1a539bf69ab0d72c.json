@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                guild_id,\n                type,\n                rule,\n                is_regex,\n                created_at,\n                reason,\n                punishment_type as \"punishment_type!: ActionType\",\n                duration,\n                silent,\n                day_clear_amount\n            FROM automod_rules;\n        ",
+  "query": "\n                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as \"punishment_type!: ActionType\", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1 AND id = $2;\n            ",
   "describe": {
     "columns": [
       {
@@ -10,13 +10,13 @@
       },
       {
         "ordinal": 1,
-        "name": "name",
-        "type_info": "Varchar"
+        "name": "guild_id",
+        "type_info": "Int8"
       },
       {
         "ordinal": 2,
-        "name": "guild_id",
-        "type_info": "Int8"
+        "name": "name",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 3,
@@ -58,7 +58,8 @@
                 "timeout",
                 "unban",
                 "mute",
-                "unmute"
+                "unmute",
+                "log"
               ]
             }
           }
@@ -71,17 +72,20 @@
       },
       {
         "ordinal": 10,
-        "name": "silent",
-        "type_info": "Bool"
+        "name": "day_clear_amount",
+        "type_info": "Int2"
       },
       {
         "ordinal": 11,
-        "name": "day_clear_amount",
-        "type_info": "Int2"
+        "name": "silent",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int8",
+        "Text"
+      ]
     },
     "nullable": [
       false,
@@ -98,5 +102,5 @@
       true
     ]
   },
-  "hash": "dc4bb8729f12e00bba5cfd914362570a5114df0e02e4455088bc67ca1031668e"
+  "hash": "cc185cc9daafe40cb547709acbc4b424e25064537ed4f92a1a539bf69ab0d72c"
 }

@@ -69,24 +69,14 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             tokio::spawn(msg.channel_id.broadcast_typing(typing_http));
         }
 
-        {
-            let Some(guild_id) = msg.guild_id else {
-                handler
-                    .send_error(
-                        &ctx,
-                        &msg,
-                        msg.content.clone(),
-                        CommandError {
-                            title: String::from(
-                                "You do not have permissions to execute this command.",
-                            ),
-                            hint: Some(String::from("could not get member object")),
-                            arg: None,
-                        },
-                    )
-                    .await;
-                return;
-            };
+        let mut parts = parts;
+
+        let res: Result<(), CommandError> = async {
+            let guild_id = msg.guild_id.ok_or_else(|| CommandError {
+                title: String::from("You do not have permissions to execute this command."),
+                hint: Some(String::from("could not get member object")),
+                arg: None,
+            })?;
 
             let bot_id = ctx.cache.current_user().id;
 
@@ -118,8 +108,12 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             };
 
             let (member_res, guild_res, channel_res, current_user_res) = match cached_context {
-                Some(res) => res,
+                Some(res) => {
+                    trace.point("context_cache_hit");
+                    res
+                }
                 None => {
+                    trace.point("context_cache_miss");
                     tokio::join!(
                         msg.member(&ctx),
                         guild_id.to_partial_guild(&ctx),
@@ -129,86 +123,51 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 }
             };
 
-            let Ok(member) = member_res else {
-                handler
-                    .send_error(
-                        &ctx,
-                        &msg,
-                        msg.content.clone(),
-                        CommandError {
-                            title: String::from(
-                                "You do not have permissions to execute this command.",
-                            ),
-                            hint: Some(String::from("could not get member object")),
-                            arg: None,
-                        },
-                    )
-                    .await;
-                return;
-            };
+            let member = member_res.map_err(|_| CommandError {
+                title: String::from("You do not have permissions to execute this command."),
+                hint: Some(String::from("could not get member object")),
+                arg: None,
+            })?;
 
-            let Ok(guild) = guild_res else {
-                handler
-                    .send_error(
-                        &ctx,
-                        &msg,
-                        msg.content.clone(),
-                        CommandError {
-                            title: format!("You do not have permissions to execute this command."),
-                            hint: Some(String::from("could not get guild object")),
-                            arg: None,
-                        },
-                    )
-                    .await;
-                return;
-            };
+            let guild = guild_res.map_err(|_| CommandError {
+                title: format!("You do not have permissions to execute this command."),
+                hint: Some(String::from("could not get guild object")),
+                arg: None,
+            })?;
 
-            let Ok(Some(channel)) = channel_res else {
-                handler
-                    .send_error(
-                        &ctx,
-                        &msg,
-                        msg.content.clone(),
-                        CommandError {
-                            title: format!("You do not have permissions to execute this command."),
-                            hint: Some(String::from("could not get channel object")),
-                            arg: None,
-                        },
-                    )
-                    .await;
-                return;
-            };
+            let channel = channel_res
+                .map_err(|_| CommandError {
+                    title: format!("You do not have permissions to execute this command."),
+                    hint: Some(String::from("could not get channel object")),
+                    arg: None,
+                })?
+                .ok_or_else(|| CommandError {
+                    title: format!("You do not have permissions to execute this command."),
+                    hint: Some(String::from("could not get channel object")),
+                    arg: None,
+                })?;
 
-            let Ok(current_user) = current_user_res else {
-                handler
-                    .send_error(
-                        &ctx,
-                        &msg,
-                        msg.content.clone(),
-                        CommandError {
-                            title: format!("You do not have permissions to execute this command."),
-                            hint: Some(String::from("could not get current member object")),
-                            arg: None,
-                        },
-                    )
-                    .await;
-                return;
-            };
+            let current_user = current_user_res.map_err(|_| CommandError {
+                title: format!("You do not have permissions to execute this command."),
+                hint: Some(String::from("could not get current member object")),
+                arg: None,
+            })?;
 
             let request = CommandPermissionRequest {
                 current_user,
                 handler: handler.clone(),
                 command: c.clone(),
-                channel: channel,
-                member: member,
-                guild: guild,
+                channel,
+                member,
+                guild,
             };
 
             trace.point("fetch_context");
 
-            let mut lock = handler.permission_cache.lock().await;
-
-            let result = lock.can_run(request).await;
+            let result = {
+                let mut lock = handler.permission_cache.lock().await;
+                lock.can_run(request, Some(&mut trace)).await
+            };
 
             if result != CommandPermissionResult::Success {
                 let err_msg = match result {
@@ -227,113 +186,97 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                     }
                 };
 
-                handler
-                    .send_error(
-                        &ctx,
-                        &msg,
-                        msg.content.clone(),
-                        CommandError {
-                            title: err_msg,
-                            hint: None,
-                            arg: None,
-                        },
-                    )
-                    .await;
-                return;
+                return Err(CommandError {
+                    title: err_msg,
+                    hint: None,
+                    arg: None,
+                });
             }
-        }
 
-        trace.point("permission_check");
+            trace.point("permission_check");
 
-        let mut command_params = HashMap::new();
+            let mut command_params = HashMap::new();
 
-        if !c.get_params().is_empty() {
-            let params = c.get_params();
-            let res = extract_command_parameters(&ctx, &msg, strip.to_string(), params).await;
+            if !c.get_params().is_empty() {
+                let params = c.get_params();
+                let res = extract_command_parameters(&ctx, &msg, strip.to_string(), params).await;
 
-            if let Ok(params) = res {
-                command_params = params.0;
-                contents = format!("{}{}", handler.prefix, params.1.clone());
-                msg.content = contents.clone();
-                parts = lex(params.1).into_iter().peekable();
-                parts.next();
+                if let Ok(params) = res {
+                    command_params = params.0;
+                    let contents = format!("{}{}", handler.prefix, params.1.clone());
+                    msg.content = contents;
+                    parts = lex(params.1).into_iter().peekable();
+                    parts.next();
+                }
             }
-        }
 
-        trace.point("extract_params");
+            trace.point("extract_params");
 
-        let mut transformers = c.get_transformers().into_iter();
-        let mut args: Vec<Token> = vec![];
+            let mut transformers = c.get_transformers().into_iter();
+            let mut args: Vec<Token> = vec![];
 
-        while parts.peek().is_some() {
-            if let Some(transformer) = transformers.next() {
+            while parts.peek().is_some() {
+                if let Some(transformer) = transformers.next() {
+                    let result = transformer(&ctx, &msg, &mut parts).await;
+
+                    match result {
+                        Ok(r) => {
+                            args.push(r);
+                        }
+                        Err(TransformerError::MissingArgumentError(err)) => {
+                            return Err(CommandError::arg_not_found(&err.0, None));
+                        }
+                        Err(TransformerError::CommandError(err)) => {
+                            return Err(err);
+                        }
+                    }
+                } else if let Some(mut arg) = parts.next() {
+                    arg.contents = Some(CommandArgument::String(arg.raw.clone()));
+                    args.push(arg);
+                }
+            }
+
+            for transformer in transformers {
                 let result = transformer(&ctx, &msg, &mut parts).await;
 
                 match result {
                     Ok(r) => {
                         args.push(r);
                     }
-                    Err(TransformerError::MissingArgumentError(err)) => {
-                        handler
-                            .send_error(
-                                &ctx,
-                                &msg,
-                                contents,
-                                CommandError::arg_not_found(&err.0, None),
-                            )
-                            .await;
-                        return;
-                    }
                     Err(TransformerError::CommandError(err)) => {
-                        handler.send_error(&ctx, &msg, contents, err).await;
-                        return;
+                        return Err(err);
+                    }
+                    Err(TransformerError::MissingArgumentError(_)) => {
+                        args.push(Token {
+                            contents: Some(CommandArgument::None),
+                            raw: String::new(),
+                            position: 0,
+                            length: 0,
+                            iteration: 0,
+                            quoted: false,
+                            inferred: None,
+                        });
                     }
                 }
-            } else if let Some(mut arg) = parts.next() {
-                arg.contents = Some(CommandArgument::String(arg.raw.clone()));
-                args.push(arg);
             }
+
+            trace.point("transform_args");
+
+            let res = c
+                .run(
+                    ctx.clone(),
+                    msg.clone(),
+                    handler,
+                    args,
+                    command_params,
+                    &mut trace,
+                )
+                .await;
+
+            trace.point("execution");
+            res
         }
-
-        for transformer in transformers {
-            let result = transformer(&ctx, &msg, &mut parts).await;
-
-            match result {
-                Ok(r) => {
-                    args.push(r);
-                }
-                Err(TransformerError::CommandError(err)) => {
-                    handler.send_error(&ctx, &msg, contents, err).await;
-                    return;
-                }
-                Err(TransformerError::MissingArgumentError(_)) => {
-                    args.push(Token {
-                        contents: Some(CommandArgument::None),
-                        raw: String::new(),
-                        position: 0,
-                        length: 0,
-                        iteration: 0,
-                        quoted: false,
-                        inferred: None,
-                    });
-                }
-            }
-        }
-
-        trace.point("transform_args");
-
-        let res = c
-            .run(
-                ctx.clone(),
-                msg.clone(),
-                handler,
-                args,
-                command_params,
-                &mut trace,
-            )
-            .await;
-
-        trace.point("execution");
+        .await;
 
         let trace_record = CommandTrace {
             message_id: msg.id,
@@ -365,7 +308,9 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
         });
 
         if let Err(err) = res {
-            handler.send_error(&ctx, &msg, contents, err).await;
+            handler
+                .send_error(&ctx, &msg, msg.content.clone(), err)
+                .await;
         }
     }
 }

@@ -19,15 +19,13 @@ use crate::{
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, CreateOcrRule, DefineLog, DeleteRule,
         Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping,
-        Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update,
-        Warn,
+        Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute,
+        Update, Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
     utils::{
-        cache::{
-            message_cache::MessageCache, permission_cache::PermissionCache,
-        },
+        cache::{message_cache::MessageCache, permission_cache::PermissionCache},
         consume_serenity_error,
         rule_cache::RuleCache,
     },

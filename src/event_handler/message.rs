@@ -129,17 +129,32 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
             if duration_seconds == 0 {
                 return String::from("permanent");
             }
-            let duration = chrono::TimeDelta::try_seconds(duration_seconds as i64).unwrap_or_default();
+            let duration =
+                chrono::TimeDelta::try_seconds(duration_seconds as i64).unwrap_or_default();
             let (time, mut unit) = match () {
-                _ if (duration.num_days() as f64 / 365.0).fract() == 0.0 && duration.num_days() >= 365 => (duration.num_days() / 365, String::from("year")),
-                _ if (duration.num_days() as f64 / 30.0).fract() == 0.0 && duration.num_days() >= 30 => (duration.num_days() / 30, String::from("month")),
+                _ if (duration.num_days() as f64 / 365.0).fract() == 0.0
+                    && duration.num_days() >= 365 =>
+                {
+                    (duration.num_days() / 365, String::from("year"))
+                }
+                _ if (duration.num_days() as f64 / 30.0).fract() == 0.0
+                    && duration.num_days() >= 30 =>
+                {
+                    (duration.num_days() / 30, String::from("month"))
+                }
                 _ if duration.num_days() != 0 => (duration.num_days(), String::from("day")),
                 _ if duration.num_hours() != 0 => (duration.num_hours(), String::from("hour")),
-                _ if duration.num_minutes() != 0 => (duration.num_minutes(), String::from("minute")),
-                _ if duration.num_seconds() != 0 => (duration.num_seconds(), String::from("second")),
+                _ if duration.num_minutes() != 0 => {
+                    (duration.num_minutes(), String::from("minute"))
+                }
+                _ if duration.num_seconds() != 0 => {
+                    (duration.num_seconds(), String::from("second"))
+                }
                 _ => (0, String::new()),
             };
-            if time > 1 { unit.push('s'); }
+            if time > 1 {
+                unit.push('s');
+            }
             format!("for {time} {unit}")
         };
 
@@ -150,19 +165,27 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
             ($silent:expr, $title:expr, $duration:expr) => {
                 if !$silent {
                     use serenity::all::{CreateEmbed, CreateMessage};
-                    let duration_text = if $duration.is_empty() { String::new() } else { format!(" | Duration: {}", $duration) };
-                    let desc = format!("**{}**\n-# Server: {}{}\n```\n{}\n```", $title, guild_name, duration_text, formatted_reason);
-                    let dm = CreateMessage::new().add_embed(CreateEmbed::new().description(desc).color(crate::constants::BRAND_BLUE));
+                    let duration_text = if $duration.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" | Duration: {}", $duration)
+                    };
+                    let desc = format!(
+                        "**{}**\n-# Server: {}{}\n```\n{}\n```",
+                        $title, guild_name, duration_text, formatted_reason
+                    );
+                    let dm = CreateMessage::new().add_embed(
+                        CreateEmbed::new()
+                            .description(desc)
+                            .color(crate::constants::BRAND_BLUE),
+                    );
                     let _ = msg.author.direct_message(&ctx, dm).await;
                 }
             };
         }
 
         match rule.punishment {
-            Punishment::Warn {
-                reason: _,
-                silent,
-            } => {
+            Punishment::Warn { reason: _, silent } => {
                 send_dm!(silent, "WARNED");
                 let _ =
                     moderation::warn_member(ctx, author, member, guild_id, db_id, formatted_reason)
@@ -185,10 +208,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                 )
                 .await;
             }
-            Punishment::Kick {
-                reason: _,
-                silent,
-            } => {
+            Punishment::Kick { reason: _, silent } => {
                 send_dm!(silent, "KICKED");
                 let _ =
                     moderation::kick_member(ctx, author, member, guild_id, db_id, formatted_reason)

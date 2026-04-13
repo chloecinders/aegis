@@ -20,7 +20,11 @@ impl PermissionCache {
         Self::default()
     }
 
-    pub async fn can_run(&mut self, request: CommandPermissionRequest) -> CommandPermissionResult {
+    pub async fn can_run(
+        &mut self,
+        request: CommandPermissionRequest,
+        trace: Option<&mut crate::utils::TraceContext>,
+    ) -> CommandPermissionResult {
         let cmd_perms = request.command.get_permissions();
 
         if !self.user_valid {
@@ -34,13 +38,14 @@ impl PermissionCache {
             .or_default();
 
         if !user_cmd_entry.0 {
+            let bot_perms = crate::utils::permissions::permissions_for_channel(
+                &request.guild,
+                &request.channel,
+                &request.current_user,
+            );
+
             for perm in cmd_perms.bot {
-                if !check_channel_permission(
-                    &request.guild,
-                    &request.channel,
-                    &request.current_user,
-                    perm,
-                ) {
+                if !bot_perms.contains(perm) {
                     user_cmd_entry.0 = true;
                     user_cmd_entry.1 = CommandPermissionResult::FailedBot(perm);
                     return user_cmd_entry.1.clone();
@@ -54,7 +59,7 @@ impl PermissionCache {
         }
 
         let guild_entry = self.inner.entry(request.guild.id.get()).or_default();
-        guild_entry.can_run(request).await
+        guild_entry.can_run(request, trace).await
     }
 
     pub async fn invalidate(&mut self, ctx: &Context, guild_id: u64, user_id: u64) {
@@ -113,7 +118,11 @@ struct GuildPermissionCache {
 }
 
 impl GuildPermissionCache {
-    pub async fn can_run(&mut self, request: CommandPermissionRequest) -> CommandPermissionResult {
+    pub async fn can_run(
+        &mut self,
+        request: CommandPermissionRequest,
+        mut trace: Option<&mut crate::utils::TraceContext>,
+    ) -> CommandPermissionResult {
         let perms = request.command.get_permissions();
 
         if perms.one_of.is_empty() && perms.required.is_empty() {
@@ -126,6 +135,10 @@ impl GuildPermissionCache {
         let mut user_entry = user_entry_arc.lock().await;
 
         if !user_entry.valid {
+            if let Some(t) = trace.as_mut() {
+                t.point("perm_cache_miss");
+            }
+
             let allowed = Self::evaluate_permissions(request.clone()).await;
             user_entry
                 .allowed
@@ -169,6 +182,10 @@ impl GuildPermissionCache {
             return allowed;
         }
 
+        if let Some(t) = trace.as_mut() {
+            t.point("perm_cache_hit");
+        }
+
         match user_entry.allowed.get(&command_name) {
             Some(v) => v.clone(),
             None => {
@@ -187,24 +204,25 @@ impl GuildPermissionCache {
 
     async fn evaluate_permissions(request: CommandPermissionRequest) -> CommandPermissionResult {
         let permissions = request.command.get_permissions();
-        let guild = request.guild;
-        let member = request.member;
+        let guild = &request.guild;
+        let member = &request.member;
 
-        if check_guild_permission(&guild, &member, Permissions::ADMINISTRATOR).await
-            || guild.owner_id.get() == member.user.id.get()
+        let user_permissions = crate::utils::permissions::permissions_for_guild(guild, member);
+
+        if guild.owner_id == member.user.id || user_permissions.contains(Permissions::ADMINISTRATOR)
         {
             return CommandPermissionResult::Success;
         }
 
         for permission in permissions.required {
-            if !check_guild_permission(&guild, &member, permission).await {
+            if !user_permissions.contains(permission) {
                 return CommandPermissionResult::FailedUserRequired;
             }
         }
 
         if !permissions.one_of.is_empty() {
             for permission in permissions.one_of {
-                if check_guild_permission(&guild, &member, permission).await {
+                if user_permissions.contains(permission) {
                     return CommandPermissionResult::Success;
                 }
             }

@@ -49,7 +49,12 @@ impl Command for ScheduleDowntime {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
+    async fn run(
+        &self,
+        ctx: Context,
+        msg: Message,
+        trace: &mut crate::utils::TraceContext,
+    ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             // coming soon
             trace.point("sending_response");

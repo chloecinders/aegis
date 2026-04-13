@@ -49,7 +49,12 @@ impl Command for MsgDbg {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
+    async fn run(
+        &self,
+        ctx: Context,
+        msg: Message,
+        trace: &mut crate::utils::TraceContext,
+    ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let Some(reply) = msg.referenced_message.clone() else {
                 return Ok(());

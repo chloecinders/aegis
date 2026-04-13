@@ -49,7 +49,12 @@ impl Command for PermDbg {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
+    async fn run(
+        &self,
+        ctx: Context,
+        msg: Message,
+        trace: &mut crate::utils::TraceContext,
+    ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let channel_id = msg.channel_id;
             let cache = ctx.cache.clone();

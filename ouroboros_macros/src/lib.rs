@@ -32,7 +32,12 @@ pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
             continue;
         };
 
-        let Pat::Ident(PatIdent { ident: binding, mutability, .. }) = &**pat else {
+        let Pat::Ident(PatIdent {
+            ident: binding,
+            mutability,
+            ..
+        }) = &**pat
+        else {
             panic!("Invalid pattern binding");
         };
 
@@ -53,8 +58,13 @@ pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         (true, syn::PathArguments::AngleBracketed(args)) => {
                             let syn::GenericArgument::Type(syn::Type::Path(inner)) =
                                 args.args.first().unwrap()
-                            else { panic!("Unsupported Option inner type"); };
-                            (format_ident!("{}", inner.path.segments.last().unwrap().ident), true)
+                            else {
+                                panic!("Unsupported Option inner type");
+                            };
+                            (
+                                format_ident!("{}", inner.path.segments.last().unwrap().ident),
+                                true,
+                            )
                         }
                         (false, _) => (format_ident!("{}", seg.ident), false),
                         _ => panic!("Unsupported Option type"),
@@ -68,7 +78,9 @@ pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             let binding_exp = match is_option {
                 true => {
-                    let syn::Type::Path(type_path) = &**ty else { unreachable!() };
+                    let syn::Type::Path(type_path) = &**ty else {
+                        unreachable!()
+                    };
                     let inner_ty = match &type_path.path.segments.last().unwrap().arguments {
                         syn::PathArguments::AngleBracketed(args) => args.args.first().unwrap(),
                         _ => unreachable!(),
@@ -111,7 +123,7 @@ pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     } else {
                         main_bindings.push(quote! { let #mutability #binding = __args; });
                     }
-                },
+                }
                 "params" => main_bindings.push(quote! { let #mutability #binding = __params; }),
                 "trace" => main_bindings.push(quote! { let #mutability #binding = __trace; }),
                 _ => panic!("Unknown dependency requested: {}", binding_name),

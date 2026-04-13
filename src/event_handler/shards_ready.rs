@@ -211,19 +211,22 @@ pub async fn fill_permission_cache(handler: &Handler, ctx: &Context) {
                 let mut cache = handler.permission_cache.lock().await;
 
                 cache
-                    .can_run(CommandPermissionRequest {
-                        current_user: current_user.clone(),
-                        command: handler
-                            .commands
-                            .iter()
-                            .find(|c| c.get_name() == "ban")
-                            .cloned()
-                            .unwrap(),
-                        member,
-                        channel: channel.clone(),
-                        guild: partial.clone(),
-                        handler: handler.clone(),
-                    })
+                    .can_run(
+                        CommandPermissionRequest {
+                            current_user: current_user.clone(),
+                            command: handler
+                                .commands
+                                .iter()
+                                .find(|c| c.get_name() == "ban")
+                                .cloned()
+                                .unwrap(),
+                            member,
+                            channel: channel.clone(),
+                            guild: partial.clone(),
+                            handler: handler.clone(),
+                        },
+                        None,
+                    )
                     .await;
             }
         }

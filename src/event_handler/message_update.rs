@@ -59,7 +59,10 @@ pub async fn message_update(
         guild_id
     );
 
-    let old_content_saved = old_if_available.as_ref().map(|o| o.content.clone()).filter(|c| !c.is_empty());
+    let old_content_saved = old_if_available
+        .as_ref()
+        .map(|o| o.content.clone())
+        .filter(|c| !c.is_empty());
 
     let (desc, file) = match old_if_available {
         Some(mut old) => {
@@ -135,12 +138,17 @@ pub async fn message_update(
         _ => new_msg.guild_id.map(|g| g.get()).unwrap_or(1),
     };
 
-    guild_log(&ctx, LogType::MessageUpdate, guild_id.into(), message, Some(
-        crate::utils::logging::LogContext {
+    guild_log(
+        &ctx,
+        LogType::MessageUpdate,
+        guild_id.into(),
+        message,
+        Some(crate::utils::logging::LogContext {
             target_id: new_msg.author.id.get(),
             moderator_id: new_msg.author.id.get(),
             db_id: None,
             content: old_content_saved,
-        }
-    )).await;
+        }),
+    )
+    .await;
 }

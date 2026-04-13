@@ -1,30 +1,21 @@
 use serenity::all::{
-    Context, GuildChannel, Member, PartialGuild, PermissionOverwriteType, Permissions, User,
+    Context, GuildChannel, Member, PartialGuild, PermissionOverwriteType, Permissions, RoleId, User,
 };
 
 use crate::BOT_CONFIG;
 
-/// Checks if a member has a permission in the guild. Ingnores channel overrides.
-pub async fn check_guild_permission(
+/// Checks if a member has a permission in the guild. Ignores channel overrides.
+pub fn check_guild_permission(
     guild: &PartialGuild,
     member: &Member,
     permission: Permissions,
 ) -> bool {
-    if guild.owner_id.get() == member.user.id.get() {
+    if guild.owner_id == member.user.id {
         return true;
     }
 
-    for role in member.roles.clone() {
-        let Some(role) = guild.roles.get(&role) else {
-            return false;
-        };
-
-        if role.has_permission(permission) || role.has_permission(Permissions::ADMINISTRATOR) {
-            return true;
-        }
-    }
-
-    false
+    let permissions = permissions_for_guild(guild, member);
+    permissions.contains(Permissions::ADMINISTRATOR) || permissions.contains(permission)
 }
 
 /// Checks if a member has a permission in a guilds channel. Respects channel overrides.
@@ -34,7 +25,7 @@ pub fn check_channel_permission(
     member: &Member,
     permission: Permissions,
 ) -> bool {
-    if guild.owner_id.get() == member.user.id.get() {
+    if guild.owner_id == member.user.id {
         return true;
     }
 
@@ -44,21 +35,16 @@ pub fn check_channel_permission(
 
 /// Gets all the permissions of a member in a guild.
 pub fn permissions_for_guild(guild: &PartialGuild, member: &Member) -> Permissions {
-    let everyone = guild.roles.iter().find(|r| r.1.position == 0).unwrap();
-    let mut roles = member
+    let mut base = guild
         .roles
-        .iter()
-        .map(|r| guild.roles.get(r).unwrap())
-        .collect::<Vec<_>>();
-    roles.push(everyone.1);
-    roles.sort();
+        .get(&RoleId::new(guild.id.get()))
+        .map(|r| r.permissions)
+        .unwrap_or_else(Permissions::empty);
 
-    let mut base = Permissions::empty();
-
-    for role in roles {
-        role.permissions.into_iter().for_each(|p| {
-            base.insert(p);
-        });
+    for role_id in &member.roles {
+        if let Some(role) = guild.roles.get(role_id) {
+            base |= role.permissions;
+        }
     }
 
     base
@@ -70,51 +56,45 @@ pub fn permissions_for_channel(
     channel: &GuildChannel,
     member: &Member,
 ) -> Permissions {
-    let mut permissions = permissions_for_guild(guild, member);
-    let everyone = guild.roles.iter().find(|r| r.1.position == 0).unwrap();
-    let mut roles = member
-        .roles
-        .iter()
-        .map(|r| guild.roles.get(r).unwrap())
-        .collect::<Vec<_>>();
-    roles.push(everyone.1);
-    roles.sort();
-
-    let overwrites = channel.permission_overwrites.clone();
-
-    for role in roles {
-        if let Some(overwrite) = overwrites.iter().find(|p| {
-            if let PermissionOverwriteType::Role(id) = p.kind
-                && id == role.id
-            {
-                true
-            } else {
-                false
-            }
-        }) {
-            for perm in overwrite.allow {
-                permissions.insert(perm);
-            }
-
-            for perm in overwrite.deny {
-                permissions.remove(perm);
-            }
-        }
+    if guild.owner_id == member.user.id {
+        return Permissions::all();
     }
 
-    if let Some(overwrite) = overwrites.iter().find(|p| {
-        let PermissionOverwriteType::Member(id) = p.kind else {
-            return false;
-        };
-        id == member.user.id
-    }) {
-        for perm in overwrite.allow {
-            permissions.insert(perm);
-        }
+    let mut permissions = permissions_for_guild(guild, member);
 
-        for perm in overwrite.deny {
-            permissions.remove(perm);
+    if permissions.contains(Permissions::ADMINISTRATOR) {
+        return Permissions::all();
+    }
+
+    let overwrites = &channel.permission_overwrites;
+
+    // 1. @everyone role overwrites
+    if let Some(everyone_overwrite) = overwrites
+        .iter()
+        .find(|o| o.kind == PermissionOverwriteType::Role(RoleId::new(guild.id.get())))
+    {
+        permissions = (permissions & !everyone_overwrite.deny) | everyone_overwrite.allow;
+    }
+
+    // 2. Member role overwrites
+    let (mut role_allow, mut role_deny) = (Permissions::empty(), Permissions::empty());
+    for role_id in &member.roles {
+        if let Some(role_overwrite) = overwrites
+            .iter()
+            .find(|o| o.kind == PermissionOverwriteType::Role(*role_id))
+        {
+            role_allow |= role_overwrite.allow;
+            role_deny |= role_overwrite.deny;
         }
+    }
+    permissions = (permissions & !role_deny) | role_allow;
+
+    // 3. Member-specific overwrites
+    if let Some(member_overwrite) = overwrites
+        .iter()
+        .find(|o| o.kind == PermissionOverwriteType::Member(member.user.id))
+    {
+        permissions = (permissions & !member_overwrite.deny) | member_overwrite.allow;
     }
 
     permissions

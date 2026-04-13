@@ -53,7 +53,12 @@ impl Command for OcrCheck {
     }
 
     #[command]
-    async fn run(&self, ctx: Context, msg: Message, trace: &mut crate::utils::TraceContext) -> Result<(), CommandError> {
+    async fn run(
+        &self,
+        ctx: Context,
+        msg: Message,
+        trace: &mut crate::utils::TraceContext,
+    ) -> Result<(), CommandError> {
         let Some(attachment) = msg.attachments.first() else {
             return Err(CommandError {
                 title: String::from("missing attachment"),

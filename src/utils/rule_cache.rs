@@ -1,5 +1,4 @@
 use regex::Regex;
-use sqlx::query;
 
 use crate::{SQL, database::ActionType, utils::consume_pgsql_error};
 

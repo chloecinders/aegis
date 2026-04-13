@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, sync::Arc};
 
 use serenity::{
     all::{ActivityData, Context, Permissions, RoleId},
@@ -221,8 +221,11 @@ pub async fn fill_permission_cache(handler: &Handler, ctx: &Context) {
                                 .cloned()
                                 .unwrap(),
                             member,
-                            channel: channel.clone(),
-                            guild: partial.clone(),
+                            guild_id: partial.id,
+                            owner_id: partial.owner_id,
+                            roles: Arc::new(partial.roles.clone()),
+                            channel_id: channel.id,
+                            overwrites: Arc::new(channel.permission_overwrites.clone()),
                             handler: handler.clone(),
                         },
                         None,

@@ -74,7 +74,14 @@ impl Command for PermDbg {
                 .into_owned();
 
             trace.point("calculating_permissions");
-            let permissions = permissions_for_channel(&guild.into(), &channel, &member);
+            let permissions = permissions_for_channel(
+                guild.id,
+                guild.owner_id,
+                &guild.roles,
+                channel.id,
+                &channel.permission_overwrites,
+                &member,
+            );
 
             let mut perms = Permissions::all()
                 .iter()

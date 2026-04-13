@@ -1,11 +1,13 @@
-use serenity::all::{Context, GuildChannel, Member, PartialGuild, Permissions};
+use serenity::all::{
+    ChannelId, Context, GuildId, Member, PermissionOverwrite, Permissions, RoleId, UserId,
+};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
     commands::Command,
     event_handler::Handler,
-    utils::{check_guild_permission, permissions::check_channel_permission},
+    utils::permissions::{permissions_for_channel, permissions_for_guild},
 };
 
 #[derive(Default)]
@@ -32,15 +34,18 @@ impl PermissionCache {
             self.user_valid = true;
         }
 
-        let user_channel_entry = self.user.entry(request.channel.id.get()).or_default();
+        let user_channel_entry = self.user.entry(request.channel_id.get()).or_default();
         let user_cmd_entry = user_channel_entry
             .entry(request.command.get_name().to_string())
             .or_default();
 
         if !user_cmd_entry.0 {
-            let bot_perms = crate::utils::permissions::permissions_for_channel(
-                &request.guild,
-                &request.channel,
+            let bot_perms = permissions_for_channel(
+                request.guild_id,
+                request.owner_id,
+                &request.roles,
+                request.channel_id,
+                &request.overwrites,
                 &request.current_user,
             );
 
@@ -58,7 +63,7 @@ impl PermissionCache {
             return user_cmd_entry.1.clone();
         }
 
-        let guild_entry = self.inner.entry(request.guild.id.get()).or_default();
+        let guild_entry = self.inner.entry(request.guild_id.get()).or_default();
         guild_entry.can_run(request, trace).await
     }
 
@@ -147,14 +152,17 @@ impl GuildPermissionCache {
 
             let handler = request.handler.clone();
             let member = request.member.clone();
-            let guild = request.guild.clone();
-            let channel = request.channel.clone();
             let current_user = request.current_user.clone();
             let entry_ref = Arc::clone(&user_entry_arc);
 
+            let guild_id = request.guild_id;
+            let owner_id = request.owner_id;
+            let roles = Arc::clone(&request.roles);
+            let channel_id = request.channel_id;
+            let overwrites = Arc::clone(&request.overwrites);
+
             tokio::spawn(async move {
                 let member = member;
-                let guild = guild;
 
                 for command in handler.commands.clone() {
                     let perms = command.get_permissions();
@@ -167,8 +175,11 @@ impl GuildPermissionCache {
                         current_user: current_user.clone(),
                         command: command.clone(),
                         member: member.clone(),
-                        channel: channel.clone(),
-                        guild: guild.clone(),
+                        guild_id,
+                        owner_id,
+                        roles: Arc::clone(&roles),
+                        channel_id,
+                        overwrites: Arc::clone(&overwrites),
                         handler: handler.clone(),
                     };
 
@@ -204,12 +215,15 @@ impl GuildPermissionCache {
 
     async fn evaluate_permissions(request: CommandPermissionRequest) -> CommandPermissionResult {
         let permissions = request.command.get_permissions();
-        let guild = &request.guild;
-        let member = &request.member;
+        let user_permissions = permissions_for_guild(
+            request.guild_id,
+            request.owner_id,
+            &request.roles,
+            &request.member,
+        );
 
-        let user_permissions = crate::utils::permissions::permissions_for_guild(guild, member);
-
-        if guild.owner_id == member.user.id || user_permissions.contains(Permissions::ADMINISTRATOR)
+        if request.owner_id == request.member.user.id
+            || user_permissions.contains(Permissions::ADMINISTRATOR)
         {
             return CommandPermissionResult::Success;
         }
@@ -245,8 +259,11 @@ pub struct CommandPermissionRequest {
     pub current_user: Member,
     pub command: Arc<dyn Command>,
     pub member: Member,
-    pub guild: PartialGuild,
-    pub channel: GuildChannel,
+    pub guild_id: GuildId,
+    pub owner_id: UserId,
+    pub roles: Arc<HashMap<RoleId, serenity::all::Role>>,
+    pub channel_id: ChannelId,
+    pub overwrites: Arc<Vec<PermissionOverwrite>>,
     pub handler: Handler,
 }
 

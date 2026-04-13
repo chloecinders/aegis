@@ -65,7 +65,7 @@ impl Command for Unmute {
         &self,
         ctx: Context,
         msg: Message,
-        #[transformers::reply_member] mut member: Member,
+        #[transformers::reply_member] member: Member,
         #[transformers::reply_consume] reason: Option<String>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {

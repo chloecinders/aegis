@@ -12,7 +12,7 @@ use crate::{
 };
 use ouroboros_macros::command;
 use serenity::{
-    all::{Context, CreateEmbed, CreateMessage, GuildId, Mentionable, Message, Permissions},
+    all::{Context, GuildId, Mentionable, Message, Permissions},
     async_trait,
 };
 

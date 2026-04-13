@@ -48,7 +48,6 @@ impl Command for Trace {
         &self,
         ctx: Context,
         msg: Message,
-        handler: &Handler,
         #[transformers::string] message_id_arg: Option<String>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {

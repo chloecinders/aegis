@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use serenity::all::MessageId;
-use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use serenity::all::{Cache, Context, CreateAllowedMentions, CreateMessage, Message};
+use serenity::all::{Context, CreateAllowedMentions, CreateMessage, Message};
 use tracing::warn;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
-    let mut contents = msg.content.clone();
+    let contents = msg.content.clone();
     let strip = contents.strip_prefix(handler.prefix.as_str()).unwrap_or("");
     let tokens = lex(String::from(strip));
     let mut parts = tokens.into_iter().peekable();
@@ -82,24 +82,23 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
 
             let cached_context = {
                 let cache_guild_arc = ctx.cache.guild(guild_id);
-                let cache_member = cache_guild_arc
-                    .as_ref()
-                    .and_then(|g| g.members.get(&msg.author.id).cloned());
-                let cache_guild = cache_guild_arc.as_ref().map(|g| (*g).clone());
-                let cache_channel = cache_guild_arc
-                    .as_ref()
-                    .and_then(|g| g.channels.get(&msg.channel_id).cloned());
-                let cache_bot_member = cache_guild_arc
-                    .as_ref()
-                    .and_then(|g| g.members.get(&bot_id).cloned());
+                let g_ref = cache_guild_arc.as_ref();
 
-                if let (Some(member), Some(guild), Some(channel), Some(bot_member)) =
-                    (cache_member, cache_guild, cache_channel, cache_bot_member)
+                let cache_member = g_ref.and_then(|g| g.members.get(&msg.author.id).cloned());
+                let cache_channel = g_ref.and_then(|g| g.channels.get(&msg.channel_id).cloned());
+                let cache_bot_member = g_ref.and_then(|g| g.members.get(&bot_id).cloned());
+
+                if let (Some(member), Some(guild_arc), Some(channel), Some(bot_member)) =
+                    (cache_member, cache_guild_arc, cache_channel, cache_bot_member)
                 {
                     Some((
                         Ok(member),
-                        Ok(guild.into()),
-                        Ok(Some(channel)),
+                        Ok((
+                            guild_arc.id,
+                            guild_arc.owner_id,
+                            Arc::new(guild_arc.roles.clone()),
+                        )),
+                        Ok(Some((channel.id, Arc::new(channel.permission_overwrites)))),
                         Ok(bot_member),
                     ))
                 } else {
@@ -107,21 +106,31 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 }
             };
 
-            let (member_res, guild_res, channel_res, current_user_res) = match cached_context {
-                Some(res) => {
-                    trace.point("context_cache_hit");
-                    res
-                }
-                None => {
-                    trace.point("context_cache_miss");
-                    tokio::join!(
-                        msg.member(&ctx),
-                        guild_id.to_partial_guild(&ctx),
-                        async { msg.channel(&ctx).await.map(|c| c.guild()) },
-                        guild_id.member(&ctx, bot_id),
-                    )
-                }
-            };
+            let (member_res, guild_data_res, channel_data_res, current_user_res) =
+                match cached_context {
+                    Some(res) => {
+                        trace.point("context_cache_hit");
+                        res
+                    }
+                    None => {
+                        trace.point("context_cache_miss");
+                        let (m, g, c, b) = tokio::join!(
+                            msg.member(&ctx),
+                            guild_id.to_partial_guild(&ctx),
+                            async { msg.channel(&ctx).await.map(|c| c.guild()) },
+                            guild_id.member(&ctx, bot_id),
+                        );
+
+                        (
+                            m,
+                            g.map(|g| (g.id, g.owner_id, Arc::new(g.roles))),
+                            c.map(|c| {
+                                c.map(|c| (c.id, Arc::new(c.permission_overwrites)))
+                            }),
+                            b,
+                        )
+                    }
+                };
 
             let member = member_res.map_err(|_| CommandError {
                 title: String::from("You do not have permissions to execute this command."),
@@ -129,13 +138,13 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 arg: None,
             })?;
 
-            let guild = guild_res.map_err(|_| CommandError {
+            let (guild_id, owner_id, roles) = guild_data_res.map_err(|_| CommandError {
                 title: format!("You do not have permissions to execute this command."),
                 hint: Some(String::from("could not get guild object")),
                 arg: None,
             })?;
 
-            let channel = channel_res
+            let (channel_id, overwrites) = channel_data_res
                 .map_err(|_| CommandError {
                     title: format!("You do not have permissions to execute this command."),
                     hint: Some(String::from("could not get channel object")),
@@ -157,9 +166,12 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 current_user,
                 handler: handler.clone(),
                 command: c.clone(),
-                channel,
+                guild_id,
+                owner_id,
+                roles,
+                channel_id,
+                overwrites,
                 member,
-                guild,
             };
 
             trace.point("fetch_context");

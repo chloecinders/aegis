@@ -86,7 +86,7 @@ pub async fn image_to_string_with_rotation(image_data: &ImageData) -> Result<Str
     let api = get_tesseract().await?;
     api.set_page_seg_mode(TessPageSegMode::PSM_SPARSE_TEXT_OSD)?;
 
-    let (mut conf0, mut conf90, mut conf180, mut conf270) = (0, 0, 0, 0);
+    // let (mut conf0, mut conf90, mut conf180, mut conf270) = (0, 0, 0, 0);
 
     api.set_image(
         &image_data.raw,
@@ -96,7 +96,7 @@ pub async fn image_to_string_with_rotation(image_data: &ImageData) -> Result<Str
         image_data.width * 4,
     )?;
 
-    conf0 = api.mean_text_conf()?;
+    // conf0 = api.mean_text_conf()?;
     api.end()?;
 
     todo!()

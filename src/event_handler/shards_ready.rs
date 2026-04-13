@@ -1,9 +1,6 @@
 use std::{fs, sync::Arc};
 
-use serenity::{
-    all::{ActivityData, Context, Permissions, RoleId},
-    futures::StreamExt,
-};
+use serenity::all::{ActivityData, Context, Permissions, RoleId};
 use sqlx::query;
 use tracing::{error, info};
 
@@ -165,68 +162,78 @@ pub async fn fill_permission_cache(handler: &Handler, ctx: &Context) {
     let bot_id = ctx.cache.current_user().id;
 
     for guild_id in ctx.cache.guilds() {
-        let Some(guild) = ctx.cache.guild(guild_id) else {
-            continue;
-        };
-
-        let (owner_id, roles) = (guild.owner_id, Arc::new(guild.roles.clone()));
-
-        let channel = {
-            let Some(channel_id) = guild
-                .system_channel_id
-                .or(guild.widget_channel_id)
-                .or(guild.rules_channel_id)
-                .or(guild.public_updates_channel_id)
-            else {
+        let (owner_id, roles, staff_members, channel_id, overwrites, current_user) = {
+            let Some(guild) = ctx.cache.guild(guild_id) else {
                 continue;
             };
 
-            let Some(channel) = guild.channels.get(&channel_id).cloned() else {
+            let owner_id = guild.owner_id;
+            let roles = Arc::new(guild.roles.clone());
+
+            let channel_data = {
+                if let Some(channel_id) = guild
+                    .system_channel_id
+                    .or(guild.widget_channel_id)
+                    .or(guild.rules_channel_id)
+                    .or(guild.public_updates_channel_id)
+                {
+                    guild
+                        .channels
+                        .get(&channel_id)
+                        .map(|c| (c.id, Arc::new(c.permission_overwrites.clone())))
+                } else {
+                    None
+                }
+            };
+
+            let Some((channel_id, overwrites)) = channel_data else {
                 continue;
             };
-            channel
+
+            let mut valid_roles: Vec<RoleId> = Vec::new();
+            for (id, role) in &*roles {
+                if role.permissions.contains(Permissions::MANAGE_MESSAGES)
+                    || role.permissions.contains(Permissions::BAN_MEMBERS)
+                    || role.permissions.contains(Permissions::KICK_MEMBERS)
+                    || role.permissions.contains(Permissions::ADMINISTRATOR)
+                {
+                    valid_roles.push(id.clone());
+                }
+            }
+
+            let Some(current_user) = guild.members.get(&bot_id).cloned() else {
+                continue;
+            };
+
+            let staff = guild
+                .members
+                .values()
+                .filter(|m| m.roles.iter().any(|r| valid_roles.contains(&r)))
+                .cloned()
+                .collect::<Vec<_>>();
+
+            (owner_id, roles, staff, channel_id, overwrites, current_user)
         };
 
-        let overwrites = Arc::new(channel.permission_overwrites.clone());
-        let channel_id = channel.id;
+        for member in staff_members {
+            let mut cache = handler.permission_cache.lock().await;
 
-        let mut valid_roles: Vec<RoleId> = Vec::new();
-
-        for (id, role) in &*roles {
-            if role.permissions.contains(Permissions::MANAGE_MESSAGES)
-                || role.permissions.contains(Permissions::BAN_MEMBERS)
-                || role.permissions.contains(Permissions::KICK_MEMBERS)
-                || role.permissions.contains(Permissions::ADMINISTRATOR)
-            {
-                valid_roles.push(id.clone());
-            }
-        }
-
-        let Some(current_user) = guild.members.get(&bot_id).cloned() else {
-            continue;
-        };
-
-        for member in guild.members.values() {
-            if member.roles.iter().any(|r| valid_roles.contains(&r)) {
-                let mut cache = handler.permission_cache.lock().await;
-
-                cache
-                    .can_run(
-                        CommandPermissionRequest {
-                            current_user: current_user.clone(),
-                            command: ban_command.clone(),
-                            member: member.clone(),
-                            guild_id,
-                            owner_id,
-                            roles: Arc::clone(&roles),
-                            channel_id,
-                            overwrites: Arc::clone(&overwrites),
-                            handler: handler.clone(),
-                        },
-                        None,
-                    )
-                    .await;
-            }
+            cache
+                .can_run(
+                    CommandPermissionRequest {
+                        current_user: current_user.clone(),
+                        command: ban_command.clone(),
+                        member,
+                        guild_id,
+                        owner_id,
+                        roles: Arc::clone(&roles),
+                        channel_id,
+                        overwrites: Arc::clone(&overwrites),
+                        handler: handler.clone(),
+                    },
+                    None,
+                )
+                .await;
         }
     }
 }

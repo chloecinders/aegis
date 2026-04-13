@@ -43,8 +43,9 @@ pub async fn finish_update(ctx: &Context) {
 
     let mut parts = ids.split(':');
 
-    let (channel_id, msg_id) = match (parts.next(), parts.next()) {
-        (Some(a), Some(b)) => (a, b),
+    let (channel_id, msg_id, hash) = match (parts.next(), parts.next(), parts.next()) {
+        (Some(a), Some(b), Some(c)) => (a, b, Some(c)),
+        (Some(a), Some(b), None) => (a, b, None),
         _ => {
             return;
         }
@@ -68,7 +69,12 @@ pub async fn finish_update(ctx: &Context) {
 
     info!("Replying to update command; channel = {channel:?} message = {message:?}");
 
-    let _ = message.reply(ctx, "Update finished!").await;
+    let msg = match hash {
+        Some(h) => format!("Updated to `{}`", &h[0..7.min(h.len())]),
+        None => String::from("Update finished!"),
+    };
+
+    let _ = message.reply(ctx, msg).await;
 }
 
 pub async fn update_guild_settings(ctx: &Context) {

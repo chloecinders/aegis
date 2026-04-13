@@ -74,9 +74,8 @@ impl Command for CacheSize {
         let msg_size = handler.message_cache.lock().await.byte_footprint();
         let perm_size = handler.permission_cache.lock().await.byte_footprint().await;
         let rule_size = handler.rule_cache.lock().await.byte_footprint();
-        let trace_size = handler.trace_cache.lock().await.byte_footprint();
 
-        let total = msg_size + perm_size + rule_size + trace_size;
+        let total = msg_size + perm_size + rule_size;
 
         trace.point("sending_response");
         let reply = CreateMessage::new()
@@ -86,13 +85,11 @@ impl Command for CacheSize {
                         "**INTERNAL CACHE FOOTPRINT**\n\
                         Message Cache: `{}`\n\
                         Permission Cache: `{}`\n\
-                        Rule Cache: `{}`\n\
-                        Trace Cache: `{}`\n\n\
+                        Rule Cache: `{}`\n\n\
                         Total: `{}`",
                         Self::format_bytes(msg_size),
                         Self::format_bytes(perm_size),
                         Self::format_bytes(rule_size),
-                        Self::format_bytes(trace_size),
                         Self::format_bytes(total)
                     ))
                     .color(BRAND_BLUE),

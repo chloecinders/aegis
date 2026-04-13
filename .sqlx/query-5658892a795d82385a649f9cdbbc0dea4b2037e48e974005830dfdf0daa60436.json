@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT command_name, total_duration_nanos, success, error, points FROM command_traces WHERE message_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "command_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_duration_nanos",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "success",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "error",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "points",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "5658892a795d82385a649f9cdbbc0dea4b2037e48e974005830dfdf0daa60436"
+}

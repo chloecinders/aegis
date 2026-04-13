@@ -41,6 +41,14 @@ impl Transformers {
                     }
                 }
 
+                if target_user.id == ctx.cache.current_user().id {
+                    return Err(TransformerError::CommandError(CommandError {
+                        title: String::from("Cannot infer member from log"),
+                        hint: Some(String::from("This log is missing valid database context and is targeting the bot instead. Please provide the member explicitly.")),
+                        arg: None,
+                    }));
+                }
+
                 let Ok(member) = msg
                     .guild_id
                     .unwrap()

@@ -47,6 +47,8 @@ pub async fn run_migrations() {
     create_automod_rules_022920260107().await;
     update_automod_rules_for_log_030420261902().await;
     create_log_messages_context_030420262050().await;
+    add_content_to_log_messages_context_041220261300().await;
+    create_command_traces_041320261850().await;
 }
 
 pub async fn create_actions_223320250818() {
@@ -327,7 +329,8 @@ pub async fn create_log_messages_context_030420262050() {
             guild_id bigint NOT NULL,
             target_id bigint NOT NULL,
             moderator_id bigint NOT NULL,
-            db_id character varying(128) COLLATE pg_catalog."default"
+            db_id character varying(128) COLLATE pg_catalog."default",
+            content text
         );
         "#
     )
@@ -337,5 +340,43 @@ pub async fn create_log_messages_context_030420262050() {
         panic!(
             "Couldnt run database migration create_log_messages_context_030420262050; Err = {err:?}"
         );
+    }
+}
+
+pub async fn add_content_to_log_messages_context_041220261300() {
+    if let Err(err) = query!(
+        r#"
+        ALTER TABLE public.log_messages_context
+        ADD COLUMN IF NOT EXISTS content text;
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!(
+            "Couldnt run database migration add_content_to_log_messages_context_041220261300; Err = {err:?}"
+        );
+    }
+}
+
+pub async fn create_command_traces_041320261850() {
+    if let Err(err) = query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.command_traces
+        (
+            message_id bigint NOT NULL PRIMARY KEY,
+            command_name text NOT NULL,
+            total_duration_nanos bigint NOT NULL,
+            success boolean NOT NULL,
+            error text,
+            points jsonb NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!("Couldnt run database migration create_command_traces_041320261850; Err = {err:?}");
     }
 }

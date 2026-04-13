@@ -59,6 +59,8 @@ pub async fn message_update(
         guild_id
     );
 
+    let old_content_saved = old_if_available.as_ref().map(|o| o.content.clone()).filter(|c| !c.is_empty());
+
     let (desc, file) = match old_if_available {
         Some(mut old) => {
             if old.content.is_empty() {
@@ -138,6 +140,7 @@ pub async fn message_update(
             target_id: new_msg.author.id.get(),
             moderator_id: new_msg.author.id.get(),
             db_id: None,
+            content: old_content_saved,
         }
     )).await;
 }

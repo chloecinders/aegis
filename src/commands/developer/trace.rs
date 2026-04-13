@@ -1,4 +1,5 @@
 use crate::{
+    SQL,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
@@ -6,13 +7,15 @@ use crate::{
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
     lexer::Token,
-    utils::is_developer,
+    transformers::Transformers,
+    utils::{cache::trace_cache::TracePoint, is_developer},
 };
 use ouroboros_macros::command;
 use serenity::{
     all::{Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Message},
     async_trait,
 };
+use std::{sync::Arc, time::Duration};
 
 pub struct Trace;
 
@@ -34,7 +37,7 @@ impl Command for Trace {
         "Shows command latency and trace breakdown of the replied to message."
     }
     fn get_syntax(&self) -> Vec<CommandSyntax> {
-        vec![]
+        vec![CommandSyntax::String("message_id", true)]
     }
     fn get_category(&self) -> CommandCategory {
         CommandCategory::Developer
@@ -46,50 +49,73 @@ impl Command for Trace {
         ctx: Context,
         msg: Message,
         handler: &Handler,
+        #[transformers::string] message_id_arg: Option<String>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         if !is_developer(&msg.author) {
             return Ok(());
         }
 
-        let Some(referenced_message) = msg.message_reference.clone() else {
+        let message_id = if let Some(id) = message_id_arg {
+            id.parse::<u64>().map_err(|_| CommandError {
+                title: String::from("Invalid Message ID"),
+                hint: Some(String::from("it must be a numeric ID")),
+                arg: None,
+            })?
+        } else if let Some(referenced_message) = msg.message_reference.clone() {
+            referenced_message
+                .message_id
+                .ok_or_else(|| CommandError {
+                    title: String::from("Could not get ID from reply"),
+                    hint: None,
+                    arg: None,
+                })?
+                .get()
+        } else {
             return Err(CommandError {
-                title: String::from("You must reply to a command invocation to use this."),
+                title: String::from(
+                    "You must provide a Message ID or reply to a command invocation.",
+                ),
                 hint: None,
                 arg: None,
             });
         };
 
-        let message_id = referenced_message
-            .message_id
-            .unwrap_or_else(|| Default::default());
+        trace.point("fetching_trace_from_db");
 
-        trace.point("fetching_trace_from_cache");
+        let trace_record = sqlx::query!(
+            "SELECT command_name, total_duration_nanos, success, error, points FROM command_traces WHERE message_id = $1",
+            message_id as i64
+        )
+        .fetch_optional(&*SQL)
+        .await
+        .map_err(|err| {
+            tracing::error!("DB error fetching trace: {err:?}");
+            CommandError {
+                title: String::from("Database error while fetching trace"),
+                hint: None,
+                arg: None,
+            }
+        })?;
 
-        let trace_record = {
-            let lock = handler.trace_cache.lock().await;
-            lock.get(message_id).cloned()
-        };
+        if let Some(row) = trace_record {
+            let points: Vec<TracePoint> = serde_json::from_value(row.points).unwrap_or_default();
+            let total_duration = Duration::from_nanos(row.total_duration_nanos as u64);
 
-        if let Some(trace_model) = trace_record {
             let mut description = format!(
                 "**{} TRACE**\n-# Status: {} | Total Latency: `{:?}`",
-                trace_model.command_name.to_uppercase(),
-                if trace_model.success {
-                    "Success"
-                } else {
-                    "Failed"
-                },
-                trace_model.total_duration
+                row.command_name.to_uppercase(),
+                if row.success { "Success" } else { "Failed" },
+                total_duration
             );
 
-            if let Some(error) = &trace_model.error {
+            if let Some(error) = &row.error {
                 description.push_str(&format!(" Error: {}", error));
             }
 
             description.push_str("\n");
 
-            for point in trace_model.points {
+            for point in points {
                 description.push_str(&format!("{}: `{:?}`\n", point.name, point.duration));
             }
 

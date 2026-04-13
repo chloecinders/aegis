@@ -8,7 +8,7 @@ use crate::{
     SQL,
     constants::BRAND_BLUE,
     event_handler::CommandError,
-    utils::{LogType, can_target, guild_log},
+    utils::{LogType, can_target, guild_log, logging::LogContext},
 };
 
 pub async fn warn_member(
@@ -66,10 +66,11 @@ pub async fn warn_member(
                     ))
                     .color(BRAND_BLUE)
             ),
-            Some(crate::utils::logging::LogContext {
+            Some(LogContext {
                 target_id: member.user.id.get(),
                 moderator_id: author.user.id.get(),
                 db_id: Some(db_id.clone()),
+                content: None,
             }),
     ).await;
 

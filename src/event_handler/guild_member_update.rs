@@ -71,6 +71,7 @@ pub async fn guild_member_update(
     if let Some(old) = old_if_available.clone()
         && let Some(new) = new.clone()
     {
+        /*
         let lhs = old.avatar.or(old.user.avatar);
         let rhs = new.avatar.or(new.user.avatar);
 
@@ -139,6 +140,7 @@ pub async fn guild_member_update(
                 }
             };
         }
+        */
     };
 
     let roles = if let Some(old) = old_if_available

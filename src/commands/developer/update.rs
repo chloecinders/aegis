@@ -18,7 +18,9 @@ use crate::{
     utils::{LogType, get_all_guilds, guild_log, is_developer},
 };
 use ouroboros_macros::command;
-use std::{process::exit, sync::Arc};
+use std::sync::Arc;
+
+use crate::ShardManagerContainer;
 
 pub struct Update;
 
@@ -354,7 +356,7 @@ impl Command for Update {
 
                 let _ = fs::write(
                     "./update.txt",
-                    format!("{}:{}", msg.channel_id.get(), msg.id.get()),
+                    format!("{}:{}:{}", msg.channel_id.get(), msg.id.get(), run.head_sha),
                 );
 
                 let target = "./Ouroboros";
@@ -370,8 +372,6 @@ impl Command for Update {
                     warn!("Failed to set permissions; err = {:?}", err);
                     return Ok(());
                 }
-
-                exit(0);
             }
 
             #[cfg(target_os = "windows")]
@@ -382,27 +382,28 @@ impl Command for Update {
                     handle.await.unwrap();
                 }
 
-                let child =
-                    match SystemCommand::new(format!(".{}{filename}", std::path::MAIN_SEPARATOR))
-                        .arg(format!(
-                            "--update={}:{}",
-                            msg.channel_id.get(),
-                            msg.id.get()
-                        ))
-                        .spawn()
-                    {
-                        Ok(c) => c,
-                        Err(e) => {
-                            let err = format!("Could not run downloaded version; err = {e:?}");
-                            warn!(err);
-                            let _ = msg.reply(&ctx, err).await;
-                            return Ok(());
-                        }
-                    };
-
-                drop(child);
-                exit(0);
+                match SystemCommand::new(format!(".{}{filename}", std::path::MAIN_SEPARATOR))
+                    .arg(format!(
+                        "--update={}:{}:{}",
+                        msg.channel_id.get(),
+                        msg.id.get(),
+                        run.head_sha
+                    ))
+                    .spawn()
+                {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let err = format!("Could not run downloaded version; err = {e:?}");
+                        warn!(err);
+                        let _ = msg.reply(&ctx, err).await;
+                        return Ok(());
+                    }
+                };
             }
+
+            let data = ctx.data.read().await;
+            let shard_manager = data.get::<ShardManagerContainer>().unwrap();
+            shard_manager.shutdown_all().await;
         }
 
         Ok(())
@@ -421,6 +422,7 @@ pub struct WorkflowRun {
     pub id: u64,
     pub status: String,
     pub conclusion: Option<String>,
+    pub head_sha: String,
     pub artifacts_url: String,
 }
 

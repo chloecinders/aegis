@@ -19,14 +19,14 @@ use crate::{
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, CreateOcrRule, DefineLog, DeleteRule,
         Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping,
-        Purge, Reason, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update,
+        Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update,
         Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
     utils::{
         cache::{
-            message_cache::MessageCache, permission_cache::PermissionCache, trace_cache::TraceCache,
+            message_cache::MessageCache, permission_cache::PermissionCache,
         },
         consume_serenity_error,
         rule_cache::RuleCache,
@@ -103,7 +103,6 @@ pub struct Handler {
     pub message_cache: Arc<Mutex<MessageCache>>,
     pub permission_cache: Arc<Mutex<PermissionCache>>,
     pub rule_cache: Arc<Mutex<RuleCache>>,
-    pub trace_cache: Arc<Mutex<TraceCache>>,
 }
 
 impl Handler {
@@ -139,6 +138,7 @@ impl Handler {
             Arc::new(DeleteRule::new()),
             Arc::new(Trace::new()),
             Arc::new(CacheSize::new()),
+            Arc::new(Restart::new()),
         ];
 
         let cache = Arc::new(Mutex::new(MessageCache::new()));
@@ -165,7 +165,6 @@ impl Handler {
             message_cache: cache,
             permission_cache: Arc::new(Mutex::new(PermissionCache::new())),
             rule_cache: rule_cache,
-            trace_cache: Arc::new(Mutex::new(TraceCache::new())),
         }
     }
 }

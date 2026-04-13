@@ -6,7 +6,7 @@ use crate::{
     SQL,
     constants::BRAND_BLUE,
     event_handler::CommandError,
-    utils::{LogType, guild_log},
+    utils::{LogType, guild_log, logging::LogContext},
 };
 
 pub async fn unban_user(
@@ -91,10 +91,11 @@ pub async fn unban_user(
                     ))
                     .color(BRAND_BLUE)
             ),
-            Some(crate::utils::logging::LogContext {
+            Some(LogContext {
                 target_id: user.id.get(),
                 moderator_id: author.user.id.get(),
                 db_id: Some(db_id.clone()),
+                content: None,
             }),
     ).await;
 

@@ -38,7 +38,7 @@ pub fn send_error(title: String, body: String) {
                 "Sent error; response = {}",
                 body.text().await.unwrap_or_default()
             ),
-            Err(e) => warn!("Error while sending error... {e:?}"),
+            Err(e) => warn!("Error while sending error... {e}"),
         }
     });
 }
@@ -100,11 +100,11 @@ pub fn consume_serenity_error(action: String, err: SerenityError) {
         _ => String::from("UNHANDLED: OTHER"),
     };
 
-    warn!("Encountered Error: {action}; {body}; {err:?}");
+    warn!("Encountered Error: {action}; {body}; {err}");
 
     tokio::spawn(async move {
         let msg = CreateMessage::new().embed(CreateEmbed::new().color(BRAND_RED).description(
-            format!("**SERENITY ERROR: {action}**\n`{time}` {body}\nOriginal: {err:?}"),
+            format!("**SERENITY ERROR: {action}**\n`{time}` {body}\nOriginal: {err}"),
         ));
 
         let body = json::to_string(&msg);
@@ -120,7 +120,7 @@ pub fn consume_serenity_error(action: String, err: SerenityError) {
                 "Sent error; response = {}",
                 body.text().await.unwrap_or(String::from("(None)"))
             ),
-            Err(e) => warn!("Error while sending error... {e:?}"),
+            Err(e) => warn!("Error while sending error... {e}"),
         }
     });
 }
@@ -157,11 +157,11 @@ pub fn consume_pgsql_error(action: String, err: SqlxError) {
         _ => String::from("UNHANDLED PGSQL"),
     };
 
-    warn!("Encountered Error: {action}; {body}; {err:?}");
+    warn!("Encountered Error: {action}; {body}; {err}");
 
     tokio::spawn(async move {
         let msg = CreateMessage::new().embed(CreateEmbed::new().color(BRAND_RED).description(
-            format!("**PGSQL ERROR: {action}**\n`{time}` {body}\nOriginal: {err:?}"),
+            format!("**PGSQL ERROR: {action}**\n`{time}` {body}\nOriginal: {err}"),
         ));
 
         let body = json::to_string(&msg);
@@ -177,7 +177,7 @@ pub fn consume_pgsql_error(action: String, err: SqlxError) {
                 "Sent error; response = {}",
                 body.text().await.unwrap_or(String::from("(None)"))
             ),
-            Err(e) => warn!("Error while sending error... {e:?}"),
+            Err(e) => warn!("Error while sending error... {e}"),
         }
     });
 }

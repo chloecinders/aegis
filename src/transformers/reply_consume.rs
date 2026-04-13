@@ -19,26 +19,41 @@ impl Transformers {
             if args.peek().is_some() {
                 return Transformers::consume(ctx, msg, args).await;
             } else if let Some(reply) = msg.referenced_message.clone() {
-                let (content, infer_type) = if let Some(embed) = reply.embeds.first()
-                    && embed.clone().kind.unwrap_or(String::new()) == "auto_moderation_message"
+                if let Ok(Some(row)) =
+                    sqlx::query("SELECT content FROM log_messages_context WHERE message_id = $1")
+                        .bind(reply.id.get() as i64)
+                        .fetch_optional(&*crate::SQL)
+                        .await
                 {
-                    let reason_type = if let Some(field) =
-                        embed.fields.iter().find(|f| f.name == "quarantine_user")
+                    if let Some(content) =
+                        sqlx::Row::try_get::<Option<String>, _>(&row, "content").unwrap_or(None)
                     {
-                        if field.value == "display_name" {
-                            String::from("Name: ")
-                        } else if field.value == "clan_tag" {
-                            String::from("Tag: ")
-                        } else {
-                            String::from("Automod: ")
-                        }
+                        return Ok(Token {
+                            contents: Some(CommandArgument::String(content)),
+                            raw: String::new(),
+                            position: 0,
+                            length: 0,
+                            iteration: 0,
+                            quoted: false,
+                            inferred: Some(InferType::SystemMessage),
+                        });
+                    }
+                }
+
+                let (content, infer_type) = if let Some(embed) = reply.embeds.first() {
+                    let desc = embed.clone().description.unwrap_or_default();
+                    if embed.clone().kind.unwrap_or_default() == "auto_moderation_message" {
+                        (format!("Automod: {desc}"), InferType::SystemMessage)
+                    } else if desc.starts_with("**MESSAGE DELETED**")
+                        || desc.starts_with("**MESSAGE EDITED**")
+                    {
+                        (
+                            format!("Message: <Stored context lost>"),
+                            InferType::SystemMessage,
+                        )
                     } else {
-                        String::from("Message: ")
-                    };
-
-                    let content = embed.clone().description.unwrap_or(msg.content.clone());
-
-                    (format!("{reason_type}{content}"), InferType::SystemMessage)
+                        (format!("Message: {}", reply.content), InferType::Message)
+                    }
                 } else {
                     (format!("Message: {}", reply.content), InferType::Message)
                 };

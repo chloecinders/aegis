@@ -239,6 +239,7 @@ mod developer;
 pub use developer::CacheSize;
 pub use developer::MsgDbg;
 pub use developer::PermDbg;
+pub use developer::Restart;
 pub use developer::Say;
 pub use developer::ScheduleDowntime;
 pub use developer::Trace;

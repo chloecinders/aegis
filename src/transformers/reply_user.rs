@@ -40,6 +40,15 @@ impl Transformers {
                         }
                     }
                 }
+
+                if target_user.id == ctx.cache.current_user().id {
+                    return Err(TransformerError::CommandError(CommandError {
+                        title: String::from("Cannot infer user from log"),
+                        hint: Some(String::from("This log is missing valid database context and is targeting the bot instead. Please provide the user explicitly.")),
+                        arg: None,
+                    }));
+                }
+
                 let infer_type = if matches!(reply.kind, MessageType::AutoModAction) {
                     InferType::SystemMessage
                 } else {

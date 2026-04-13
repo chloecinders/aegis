@@ -116,6 +116,7 @@ pub async fn message_delete(
             target_id: msg.author.id,
             moderator_id: actor_id.unwrap_or(msg.author.id),
             db_id: None,
+            content: if msg.content.is_empty() { None } else { Some(msg.content.clone()) },
         })
     )
     .await;

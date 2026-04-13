@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use serenity::all::{Context, CreateAllowedMentions, CreateMessage, Message};
+use serenity::all::{Cache, Context, CreateAllowedMentions, CreateMessage, Message};
 use tracing::warn;
 
 use crate::{
+    SQL,
     commands::{CommandArgument, TransformerError},
     event_handler::{CommandError, Handler},
     lexer::{Token, lex},
@@ -69,7 +70,7 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
         }
 
         {
-            let Ok(member) = msg.member(&ctx).await else {
+            let Some(guild_id) = msg.guild_id else {
                 handler
                     .send_error(
                         &ctx,
@@ -87,7 +88,66 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 return;
             };
 
-            let Ok(guild) = member.guild_id.to_partial_guild(&ctx).await else {
+            let bot_id = ctx.cache.current_user().id;
+
+            let cached_context = {
+                let cache_guild_arc = ctx.cache.guild(guild_id);
+                let cache_member = cache_guild_arc
+                    .as_ref()
+                    .and_then(|g| g.members.get(&msg.author.id).cloned());
+                let cache_guild = cache_guild_arc.as_ref().map(|g| (*g).clone());
+                let cache_channel = cache_guild_arc
+                    .as_ref()
+                    .and_then(|g| g.channels.get(&msg.channel_id).cloned());
+                let cache_bot_member = cache_guild_arc
+                    .as_ref()
+                    .and_then(|g| g.members.get(&bot_id).cloned());
+
+                if let (Some(member), Some(guild), Some(channel), Some(bot_member)) =
+                    (cache_member, cache_guild, cache_channel, cache_bot_member)
+                {
+                    Some((
+                        Ok(member),
+                        Ok(guild.into()),
+                        Ok(Some(channel)),
+                        Ok(bot_member),
+                    ))
+                } else {
+                    None
+                }
+            };
+
+            let (member_res, guild_res, channel_res, current_user_res) = match cached_context {
+                Some(res) => res,
+                None => {
+                    tokio::join!(
+                        msg.member(&ctx),
+                        guild_id.to_partial_guild(&ctx),
+                        async { msg.channel(&ctx).await.map(|c| c.guild()) },
+                        guild_id.member(&ctx, bot_id),
+                    )
+                }
+            };
+
+            let Ok(member) = member_res else {
+                handler
+                    .send_error(
+                        &ctx,
+                        &msg,
+                        msg.content.clone(),
+                        CommandError {
+                            title: String::from(
+                                "You do not have permissions to execute this command.",
+                            ),
+                            hint: Some(String::from("could not get member object")),
+                            arg: None,
+                        },
+                    )
+                    .await;
+                return;
+            };
+
+            let Ok(guild) = guild_res else {
                 handler
                     .send_error(
                         &ctx,
@@ -103,7 +163,7 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 return;
             };
 
-            let Ok(Some(channel)) = msg.channel(&ctx).await.map(|c| c.guild()) else {
+            let Ok(Some(channel)) = channel_res else {
                 handler
                     .send_error(
                         &ctx,
@@ -119,8 +179,7 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
                 return;
             };
 
-            let id = ctx.cache.current_user().id.clone();
-            let Ok(current_user) = guild.member(&ctx, id).await else {
+            let Ok(current_user) = current_user_res else {
                 handler
                     .send_error(
                         &ctx,
@@ -264,7 +323,14 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
         trace.point("transform_args");
 
         let res = c
-            .run(ctx.clone(), msg.clone(), handler, args, command_params, &mut trace)
+            .run(
+                ctx.clone(),
+                msg.clone(),
+                handler,
+                args,
+                command_params,
+                &mut trace,
+            )
             .await;
 
         trace.point("execution");
@@ -281,10 +347,22 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             },
         };
 
-        {
-            let mut trace_cache = handler.trace_cache.lock().await;
-            trace_cache.insert(trace_record);
-        }
+        tokio::spawn(async move {
+            if let Err(err) = sqlx::query!(
+                "INSERT INTO command_traces (message_id, command_name, total_duration_nanos, success, error, points) VALUES ($1, $2, $3, $4, $5, $6)",
+                trace_record.message_id.get() as i64,
+                trace_record.command_name,
+                trace_record.total_duration.as_nanos() as i64,
+                trace_record.success,
+                trace_record.error,
+                serde_json::to_value(&trace_record.points).unwrap_or_default()
+            )
+            .execute(&*SQL)
+            .await
+            {
+                warn!("Could not save command trace to database; err = {err:?}");
+            }
+        });
 
         if let Err(err) = res {
             handler.send_error(&ctx, &msg, contents, err).await;

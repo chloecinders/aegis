@@ -18,3 +18,6 @@ pub use schedule_downtime::ScheduleDowntime;
 
 mod trace;
 pub use trace::Trace;
+
+mod restart;
+pub use restart::Restart;

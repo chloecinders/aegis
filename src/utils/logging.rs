@@ -10,6 +10,7 @@ pub struct LogContext {
     pub target_id: u64,
     pub moderator_id: u64,
     pub db_id: Option<String>,
+    pub content: Option<String>,
 }
 
 #[derive(Hash, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -53,7 +54,6 @@ impl LogType {
             LogType::ActionUpdate,
             LogType::MessageUpdate,
             LogType::OuroborosAnnonucements,
-            LogType::AvatarUpdate,
         ]
     }
 
@@ -84,20 +84,21 @@ pub async fn guild_log(
         Ok(message) => {
             if let Some(ctx) = context {
                 if let Err(err) = sqlx::query(
-                    "INSERT INTO log_messages_context (message_id, guild_id, target_id, moderator_id, db_id) VALUES ($1, $2, $3, $4, $5)",
+                    "INSERT INTO log_messages_context (message_id, guild_id, target_id, moderator_id, db_id, content) VALUES ($1, $2, $3, $4, $5, $6)",
                 )
                 .bind(message.id.get() as i64)
                 .bind(guild.get() as i64)
                 .bind(ctx.target_id as i64)
                 .bind(ctx.moderator_id as i64)
                 .bind(ctx.db_id)
+                .bind(ctx.content)
                 .execute(&*SQL).await {
-                    warn!("Cannot save log message context into log_messages_context; err = {err:?}");
+                    warn!("Cannot save log message context into log_messages_context; err = {err}");
                 }
             }
         }
         Err(err) => {
-            warn!("Cannot not send log message; err = {err:?}");
+            warn!("Cannot not send log message; err = {err}");
         }
     }
 }

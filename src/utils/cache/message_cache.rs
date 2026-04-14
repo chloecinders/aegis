@@ -96,6 +96,11 @@ impl MessageCache {
 
         for queue in self.messages.values() {
             size += queue.items.capacity() * std::mem::size_of::<PartialMessage>();
+
+            for msg in &queue.items {
+                size += msg.byte_footprint() - std::mem::size_of::<PartialMessage>();
+            }
+
             size += queue.index.capacity()
                 * (std::mem::size_of::<u64>() + std::mem::size_of::<usize>());
         }

@@ -7,10 +7,22 @@ pub struct PartialUser {
     pub bot: bool,
 }
 
+impl PartialUser {
+    pub fn byte_footprint(&self) -> usize {
+        std::mem::size_of::<Self>() + self.name.capacity()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PartialAttachment {
     pub name: String,
     pub url: String,
+}
+
+impl PartialAttachment {
+    pub fn byte_footprint(&self) -> usize {
+        std::mem::size_of::<Self>() + self.name.capacity() + self.url.capacity()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -48,6 +60,19 @@ impl From<Message> for PartialMessage {
 }
 
 impl PartialMessage {
+    pub fn byte_footprint(&self) -> usize {
+        let mut size = std::mem::size_of::<Self>();
+        size += self.content.capacity();
+        size += self.author.byte_footprint() - std::mem::size_of::<PartialUser>();
+        size += self.attachment_urls.capacity() * std::mem::size_of::<PartialAttachment>();
+
+        for attachment in &self.attachment_urls {
+            size += attachment.byte_footprint() - std::mem::size_of::<PartialAttachment>();
+        }
+
+        size
+    }
+
     // pub async fn to_message(&self, ctx: &impl CacheHttp) -> Option<Message> {
     //     let mut current = ctx.http().get_message(self.channel_id.into(), self.id.into()).await.ok()?;
     //     current.content = self.content.clone();

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 serde = "1.0.219"
+serde_json = "1.0.149"
 serenity = { version = "0.12.4", features = ["chrono", "collector"] }
 sysinfo = { version = "0.37.0", default-features = false, features = ["system"] }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "signal"] }
@@ -20,8 +21,9 @@ image = "0.25.6"
 thiserror = "2.0.17"
 tesseract-rs = { version = "0.1.20", features = ["build-tesseract"] }
 regex = "1.12.2"
-dhat = "0.3.3"
-serde_json = "1.0.149"
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+    tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
+tikv-jemalloc-ctl = "0.6.0"
 
 [workspace]
 members = ["ouroboros_macros"]

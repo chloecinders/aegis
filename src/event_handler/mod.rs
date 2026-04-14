@@ -18,9 +18,9 @@ use crate::{
     SQL,
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, CreateOcrRule, DefineLog, DeleteRule,
-        Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping,
-        Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute,
-        Update, Warn,
+        Jeprof, Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg,
+        Ping, Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban,
+        Unmute, Update, Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
@@ -136,6 +136,7 @@ impl Handler {
             Arc::new(DeleteRule::new()),
             Arc::new(Trace::new()),
             Arc::new(CacheSize::new()),
+            Arc::new(Jeprof::new()),
             Arc::new(Restart::new()),
         ];
 

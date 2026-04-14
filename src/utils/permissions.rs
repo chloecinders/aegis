@@ -118,18 +118,25 @@ pub fn is_developer(user: &User) -> bool {
         .is_some_and(|i| i.contains(&user.id.get()))
 }
 
-/// Checks if a user can target another user with a specific permission (i.e. can user ban target?)
 pub async fn can_target(
     ctx: &Context,
     user: &Member,
     target: &Member,
     permission: Permissions,
 ) -> bool {
-    if let Ok(partial) = user.guild_id.to_partial_guild(ctx).await {
-        if user.user.id == partial.owner_id {
+    let owner_id = if let Some(g) = ctx.cache.guild(user.guild_id) {
+        Some(g.owner_id)
+    } else if let Ok(partial) = user.guild_id.to_partial_guild(ctx).await {
+        Some(partial.owner_id)
+    } else {
+        None
+    };
+
+    if let Some(owner_id) = owner_id {
+        if user.user.id == owner_id {
             return true;
         };
-        if target.user.id == partial.owner_id {
+        if target.user.id == owner_id {
             return false;
         };
     }
@@ -137,7 +144,6 @@ pub async fn can_target(
     let get_highest_role_pos = async |mem: &Member| {
         let mut matching = -1;
 
-        // fetch roles if they dont exist in the cache
         let mut roles = {
             if let Some(roles) = mem.roles(&ctx) {
                 roles

@@ -80,6 +80,7 @@ impl Command for Softban {
         params: std::collections::HashMap<&str, (bool, CommandArgument)>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
+        let guild = crate::utils::get_guild_info(&ctx, msg.guild_id).await;
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
                 title: String::from("Unexpected error has occured."),
@@ -138,17 +139,10 @@ impl Command for Softban {
             clear_msg = format!(" | Cleared {days} days of messages");
         }
 
-        let guild_name = {
-            match msg
-                .guild_id
-                .unwrap_or(GuildId::new(1))
-                .to_partial_guild(&ctx)
-                .await
-            {
-                Ok(p) => p.name.clone(),
-                Err(_) => String::from("UNKNOWN_GUILD"),
-            }
-        };
+        let guild_name = guild
+            .as_ref()
+            .map(|g| g.name())
+            .unwrap_or_else(|| String::from("UNKNOWN_GUILD"));
 
         let static_response_parts = (
             format!(
@@ -172,14 +166,6 @@ impl Command for Softban {
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
 
-        let Ok(author_member) = msg.member(&ctx).await else {
-            return Err(CommandError {
-                title: String::from("Unexpected error has occured."),
-                hint: Some(String::from("could not get author member")),
-                arg: None,
-            });
-        };
-
         trace.point("executing_sanctions");
         moderation::softban(
             &ctx,
@@ -192,7 +178,7 @@ impl Command for Softban {
         )
         .await?;
 
-        cmd_response.send_response(&ctx, &msg).await;
+        cmd_response.send_response(&ctx, &msg, trace).await;
 
         Ok(())
     }

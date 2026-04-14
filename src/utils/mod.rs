@@ -29,7 +29,7 @@ mod formatting;
 pub use formatting::create_diff;
 
 mod guilds;
-pub use guilds::get_all_guilds;
+pub use guilds::*;
 
 mod audit_log;
 pub use audit_log::find_audit_log;

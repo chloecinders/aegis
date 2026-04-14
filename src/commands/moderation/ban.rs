@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use chrono::Duration;
 use serenity::{
-    all::{
-        CacheHttp, Context, GuildId, LightMethod, Mentionable, Message, Permissions, Request, Route,
-    },
+    all::{CacheHttp, Context, LightMethod, Mentionable, Message, Permissions, Request, Route},
     async_trait,
 };
 
@@ -89,6 +87,7 @@ impl Command for Ban {
         params: std::collections::HashMap<&str, (bool, CommandArgument)>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
+        let guild = crate::utils::get_guild_info(&ctx, msg.guild_id).await;
         let Some(guild_id) = msg.guild_id else {
             return Err(CommandError {
                 title: String::from("Unexpected error has occured."),
@@ -116,6 +115,42 @@ impl Command for Ban {
                 hint: None,
                 arg: None,
             });
+        }
+
+        let Ok(author_member) = msg.member(&ctx).await else {
+            return Err(CommandError {
+                title: String::from("Unexpected error has occured."),
+                hint: Some(String::from("could not get author member")),
+                arg: None,
+            });
+        };
+
+        let mut target_member_opt = ctx
+            .cache
+            .guild(guild_id)
+            .and_then(|g| g.members.get(&user.id).cloned());
+
+        if target_member_opt.is_none() {
+            target_member_opt = guild_id.member(&ctx, user.id).await.ok();
+        }
+
+        if let Some(target_member) = target_member_opt {
+            trace.point("verifying_permissions");
+            let res = crate::utils::can_target(
+                &ctx,
+                &author_member,
+                &target_member,
+                Permissions::BAN_MEMBERS,
+            )
+            .await;
+
+            if !res {
+                return Err(CommandError {
+                    title: String::from("You may not target this member."),
+                    hint: None,
+                    arg: None,
+                });
+            }
         }
 
         let inferred = matches!(_user_arg.inferred, Some(InferType::Message));
@@ -193,17 +228,10 @@ impl Command for Ban {
             clear_msg = format!(" | Cleared {days} days of messages");
         }
 
-        let guild_name = {
-            match msg
-                .guild_id
-                .unwrap_or(GuildId::new(1))
-                .to_partial_guild(&ctx)
-                .await
-            {
-                Ok(p) => p.name.clone(),
-                Err(_) => String::from("UNKNOWN_GUILD"),
-            }
-        };
+        let guild_name = guild
+            .as_ref()
+            .map(|g| g.name())
+            .unwrap_or_else(|| String::from("UNKNOWN_GUILD"));
 
         let static_server_contents = (
             format!(
@@ -229,14 +257,6 @@ impl Command for Ban {
 
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
-
-        let Ok(author_member) = msg.member(&ctx).await else {
-            return Err(CommandError {
-                title: String::from("Unexpected error has occured."),
-                hint: Some(String::from("could not get author member")),
-                arg: None,
-            });
-        };
 
         trace.point("executing_sanctions");
         if let Ok(target_member) = guild_id.member(&ctx, user.id).await {
@@ -274,7 +294,7 @@ impl Command for Ban {
             }
         }
 
-        cmd_response.send_response(&ctx, &msg).await;
+        cmd_response.send_response(&ctx, &msg, trace).await;
 
         Ok(())
     }

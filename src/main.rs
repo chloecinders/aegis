@@ -39,8 +39,9 @@ mod tasks;
 mod transformers;
 mod utils;
 
+#[cfg(not(target_env = "msvc"))]
 #[global_allocator]
-static ALLOC: dhat::Alloc = dhat::Alloc;
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 pub static START_TIME: AutoOnceLock<Instant> = AutoOnceLock::new();
 pub static SQL: AutoOnceLock<PgPool> = AutoOnceLock::new();
@@ -49,7 +50,6 @@ pub static BOT_CONFIG: AutoOnceLock<Environment> = AutoOnceLock::new();
 
 #[tokio::main]
 async fn main() {
-    let _profiler = dhat::Profiler::new_heap();
     tracing_subscriber::fmt::fmt().init();
 
     #[cfg(target_os = "windows")]
@@ -165,7 +165,7 @@ async fn main() {
             }
         },
         _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Received Ctrl-C! Shutting down to write DHAT heap profile...");
+            tracing::info!("Received Ctrl-C! Shutting down...");
         },
         _ = async {
             #[cfg(unix)]
@@ -177,7 +177,7 @@ async fn main() {
                 std::future::pending::<()>().await
             }
         } => {
-            tracing::info!("Received SIGTERM! Shutting down to write DHAT heap profile...");
+            tracing::info!("Received SIGTERM! Shutting down...");
         }
     }
 }

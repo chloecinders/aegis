@@ -73,24 +73,28 @@ impl CommandMessageResponse {
         }
     }
 
-    pub async fn send_response(&mut self, ctx: &Context, cmd_msg: &Message) {
+    pub async fn send_response(&mut self, ctx: &Context, cmd_msg: &Message, trace: &mut crate::utils::TraceContext) {
         let addition = if self.silent {
             String::from("| silent")
         } else {
             let mut lock = self.join_thread.lock().await;
+            trace.point("inspecting_dm_thread");
 
-            let res = match lock.as_mut().map(|h| {
-                if h.is_finished() {
-                    h.now_or_never()
-                } else {
-                    None
+            let mut finished = false;
+            let res = match lock.as_mut() {
+                Some(h) if h.is_finished() => {
+                    finished = true;
+                    match h.now_or_never() {
+                        Some(Ok(b)) if b => String::new(),
+                        _ => String::from(" | DM failed"),
+                    }
                 }
-            }) {
-                Some(Some(Ok(b))) if b => String::new(),
                 _ => String::from(" | DM failed"),
             };
 
-            lock.take();
+            if finished {
+                lock.take();
+            }
             res
         };
 
@@ -103,6 +107,7 @@ impl CommandMessageResponse {
             .reference_message(cmd_msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
+        trace.point("sending_initial_response");
         let mut msg = match cmd_msg.channel_id.send_message(&ctx, reply).await {
             Ok(m) => m,
             Err(err) => {
@@ -112,13 +117,15 @@ impl CommandMessageResponse {
         };
 
         let mut lock = self.join_thread.lock().await;
-        if let Some(handle) = lock.as_mut() {
+        if let Some(handle) = lock.take() {
+            trace.point("waiting_for_dm_completion");
             let addition = match handle.await {
                 Ok(b) if b => String::new(),
                 _ => String::from("| DM failed"),
             };
             let desc = (*self.server_content)(addition);
 
+            trace.point("editing_response");
             let _ = msg
                 .edit(
                     &ctx,
@@ -132,6 +139,7 @@ impl CommandMessageResponse {
             let ctx = ctx.clone();
             let cmd_msg = cmd_msg.clone();
 
+            trace.point("spawning_deletion_task");
             tokio::spawn(async move {
                 sleep(Duration::from_secs(5)).await;
                 tokio::join!(msg.delete(&ctx), cmd_msg.delete(&ctx))

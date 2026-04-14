@@ -69,6 +69,7 @@ impl Command for Unmute {
         #[transformers::reply_consume] reason: Option<String>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
+        let guild = crate::utils::get_guild_info(&ctx, msg.guild_id).await;
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
                 title: String::from("Unexpected error has occured."),

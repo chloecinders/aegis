@@ -1,4 +1,41 @@
-use serenity::all::{CacheHttp, GuildInfo, GuildPagination};
+use serenity::all::{
+    CacheHttp, Context, Guild, GuildId, GuildInfo, GuildPagination, PartialGuild, UserId,
+};
+
+pub enum CachedGuild {
+    Cached(Guild),
+    Partial(PartialGuild),
+}
+
+impl CachedGuild {
+    pub fn name(&self) -> String {
+        match self {
+            CachedGuild::Cached(g) => g.name.clone(),
+            CachedGuild::Partial(p) => p.name.clone(),
+        }
+    }
+
+    pub fn owner_id(&self) -> UserId {
+        match self {
+            CachedGuild::Cached(g) => g.owner_id,
+            CachedGuild::Partial(p) => p.owner_id,
+        }
+    }
+}
+
+pub async fn get_guild_info(ctx: &Context, guild_id: Option<GuildId>) -> Option<CachedGuild> {
+    let id = guild_id?;
+
+    if let Some(g) = ctx.cache.guild(id) {
+        return Some(CachedGuild::Cached(g.clone()));
+    }
+
+    if let Ok(p) = id.to_partial_guild(ctx).await {
+        return Some(CachedGuild::Partial(p));
+    }
+
+    None
+}
 
 pub async fn get_all_guilds(http: impl CacheHttp) -> Vec<GuildInfo> {
     let mut result: Vec<GuildInfo> = Vec::new();

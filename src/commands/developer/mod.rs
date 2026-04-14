@@ -21,3 +21,6 @@ pub use trace::Trace;
 
 mod restart;
 pub use restart::Restart;
+
+mod jeprof;
+pub use jeprof::Jeprof;

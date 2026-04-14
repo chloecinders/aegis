@@ -12,7 +12,7 @@ use crate::{
 };
 use ouroboros_macros::command;
 use serenity::{
-    all::{Context, GuildId, Mentionable, Message, Permissions},
+    all::{Context, Mentionable, Message, Permissions},
     async_trait,
 };
 
@@ -68,6 +68,7 @@ impl Command for Kick {
         params: std::collections::HashMap<&str, (bool, CommandArgument)>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
+        let guild = crate::utils::get_guild_info(&ctx, msg.guild_id).await;
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
                 title: String::from("Unexpected error has occured."),
@@ -112,17 +113,10 @@ impl Command for Kick {
             }
         }
 
-        let guild_name = {
-            match msg
-                .guild_id
-                .unwrap_or(GuildId::new(1))
-                .to_partial_guild(&ctx)
-                .await
-            {
-                Ok(p) => p.name.clone(),
-                Err(_) => String::from("UNKNOWN_GUILD"),
-            }
-        };
+        let guild_name = guild
+            .as_ref()
+            .map(|g| g.name())
+            .unwrap_or_else(|| String::from("UNKNOWN_GUILD"));
 
         let static_response_parts = (
             format!("**{} KICKED**\n-# Log ID: `{db_id}`", member.mention()),
@@ -154,7 +148,7 @@ impl Command for Kick {
         )
         .await?;
 
-        cmd_response.send_response(&ctx, &msg).await;
+        cmd_response.send_response(&ctx, &msg, trace).await;
 
         Ok(())
     }

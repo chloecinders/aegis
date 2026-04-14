@@ -1,6 +1,4 @@
-use serenity::all::{
-    CacheHttp, Context, Guild, GuildId, GuildInfo, GuildPagination, PartialGuild, UserId,
-};
+use serenity::all::{CacheHttp, Context, Guild, GuildId, GuildInfo, GuildPagination, PartialGuild};
 
 pub enum CachedGuild {
     Cached(Guild),
@@ -12,13 +10,6 @@ impl CachedGuild {
         match self {
             CachedGuild::Cached(g) => g.name.clone(),
             CachedGuild::Partial(p) => p.name.clone(),
-        }
-    }
-
-    pub fn owner_id(&self) -> UserId {
-        match self {
-            CachedGuild::Cached(g) => g.owner_id,
-            CachedGuild::Partial(p) => p.owner_id,
         }
     }
 }

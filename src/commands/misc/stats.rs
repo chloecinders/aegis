@@ -4,7 +4,7 @@ use serenity::{
     all::{Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Message},
     async_trait,
 };
-use sysinfo::{MemoryRefreshKind, RefreshKind, System};
+
 use tracing::warn;
 
 use crate::{
@@ -67,14 +67,30 @@ impl Command for Stats {
             (seconds / 3600, (seconds % 3600) / 60, seconds % 60)
         };
 
+        #[cfg(not(target_env = "msvc"))]
         let memory = {
             trace.point("fetching_sys_memory_usage");
 
-            let refresh_kind = RefreshKind::nothing().with_memory(MemoryRefreshKind::everything());
-            let mut sys = System::new_with_specifics(refresh_kind);
-            sys.refresh_all();
+            let epoch = tikv_jemalloc_ctl::epoch::mib().unwrap();
+            let allocated = tikv_jemalloc_ctl::stats::allocated::mib().unwrap();
 
-            sys.process((std::process::id() as usize).into())
+            epoch.advance().unwrap();
+            allocated.read().unwrap() as f64 / 1024.0 / 1024.0
+        };
+
+        #[cfg(target_env = "msvc")]
+        let memory = {
+            trace.point("fetching_sys_memory_usage");
+
+            let mut sys = sysinfo::System::new();
+            let pid = sysinfo::Pid::from(std::process::id() as usize);
+            sys.refresh_processes_specifics(
+                sysinfo::ProcessesToUpdate::Some(&[pid]),
+                true,
+                sysinfo::ProcessRefreshKind::nothing().with_memory(),
+            );
+
+            sys.process(pid)
                 .map(|p| p.memory() as f64 / 1024.0 / 1024.0)
                 .unwrap_or(0.0)
         };

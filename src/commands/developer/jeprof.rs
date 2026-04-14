@@ -3,7 +3,6 @@ use serenity::{
     async_trait,
 };
 
-
 use crate::{
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
@@ -47,7 +46,13 @@ impl Command for Jeprof {
     }
 
     fn get_params(&self) -> Vec<&'static CommandParameter<'static>> {
-        vec![]
+        use crate::transformers::Transformers;
+        vec![&CommandParameter {
+            name: "raw",
+            short: "r",
+            transformer: &Transformers::none,
+            desc: "Uploads the raw .heap file instead of running jeprof",
+        }]
     }
 
     #[command]
@@ -55,9 +60,13 @@ impl Command for Jeprof {
         &self,
         ctx: Context,
         msg: Message,
+        _handler: &Handler,
+        _args: Vec<Token>,
+        params: std::collections::HashMap<&str, (bool, CommandArgument)>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
+            let raw = params.contains_key("raw");
             trace.point("finding_latest_heap");
 
             let mut latest_heap = None;
@@ -87,58 +96,90 @@ impl Command for Jeprof {
                 return Ok(());
             };
 
-            trace.point("running_jeprof");
+            if raw {
+                trace.point("uploading_raw_heap");
 
-            let exe =
-                std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("./Ouroboros"));
+                let attachment = match serenity::all::CreateAttachment::path(&heap_path).await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        let _ = msg
+                            .channel_id
+                            .say(&ctx, format!("Failed to attach heap file: {}", e))
+                            .await;
+                        return Ok(());
+                    }
+                };
 
-            let output = match std::process::Command::new("jeprof")
-                .arg("--text")
-                .arg(&exe)
-                .arg(&heap_path)
-                .output()
-            {
-                Ok(o) => o,
-                Err(e) => {
-                    let _ = msg
-                        .channel_id
-                        .say(&ctx, format!("Failed to run jeprof: {}", e))
-                        .await;
-                    return Ok(());
+                let filename = heap_path.file_name().unwrap_or_default().to_string_lossy();
+                let description = format!("**JEPROF RAW HEAP PROFILE**\nFile: `{}`", filename);
+
+                let embed = CreateEmbed::new()
+                    .description(description)
+                    .color(BRAND_BLUE);
+
+                let r = CreateMessage::new()
+                    .add_embed(embed)
+                    .reference_message(&msg)
+                    .add_file(attachment)
+                    .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
+
+                if let Err(err) = msg.channel_id.send_message(&ctx, r).await {
+                    consume_serenity_error(String::from("JEPROF RAW UPLOAD"), err);
                 }
-            };
+            } else {
+                trace.point("running_jeprof");
 
-            let mut stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                stdout = format!("jeprof failed!\nstdout: {}\nstderr: {}", stdout, stderr);
-            }
+                let exe = std::env::current_exe()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("./Ouroboros"));
 
-            let lines: Vec<&str> = stdout.lines().take(25).collect();
-            let mut jeprof_text = lines.join("\n");
+                let output = match std::process::Command::new("jeprof")
+                    .arg("--text")
+                    .arg(&exe)
+                    .arg(&heap_path)
+                    .output()
+                {
+                    Ok(o) => o,
+                    Err(e) => {
+                        let _ = msg
+                            .channel_id
+                            .say(&ctx, format!("Failed to run jeprof: {}", e))
+                            .await;
+                        return Ok(());
+                    }
+                };
 
-            if jeprof_text.len() > 3900 {
-                jeprof_text.truncate(3900);
-            }
-            jeprof_text.push_str("\n...");
+                let mut stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    stdout = format!("jeprof failed!\nstdout: {}\nstderr: {}", stdout, stderr);
+                }
 
-            let description = format!(
-                "**JEPROF HEAP PROFILE SUMMARY**\nFile: `{}`\n```text\n{}\n```",
-                heap_path.file_name().unwrap_or_default().to_string_lossy(),
-                jeprof_text
-            );
+                trace.point("uploading_heap_summary");
 
-            let embed = CreateEmbed::new()
-                .description(description)
-                .color(BRAND_BLUE);
+                let attachment = serenity::all::CreateAttachment::bytes(
+                    stdout.into_bytes(),
+                    "jeprof_summary.txt",
+                );
 
-            let r = CreateMessage::new()
-                .add_embed(embed)
-                .reference_message(&msg)
-                .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
+                let filename = heap_path.file_name().unwrap_or_default().to_string_lossy();
+                let description = format!(
+                    "**JEPROF OVERVIEW**\nTarget: `{}`\nFull analysis attached below.",
+                    filename
+                );
 
-            if let Err(err) = msg.channel_id.send_message(&ctx, r).await {
-                consume_serenity_error(String::from("DHAT RUN"), err);
+                let embed = CreateEmbed::new()
+                    .description(description)
+                    .color(BRAND_BLUE);
+
+                let r = CreateMessage::new()
+                    .add_embed(embed)
+                    .reference_message(&msg)
+                    .add_file(attachment)
+                    .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
+
+                if let Err(err) = msg.channel_id.send_message(&ctx, r).await {
+                    consume_serenity_error(String::from("JEPROF SUMMARY UPLOAD"), err);
+                }
             }
         }
 

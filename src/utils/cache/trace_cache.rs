@@ -17,13 +17,3 @@ pub struct CommandTrace {
     pub success: bool,
     pub error: Option<String>,
 }
-
-impl CommandTrace {
-    pub fn byte_footprint(&self) -> usize {
-        std::mem::size_of::<Self>()
-            + self.command_name.capacity()
-            + self.points.capacity() * std::mem::size_of::<TracePoint>()
-            + self.points.iter().map(|p| p.name.capacity()).sum::<usize>()
-            + self.error.as_ref().map(|e| e.capacity()).unwrap_or(0)
-    }
-}

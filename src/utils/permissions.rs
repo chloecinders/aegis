@@ -118,6 +118,7 @@ pub fn is_developer(user: &User) -> bool {
         .is_some_and(|i| i.contains(&user.id.get()))
 }
 
+/// Checks if a user can target another user with a specific permission (i.e. can user ban target?)
 pub async fn can_target(
     ctx: &Context,
     user: &Member,

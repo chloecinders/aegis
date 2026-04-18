@@ -24,3 +24,6 @@ pub use restart::Restart;
 
 mod jeprof;
 pub use jeprof::Jeprof;
+
+mod context;
+pub use context::ContextCmd;

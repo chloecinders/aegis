@@ -17,8 +17,8 @@ use tracing::{info, warn};
 use crate::{
     SQL,
     commands::{
-        About, Ban, Cache, CacheSize, ColonThree, Command, CreateOcrRule, DefineLog, DeleteRule,
-        Jeprof, Duration as DurationCommand, ExtractId, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg,
+        About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog, DeleteRule,
+        Duration as DurationCommand, ExtractId, Jeprof, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg,
         Ping, Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban,
         Unmute, Update, Warn,
     },
@@ -45,6 +45,14 @@ impl CommandError {
             arg: None,
             title: format!("Missing argument, expected {arg_type}{name}"),
             hint: Some(String::from("for more information run help (command)")),
+        }
+    }
+
+    pub fn new(title: &str) -> Self {
+        Self {
+            title: title.into(),
+            hint: None,
+            arg: None,
         }
     }
 }
@@ -137,6 +145,7 @@ impl Handler {
             Arc::new(Trace::new()),
             Arc::new(CacheSize::new()),
             Arc::new(Jeprof::new()),
+            Arc::new(ContextCmd::new()),
             Arc::new(Restart::new()),
         ];
 

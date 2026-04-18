@@ -72,6 +72,19 @@ impl Command for Jeprof {
             let mut latest_heap = None;
             let mut latest_time = std::time::SystemTime::UNIX_EPOCH;
 
+            #[cfg(not(target_env = "msvc"))]
+            {
+                trace.point("triggering_heap_dump");
+                if !tikv_jemalloc_ctl::prof::active::read().unwrap_or(false) {
+                    return CommandError::new(
+                        "Jemalloc profiling is not active. Ensure you started the bot with `MALLOC_CONF=prof:true`.",
+                    );
+                }
+                if let Err(e) = tikv_jemalloc_ctl::prof::dump::write(()) {
+                    tracing::warn!("Failed to trigger heap dump: {e}");
+                }
+            }
+
             if let Ok(entries) = std::fs::read_dir(".") {
                 for entry in entries.flatten() {
                     let path = entry.path();

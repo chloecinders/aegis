@@ -237,6 +237,7 @@ pub use admin::Rules;
 
 mod developer;
 pub use developer::CacheSize;
+pub use developer::ContextCmd;
 pub use developer::Jeprof;
 pub use developer::MsgDbg;
 pub use developer::PermDbg;

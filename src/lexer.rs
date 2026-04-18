@@ -6,7 +6,7 @@ pub enum InferType {
     SystemMessage,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Token {
     pub contents: Option<CommandArgument>,
     pub raw: String,

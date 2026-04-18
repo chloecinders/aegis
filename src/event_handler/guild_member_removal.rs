@@ -109,7 +109,12 @@ pub async fn guild_member_removal(
                         ))
                         .color(BRAND_BLUE),
                 ),
-                None,
+                Some(crate::utils::logging::LogContext {
+                    target_id: user.id.get(),
+                    moderator_id: actor.get(),
+                    db_id: None,
+                    content: None,
+                }),
             )
             .await;
         }
@@ -131,7 +136,12 @@ pub async fn guild_member_removal(
                         ))
                         .color(BRAND_BLUE),
                 ),
-                None,
+                Some(crate::utils::logging::LogContext {
+                    target_id: user.id.get(),
+                    moderator_id: actor.get(),
+                    db_id: None,
+                    content: None,
+                }),
             )
             .await;
         }

@@ -66,19 +66,39 @@ impl Command for Reason {
         &self,
         ctx: Context,
         msg: Message,
-        #[transformers::some_string] id: String,
-        #[transformers::consume] reason: Option<String>,
+        #[transformers::string] arg1: Option<String>,
+        #[transformers::consume] arg2: Option<String>,
         trace: &mut crate::utils::TraceContext,
     ) -> Result<(), CommandError> {
-        let mut reason = reason
-            .map(|s| {
-                if s.is_empty() || s.chars().all(char::is_whitespace) {
-                    String::from("No reason provided")
-                } else {
-                    s
-                }
-            })
-            .unwrap_or(String::from("No reason provided"));
+        let mut db_id = None;
+        if let Some(reference) = &msg.message_reference {
+            let message_id = reference.message_id.unwrap().get();
+            if let Ok(Some(record)) = sqlx::query!(
+                "SELECT db_id FROM log_messages_context WHERE message_id = $1",
+                message_id as i64
+            )
+            .fetch_optional(&*SQL)
+            .await {
+                db_id = record.db_id;
+            }
+        }
+
+        let (id, mut reason) = if let Some(id) = db_id {
+            let mut r = String::new();
+            if let Some(a1) = arg1 { r.push_str(&a1); }
+            if let Some(a2) = arg2 { 
+                if !r.is_empty() { r.push(' '); }
+                r.push_str(&a2); 
+            }
+            (id, r)
+        } else {
+            let id = arg1.ok_or_else(|| CommandError::arg_not_found("id", Some("please provide an ID or reply to a log message")))?;
+            (id, arg2.unwrap_or_default())
+        };
+
+        if reason.is_empty() || reason.chars().all(char::is_whitespace) {
+            reason = String::from("No reason provided");
+        }
 
         if reason.len() > 500 {
             reason.truncate(500);

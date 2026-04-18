@@ -272,7 +272,19 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     )
                     .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
-                let _ = ChannelId::new(channel_id).send_message(ctx, reply).await;
+                if let Ok(m) = ChannelId::new(channel_id).send_message(ctx, reply).await {
+                    let _ = sqlx::query!(
+                        "INSERT INTO log_messages_context (message_id, guild_id, target_id, moderator_id, db_id, content) VALUES ($1, $2, $3, $4, $5, $6)",
+                        m.id.get() as i64,
+                        guild_id.get() as i64,
+                        member.user.id.get() as i64,
+                        author.user.id.get() as i64,
+                        Some(db_id),
+                        None::<String>
+                    )
+                    .execute(&*crate::SQL)
+                    .await;
+                }
             }
         }
 

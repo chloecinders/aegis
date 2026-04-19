@@ -2,6 +2,8 @@
 
 Discord mod bot that is supposed to do one thing and one thing well. Currently in private beta but open source if you want to self host it yourself.
 
+https://ouroboros.chloecinders.com/
+
 Open source as I believe that people, especially moderators, should know exactly what their tools do.
 
 Feel free to contribute!

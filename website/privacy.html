@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy - Ouroboros</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="nav">
+                <a href="index.html" class="logo">Ouroboros</a>
+                <div class="nav-links">
+                    <a href="terms.html">Terms</a>
+                    <a href="privacy.html" class="active">Privacy</a>
+                    <a href="https://github.com/chloecinders/ouroboros">GitHub</a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="document-page">
+                <h1>Privacy Policy</h1>
+                <div class="last-updated">Last Updated: April 19, 2026</div>
+
+                <h2>1. Introduction</h2>
+                <p>This Privacy Policy explains how the public instance of the Ouroboros Discord bot collects,
+                    uses, and protects your data. Transparency is our core philosophy, ensuring that server
+                    administrators and their members understand exactly what information is processed to enable our
+                    moderation features.</p>
+
+                <h2>2. Data We Collect</h2>
+                <p>To function effectively as a moderation bot, Ouroboros inherently must read and occasionally
+                    store specific data from your Discord server:</p>
+                <ul>
+                    <li>Discord User Details: User IDs, usernames, and avatar hashes.</li>
+                    <li>Discord Server Details: Guild IDs, channel IDs, and role IDs necessary for permissions and
+                        configuration.</li>
+                    <li>Message Content: The Bot relies on the Message Content Intent to read commands, process
+                        replies, and handle automated moderation rules. Message contents are primarily kept in an
+                        ephemeral, memory-only dynamic cache.</li>
+                    <li>Audit Log Data: Data retrieved from Discord's Audit logs to enrich moderation context
+                        (e.g., discovering who deleted a message).</li>
+                    <li>Moderation Records: Specific historical logs of user infractions (warns, kicks, bans)
+                        invoked by your moderation team.</li>
+                </ul>
+
+                <h2>3. How We Use the Data</h2>
+                <p>Any data collected is strictly utilized to provide and fulfill the core moderation
+                    functionality of Ouroboros. Specifically:</p>
+                <ul>
+                    <li>Temporary Caching: Message content is cached dynamically to enable rapid contextual
+                        retrieval, sniping deleted messages, and resolving reply targets without hitting Discord API
+                        rate limits.</li>
+                    <li>Persistent Storage: Moderation records, configured server prefixes, mapping permissions,
+                        and explicit moderation log context are stored securely in a PostgreSQL database to ensure
+                        persistent tracking of administrative actions.</li>
+                </ul>
+                <p>We do not sell, distribute, or share your data with third parties. There is absolutely no
+                    external advertising tracking, user profiling, or monetization of the information passing
+                    through the bot.</p>
+
+                <h2>4. Data Retention</h2>
+                <p>Given the bot's nature to act as a historical moderation audit log, certain records (such as
+                    specific infractions, who administered them, and contextual data surrounding those infractions)
+                    are stored indefinitely alongside your server configurations. Ephemeral message caches are
+                    frequently purged from memory based on channel activity and time constraints to minimize memory
+                    consumption.</p>
+
+                <h2>5. Your Control and Data Deletion Rights</h2>
+                <p>As a server administrator, you retain the right to manage your server's data. If you choose to
+                    remove Ouroboros from your server, you may request a complete and permanent wipe of all
+                    associated server configurations and moderation logs by contacting the developer team via our
+                    official GitHub repository.</p>
+                <p>Individual Discord users wishing to inquire about specific personal data tied to moderation
+                    logs should directly contact the administrators of the respective Discord server where the
+                    infractions occurred, as they retain administrative jurisdiction over their server's moderation
+                    history.</p>
+
+                <h2>6. Self-Hosted Instances</h2>
+                <p>Because Ouroboros is open-source, anyone can host their own instance. This Privacy Policy
+                    strictly applies to the official, primary public instance run by the core maintainers. If your
+                    server is utilizing a self-hosted instance of Ouroboros by a third party, data collection is
+                    handled securely on their hardware, and you must review their specific privacy guidelines.</p>
+
+                <h2>7. Contact Information</h2>
+                <p>If you have any questions, concerns, or requests regarding this Privacy Policy or your data,
+                    please open an issue or reach out through our official GitHub repository at
+                    <a href="https://github.com/chloecinders/ouroboros">github.com/chloecinders/ouroboros</a>.
+                </p>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Chloe Cinders & Contributors</p>
+        </footer>
+    </div>
+</body>
+
+</html>

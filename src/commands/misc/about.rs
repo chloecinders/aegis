@@ -94,6 +94,7 @@ impl Command for About {
 Hey, I'm {}!
 A moderation bot made for one purpose and one purpose only: Moderation.
 I'm currently in private beta but my source code is available at <https://github.com/chloecinders/ouroboros>.
+Join our Discord server: <https://discord.gg/SdUf7TrbDq>
 Type `+help` to see a list of all commands!
 
 I was made in Rust by chloecinders!
@@ -101,6 +102,7 @@ I was made in Rust by chloecinders!
 Special thanks to:
 ```
 serenity-rs: Underlying Bot Framework
+bupith: Lead Idea Guy
 andreashgk: Rust Mentorship
 Discord Previews & Rust Central: Bots pre-release testing grounds
 ```

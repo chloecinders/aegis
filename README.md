@@ -20,6 +20,8 @@ Tested with Windows 11, Ubuntu 22/Ubuntu 24. Other linux based operating systems
 **Use:**
 (Discord installation link coming soon, once the bot enters its first public release)
 
+Join the Discord server: https://discord.gg/SdUf7TrbDq
+
 **install (self hosting):**
 - grab the latest binary from the latest build artifact or build it yourself
 - create a Config.toml in the same directory as the binary (see example below)

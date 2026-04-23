@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO action_refs (action_id, message_content, image_url)\n         VALUES ($1, $2, $3)\n         ON CONFLICT (action_id) DO UPDATE\n             SET message_content = COALESCE(EXCLUDED.message_content, action_refs.message_content),\n                 image_url       = COALESCE(EXCLUDED.image_url,       action_refs.image_url)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5683ade339fa76a7dae1d26b55741e240d69c45e2e596c47bd8f584e501a27b6"
+}

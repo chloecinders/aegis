@@ -13,7 +13,7 @@ use crate::{
     lexer::Token,
     utils::{
         consume_serenity_error,
-        ocr::{ImageData, image_to_string},
+        ocr::{ImageData, image_to_string_with_rotation},
     },
 };
 use ouroboros_macros::command;
@@ -57,7 +57,7 @@ impl Command for OcrCheck {
         &self,
         ctx: Context,
         msg: Message,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let Some(attachment) = msg.attachments.first() else {
             return Err(CommandError {
@@ -99,7 +99,7 @@ impl Command for OcrCheck {
         };
 
         trace.point("processing_ocr");
-        let image_str = match image_to_string(&image_data).await {
+        let image_str = match image_to_string_with_rotation(&image_data).await {
             Ok(d) => d,
             Err(_) => {
                 return Err(CommandError {

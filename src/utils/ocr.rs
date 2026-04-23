@@ -65,41 +65,64 @@ pub async fn likely_has_text(image_data: &ImageData) -> Result<bool, OcrError> {
     Ok(chars >= 10 && conf >= 30)
 }
 
-pub async fn image_to_string(image_data: &ImageData) -> Result<String, OcrError> {
-    let api = get_tesseract().await?;
+// pub async fn image_to_string(image_data: &ImageData) -> Result<String, OcrError> {
+//     let api = get_tesseract().await?;
 
-    api.set_image(
-        &image_data.raw,
-        image_data.width,
-        image_data.height,
-        4,
-        image_data.width * 4,
-    )?;
+//     api.set_image(
+//         &image_data.raw,
+//         image_data.width,
+//         image_data.height,
+//         4,
+//         image_data.width * 4,
+//     )?;
 
-    let text = api.get_utf8_text()?;
-    api.end()?;
+//     let text = api.get_utf8_text()?;
+//     api.end()?;
 
-    Ok(text)
-}
+//     Ok(text)
+// }
 
 pub async fn image_to_string_with_rotation(image_data: &ImageData) -> Result<String, OcrError> {
+    let mut current_img = image::RgbaImage::from_raw(
+        image_data.width as u32,
+        image_data.height as u32,
+        image_data.raw.clone(),
+    )
+    .ok_or_else(|| {
+        OcrError::FsError(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Invalid image data",
+        ))
+    })?;
+
+    let mut best_text = String::new();
+    let mut best_conf = 0;
+
     let api = get_tesseract().await?;
-    api.set_page_seg_mode(TessPageSegMode::PSM_SPARSE_TEXT_OSD)?;
 
-    // let (mut conf0, mut conf90, mut conf180, mut conf270) = (0, 0, 0, 0);
+    for _ in 0..4 {
+        api.set_image(
+            current_img.as_raw(),
+            current_img.width() as i32,
+            current_img.height() as i32,
+            4,
+            (current_img.width() * 4) as i32,
+        )?;
 
-    api.set_image(
-        &image_data.raw,
-        image_data.width,
-        image_data.height,
-        4,
-        image_data.width * 4,
-    )?;
+        let text = api.get_utf8_text().unwrap_or_default();
+        let conf = api.mean_text_conf().unwrap_or(0);
 
-    // conf0 = api.mean_text_conf()?;
+        if conf >= best_conf {
+            best_conf = conf;
+            best_text = text;
+        }
+
+        current_img = image::imageops::rotate90(&current_img);
+    }
+
     api.end()?;
 
-    todo!()
+    Ok(best_text)
 }
 
 async fn download_training_data() -> Result<(), OcrError> {

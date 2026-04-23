@@ -14,7 +14,7 @@ use crate::{
     commands::{Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax},
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
-    lexer::Token,
+    lexer::Token, utils::TraceContext,
 };
 
 pub struct Ping;
@@ -58,7 +58,7 @@ impl Command for Ping {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         // the time it takes to request the current user object and get it back
         let http = {

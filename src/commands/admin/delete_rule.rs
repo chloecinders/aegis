@@ -60,7 +60,7 @@ impl Command for DeleteRule {
         msg: Message,
         handler: &Handler,
         #[transformers::some_string] id: String,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let Some(guild_id) = msg.guild_id else {
             return Err(CommandError {

@@ -53,7 +53,7 @@ impl Command for ScheduleDowntime {
         &self,
         ctx: Context,
         msg: Message,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             // coming soon

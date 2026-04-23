@@ -15,7 +15,11 @@ use crate::{
     lexer::{InferType, Token},
     moderation,
     transformers::Transformers,
-    utils::{CommandMessageResponse, tinyid},
+    utils::{
+        CommandMessageResponse, get_guild_info,
+        reference::{resolve_ref, save_ref},
+        tinyid,
+    },
 };
 use ouroboros_macros::command;
 
@@ -73,6 +77,12 @@ impl Command for Ban {
                 transformer: &Transformers::none,
                 desc: "Disables DMing the target with the reason",
             },
+            &CommandParameter {
+                name: "ref",
+                short: "r",
+                transformer: &Transformers::some_string,
+                desc: "A reference link (Discord message URL or image URL)",
+            },
         ]
     }
 
@@ -84,10 +94,10 @@ impl Command for Ban {
         #[transformers::reply_user] user: User,
         #[transformers::maybe_duration] duration: Option<Duration>,
         #[transformers::reply_consume] reason: Option<String>,
-        params: std::collections::HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        params: HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
-        let guild = crate::utils::get_guild_info(&ctx, msg.guild_id).await;
+        let guild = get_guild_info(&ctx, msg.guild_id).await;
         let Some(guild_id) = msg.guild_id else {
             return Err(CommandError {
                 title: String::from("Unexpected error has occured."),
@@ -189,6 +199,19 @@ impl Command for Ban {
         }
 
         let db_id = tinyid().await;
+        let reason_is_default = reason == "No reason provided";
+        let ref_url = params.get("ref").and_then(|(active, arg)| {
+            if *active {
+                if let CommandArgument::String(s) = arg {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+        let db_id_for_ref = db_id.clone();
 
         let time_string = if !duration.is_zero() {
             let (time, mut unit) = match () {
@@ -233,6 +256,8 @@ impl Command for Ban {
             .map(|g| g.name())
             .unwrap_or_else(|| String::from("UNKNOWN_GUILD"));
 
+        let ref_data = resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await;
+
         let static_server_contents = (
             format!(
                 "**{} BANNED**\n-# Log ID: `{db_id}` | Duration: {time_string}{clear_msg}",
@@ -253,7 +278,8 @@ impl Command for Ban {
                 )
             }))
             .automatically_delete(inferred)
-            .mark_silent(params.contains_key("silent"));
+            .mark_silent(params.contains_key("silent"))
+            .ref_data(ref_data.clone());
 
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
@@ -265,10 +291,11 @@ impl Command for Ban {
                 author_member,
                 target_member,
                 msg.guild_id.unwrap_or_default(),
-                db_id,
-                reason,
+                db_id.clone(),
+                reason.clone(),
                 days,
                 duration,
+                ref_data.clone(),
             )
             .await?;
         } else {
@@ -277,13 +304,16 @@ impl Command for Ban {
                 author_member,
                 user,
                 msg.guild_id.unwrap_or_default(),
-                db_id,
-                reason,
+                db_id.clone(),
+                reason.clone(),
                 days,
                 duration,
+                ref_data.clone(),
             )
             .await?;
         }
+
+        save_ref(&db_id_for_ref, &ref_data, reason_is_default).await;
 
         let ctx_clone = ctx.clone();
         let msg_clone = msg.clone();

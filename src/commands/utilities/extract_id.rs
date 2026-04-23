@@ -11,6 +11,7 @@ use crate::{
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
     lexer::Token,
+    utils::TraceContext,
 };
 
 pub struct ExtractId;
@@ -54,7 +55,7 @@ impl Command for ExtractId {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let Some(reply) = &msg.referenced_message else {
             return Err(CommandError {

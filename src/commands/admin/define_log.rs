@@ -71,7 +71,7 @@ impl Command for DefineLog {
         ctx: Context,
         msg: Message,
         #[transformers::guild_channel] channel: Option<GuildChannel>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let channel = channel.unwrap_or_else(|| {
             msg.guild(&ctx.cache)

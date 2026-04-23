@@ -80,7 +80,7 @@ impl Command for CreateOcrRule {
         handler: &Handler,
         #[transformers::some_string] name: String,
         #[transformers::some_string] rule: String,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if name.len() >= 100 {
             return Err(CommandError {

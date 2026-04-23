@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT message_content, image_url FROM action_refs WHERE action_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "image_url",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "470ecff276d1b09f66b010480b22a4c0f5b171b691da69005e2ddc2162887ab6"
+}

@@ -64,7 +64,7 @@ impl Command for Cache {
         ctx: Context,
         msg: Message,
         #[transformers::reply_user] user: User,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let inferred = matches!(_user_arg.inferred, Some(InferType::Message));
         trace.point("checking_guild_member");

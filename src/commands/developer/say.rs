@@ -57,7 +57,7 @@ impl Command for Say {
         ctx: Context,
         msg: Message,
         #[transformers::consume] say: String,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let _ = msg.delete(&ctx).await;

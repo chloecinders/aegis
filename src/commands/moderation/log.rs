@@ -23,6 +23,7 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
+    utils::TraceContext,
 };
 
 #[derive(Debug, Clone)]
@@ -228,7 +229,7 @@ impl Command for Log {
         _handler: &Handler,
         args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let mut args_iter = args.clone().into_iter().peekable();
         let Ok(token) = Transformers::user(&ctx, &msg, &mut args_iter).await else {

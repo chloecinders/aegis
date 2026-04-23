@@ -52,7 +52,7 @@ impl Command for ColonThree {
         &self,
         ctx: Context,
         msg: Message,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         trace.point("reply");
         let _ = msg.reply(&ctx, ":3").await;

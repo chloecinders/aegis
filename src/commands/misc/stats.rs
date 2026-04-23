@@ -12,7 +12,7 @@ use crate::{
     commands::{Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax},
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
-    lexer::Token,
+    lexer::Token, utils::TraceContext,
 };
 
 pub struct Stats;
@@ -56,7 +56,7 @@ impl Command for Stats {
         _handler: &Handler,
         _args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let guild_count = ctx.cache.guild_count();
 

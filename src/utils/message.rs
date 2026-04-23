@@ -13,6 +13,7 @@ use crate::{
     commands::{CommandArgument, CommandParameter, TransformerError},
     constants::BRAND_BLUE,
     lexer::lex,
+    utils::{TraceContext, reference::embeds_for_ref},
 };
 
 pub struct CommandMessageResponse {
@@ -22,6 +23,7 @@ pub struct CommandMessageResponse {
     delete: bool,
     join_thread: Arc<Mutex<Option<JoinHandle<bool>>>>,
     silent: bool,
+    ref_embeds: Vec<CreateEmbed>,
 }
 
 impl CommandMessageResponse {
@@ -33,6 +35,7 @@ impl CommandMessageResponse {
             delete: false,
             join_thread: Arc::new(Mutex::new(None)),
             silent: false,
+            ref_embeds: Vec::new(),
         }
     }
 
@@ -55,6 +58,10 @@ impl CommandMessageResponse {
         self.silent = silent;
         self
     }
+    pub fn ref_data(mut self, ref_data: (Option<String>, Option<String>)) -> Self {
+        self.ref_embeds = embeds_for_ref(&ref_data);
+        self
+    }
 
     pub async fn send_dm(&self, ctx: &Context) {
         let ctx_clone = ctx.clone();
@@ -65,17 +72,21 @@ impl CommandMessageResponse {
             let mut lock = self.join_thread.lock().await;
 
             *lock = Some(tokio::spawn(async move {
-                let dm = CreateMessage::new()
-                    .add_embed(CreateEmbed::new().description(desc).color(BRAND_BLUE));
-
+                let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
+                let dm = CreateMessage::new().add_embed(embed);
                 user.direct_message(&ctx_clone, dm).await.is_err()
             }));
         }
     }
 
-    pub async fn send_response(&mut self, ctx: &Context, cmd_msg: &Message, trace: &mut crate::utils::TraceContext) {
+    pub async fn send_response(
+        &mut self,
+        ctx: &Context,
+        cmd_msg: &Message,
+        trace: &mut TraceContext,
+    ) {
         let addition = if self.silent {
-            String::from("| silent")
+            String::from(" | silent")
         } else {
             let mut lock = self.join_thread.lock().await;
             trace.point("inspecting_dm_thread");
@@ -102,10 +113,14 @@ impl CommandMessageResponse {
             .description((*self.server_content)(addition))
             .color(BRAND_BLUE);
 
-        let reply = CreateMessage::new()
+        let mut reply = CreateMessage::new()
             .add_embed(embed)
             .reference_message(cmd_msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
+
+        for ref_embed in self.ref_embeds.clone() {
+            reply = reply.add_embed(ref_embed);
+        }
 
         trace.point("sending_initial_response");
         let mut msg = match cmd_msg.channel_id.send_message(&ctx, reply).await {
@@ -121,18 +136,18 @@ impl CommandMessageResponse {
             trace.point("waiting_for_dm_completion");
             let addition = match handle.await {
                 Ok(b) if b => String::new(),
-                _ => String::from("| DM failed"),
+                _ => String::from(" | DM failed"),
             };
             let desc = (*self.server_content)(addition);
 
+            let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
+            let mut embeds = vec![embed];
+            for ref_embed in self.ref_embeds.clone() {
+                embeds.push(ref_embed);
+            }
+
             trace.point("editing_response");
-            let _ = msg
-                .edit(
-                    &ctx,
-                    EditMessage::new()
-                        .embed(CreateEmbed::new().description(desc).color(BRAND_BLUE)),
-                )
-                .await;
+            let _ = msg.edit(&ctx, EditMessage::new().embeds(embeds)).await;
         }
 
         if self.delete {

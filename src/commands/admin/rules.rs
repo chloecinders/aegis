@@ -219,7 +219,7 @@ impl Command for Rules {
         ctx: Context,
         msg: Message,
         #[transformers::string] id: Option<String>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if let Some(id) = id {
             return self.run_one(ctx, msg, id).await;

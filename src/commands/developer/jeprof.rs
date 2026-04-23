@@ -63,7 +63,7 @@ impl Command for Jeprof {
         _handler: &Handler,
         _args: Vec<Token>,
         params: std::collections::HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let raw = params.contains_key("raw");

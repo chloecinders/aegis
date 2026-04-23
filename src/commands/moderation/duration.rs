@@ -73,7 +73,7 @@ impl Command for Duration {
         msg: Message,
         #[transformers::string] arg1: Option<String>,
         #[transformers::string] arg2: Option<String>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let mut db_id = None;
         if let Some(reference) = &msg.message_reference {
@@ -83,30 +83,46 @@ impl Command for Duration {
                 message_id as i64
             )
             .fetch_optional(&*SQL)
-            .await {
+            .await
+            {
                 db_id = record.db_id;
             }
         }
 
         let (id, duration_str) = if let Some(id) = db_id {
             let mut d = String::new();
-            if let Some(a1) = arg1 { d.push_str(&a1); }
-            if let Some(a2) = arg2 { d.push_str(&a2); }
+            if let Some(a1) = arg1 {
+                d.push_str(&a1);
+            }
+            if let Some(a2) = arg2 {
+                d.push_str(&a2);
+            }
             (id, d)
         } else {
-            let id = arg1.ok_or_else(|| CommandError::arg_not_found("id", Some("provide an ID or reply to a log")))?;
+            let id = arg1.ok_or_else(|| {
+                CommandError::arg_not_found("id", Some("provide an ID or reply to a log"))
+            })?;
             (id, arg2.unwrap_or_default())
         };
 
         if duration_str.is_empty() {
-             return Err(CommandError::arg_not_found("duration", None));
+            return Err(CommandError::arg_not_found("duration", None));
         }
 
-        let mut fake_args = vec![Token { raw: duration_str, ..Default::default() }].into_iter().peekable();
-        let res = Transformers::duration(&ctx, &msg, &mut fake_args).await.map_err(|e| match e {
-            crate::commands::TransformerError::CommandError(c) => c,
-            crate::commands::TransformerError::MissingArgumentError(_) => CommandError::arg_not_found("duration", None)
-        })?;
+        let mut fake_args = vec![Token {
+            raw: duration_str,
+            ..Default::default()
+        }]
+        .into_iter()
+        .peekable();
+        let res = Transformers::duration(&ctx, &msg, &mut fake_args)
+            .await
+            .map_err(|e| match e {
+                crate::commands::TransformerError::CommandError(c) => c,
+                crate::commands::TransformerError::MissingArgumentError(_) => {
+                    CommandError::arg_not_found("duration", None)
+                }
+            })?;
 
         let mut duration = chrono::Duration::default();
         if let Some(CommandArgument::Duration(d_val)) = res.contents {

@@ -68,7 +68,7 @@ impl Command for Reason {
         msg: Message,
         #[transformers::string] arg1: Option<String>,
         #[transformers::consume] arg2: Option<String>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let mut db_id = None;
         if let Some(reference) = &msg.message_reference {
@@ -78,21 +78,31 @@ impl Command for Reason {
                 message_id as i64
             )
             .fetch_optional(&*SQL)
-            .await {
+            .await
+            {
                 db_id = record.db_id;
             }
         }
 
         let (id, mut reason) = if let Some(id) = db_id {
             let mut r = String::new();
-            if let Some(a1) = arg1 { r.push_str(&a1); }
-            if let Some(a2) = arg2 { 
-                if !r.is_empty() { r.push(' '); }
-                r.push_str(&a2); 
+            if let Some(a1) = arg1 {
+                r.push_str(&a1);
+            }
+            if let Some(a2) = arg2 {
+                if !r.is_empty() {
+                    r.push(' ');
+                }
+                r.push_str(&a2);
             }
             (id, r)
         } else {
-            let id = arg1.ok_or_else(|| CommandError::arg_not_found("id", Some("please provide an ID or reply to a log message")))?;
+            let id = arg1.ok_or_else(|| {
+                CommandError::arg_not_found(
+                    "id",
+                    Some("please provide an ID or reply to a log message"),
+                )
+            })?;
             (id, arg2.unwrap_or_default())
         };
 

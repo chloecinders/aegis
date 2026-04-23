@@ -8,7 +8,7 @@ use crate::{
     moderation,
     utils::{
         command_processing::process,
-        ocr::{ImageData, image_to_string, likely_has_text},
+        ocr::{ImageData, image_to_string_with_rotation, likely_has_text},
         rule_cache::Punishment,
         tinyid,
     },
@@ -21,21 +21,6 @@ pub async fn message(handler: &Handler, ctx: Context, msg: Message) {
         process(handler, ctx.clone(), msg.clone()).await;
         return;
     }
-
-    // let Ok(Some(channel)) = msg.channel(&ctx).await.map(|c| c.guild()) else { return };
-
-    // if let Err(err) = event_engine::run(ctx, channel.guild_id, |lua| {
-    //     let event = lua.create_table()?;
-
-    //     event.set("type", "message")?;
-    //     event.set("message", message_to_lua_table(&lua, &msg)?)?;
-
-    //     lua.globals().set("event", event)?;
-
-    //     Ok(lua)
-    // }).await {
-    //     error!("{err:?}");
-    // };
 }
 
 async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
@@ -43,8 +28,22 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
         return;
     }
 
+    let Some(guild_id) = msg.guild_id else {
+        return;
+    };
+
+    if let Ok(member) = guild_id.member(ctx, msg.author.id).await {
+        if let Ok(perms) = member.permissions(ctx) {
+            if perms.contains(serenity::all::Permissions::MANAGE_MESSAGES)
+                || perms.contains(serenity::all::Permissions::ADMINISTRATOR)
+            {
+                return;
+            }
+        }
+    }
+
     let mut handles = vec![];
-    let guild_id = msg.guild_id.map(|id| id.get()).unwrap_or(0);
+    let guild_id_u64 = guild_id.get();
 
     for attachment in msg.attachments.clone().into_iter() {
         let rule_cache = handler.rule_cache.clone();
@@ -72,7 +71,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                 return None;
             }
 
-            let image_str = match image_to_string(&image_data).await {
+            let image_str = match image_to_string_with_rotation(&image_data).await {
                 Ok(d) => d,
                 Err(_) => {
                     return None;
@@ -81,7 +80,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
 
             let rule = {
                 let rule_cache = rule_cache.lock().await;
-                let rule = rule_cache.matches(guild_id, image_str);
+                let rule = rule_cache.matches(guild_id_u64, image_str);
                 rule.cloned()
             };
 
@@ -187,9 +186,16 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
         match rule.punishment {
             Punishment::Warn { reason: _, silent } => {
                 send_dm!(silent, "WARNED");
-                let _ =
-                    moderation::warn_member(ctx, author, member, guild_id, db_id, formatted_reason)
-                        .await;
+                let _ = moderation::warn_member(
+                    &ctx,
+                    author,
+                    member,
+                    guild_id,
+                    db_id,
+                    formatted_reason,
+                    (None, None),
+                )
+                .await;
             }
             Punishment::Softban {
                 reason: _,
@@ -205,14 +211,22 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     db_id,
                     formatted_reason,
                     day_clear_amount,
+                    (None, None),
                 )
                 .await;
             }
             Punishment::Kick { reason: _, silent } => {
                 send_dm!(silent, "KICKED");
-                let _ =
-                    moderation::kick_member(ctx, author, member, guild_id, db_id, formatted_reason)
-                        .await;
+                let _ = moderation::kick_member(
+                    &ctx,
+                    author,
+                    member,
+                    guild_id,
+                    db_id,
+                    formatted_reason,
+                    (None, None),
+                )
+                .await;
             }
             Punishment::Ban {
                 reason: _,
@@ -230,6 +244,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     formatted_reason,
                     day_clear_amount,
                     chrono::TimeDelta::try_seconds(duration as i64).unwrap_or_default(),
+                    (None, None),
                 )
                 .await;
             }
@@ -247,6 +262,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     db_id,
                     formatted_reason,
                     chrono::TimeDelta::try_seconds(duration as i64).unwrap_or_default(),
+                    (None, None),
                 )
                 .await;
             }

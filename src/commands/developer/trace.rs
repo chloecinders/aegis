@@ -49,7 +49,7 @@ impl Command for Trace {
         ctx: Context,
         msg: Message,
         #[transformers::string] message_id_arg: Option<String>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if !is_developer(&msg.author) {
             return Ok(());

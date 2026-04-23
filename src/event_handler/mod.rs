@@ -17,16 +17,17 @@ use tracing::{info, warn};
 use crate::{
     SQL,
     commands::{
-        About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog, DeleteRule,
-        Duration as DurationCommand, ExtractId, Jeprof, Kick, Log, MsgDbg, Mute, OcrCheck, PermDbg,
-        Ping, Purge, Reason, Restart, Rules, Say, ScheduleDowntime, Softban, Stats, Trace, Unban,
-        Unmute, Update, Warn,
+        About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog,
+        DeleteRule, Duration as DurationCommand, EditRef, ExtractId, Jeprof, Kick, Log, MsgDbg,
+        Mute, OcrCheck, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules, Say, ScheduleDowntime,
+        Softban, Stats, Trace, Unban, Unmute, Update, Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
     utils::{
         cache::{message_cache::MessageCache, permission_cache::PermissionCache},
         consume_serenity_error,
+        reference::embeds_for_ref,
         rule_cache::RuleCache,
     },
 };
@@ -128,6 +129,8 @@ impl Handler {
             Arc::new(MsgDbg::new()),
             Arc::new(ColonThree::new()),
             Arc::new(Reason::new()),
+            Arc::new(Ref::new()),
+            Arc::new(EditRef::new()),
             Arc::new(Update::new()),
             // Arc::new(Config::new()),
             Arc::new(Say::new()),
@@ -416,5 +419,45 @@ impl EventHandler for Handler {
         new_data: PartialGuild,
     ) {
         guild_update::guild_update(self, ctx, old_data_if_available, new_data).await
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: serenity::all::Interaction) {
+        if let serenity::all::Interaction::Component(component) = interaction {
+            if component.data.custom_id.starts_with("view_ref:") {
+                let action_id = component.data.custom_id.trim_start_matches("view_ref:");
+                if let Some(ref_data) = crate::utils::reference::get_ref(action_id).await {
+                    let embeds = embeds_for_ref(&ref_data);
+                    if !embeds.is_empty() {
+                        let msg = serenity::all::CreateInteractionResponseMessage::new()
+                            .embeds(embeds)
+                            .ephemeral(true);
+                        let builder = serenity::all::CreateInteractionResponse::Message(msg);
+                        if let Err(err) = component.create_response(&ctx, builder).await {
+                            tracing::warn!("Failed to create interaction response: {err:?}");
+                        }
+                    } else {
+                        let msg = serenity::all::CreateInteractionResponseMessage::new()
+                            .content("This reference is empty.")
+                            .ephemeral(true);
+                        let _ = component
+                            .create_response(
+                                &ctx,
+                                serenity::all::CreateInteractionResponse::Message(msg),
+                            )
+                            .await;
+                    }
+                } else {
+                    let msg = serenity::all::CreateInteractionResponseMessage::new()
+                        .content("This reference could not be found in the database.")
+                        .ephemeral(true);
+                    let _ = component
+                        .create_response(
+                            &ctx,
+                            serenity::all::CreateInteractionResponse::Message(msg),
+                        )
+                        .await;
+                }
+            }
+        }
     }
 }

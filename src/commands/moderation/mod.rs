@@ -4,6 +4,9 @@ pub use ban::Ban;
 mod duration;
 pub use duration::Duration;
 
+mod edit_ref;
+pub use edit_ref::EditRef;
+
 mod kick;
 pub use kick::Kick;
 
@@ -18,6 +21,9 @@ pub use purge::Purge;
 
 mod reason;
 pub use reason::Reason;
+
+mod r#ref;
+pub use r#ref::Ref;
 
 mod softban;
 pub use softban::Softban;

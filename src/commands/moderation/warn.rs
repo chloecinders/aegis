@@ -13,7 +13,11 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
     transformers::Transformers,
-    utils::{CommandMessageResponse, can_target, tinyid},
+    utils::{
+        CommandMessageResponse, can_target,
+        reference::{resolve_ref, save_ref},
+        tinyid,
+    },
 };
 use ouroboros_macros::command;
 
@@ -51,12 +55,20 @@ impl Command for Warn {
     }
 
     fn get_params(&self) -> Vec<&'static CommandParameter<'static>> {
-        vec![&CommandParameter {
-            name: "silent",
-            short: "s",
-            transformer: &Transformers::none,
-            desc: "Disables DMing the target with the reason",
-        }]
+        vec![
+            &CommandParameter {
+                name: "silent",
+                short: "s",
+                transformer: &Transformers::none,
+                desc: "Disables DMing the target with the reason",
+            },
+            &CommandParameter {
+                name: "ref",
+                short: "r",
+                transformer: &Transformers::some_string,
+                desc: "A reference link (Discord message URL or image URL)",
+            },
+        ]
     }
 
     #[command]
@@ -67,7 +79,7 @@ impl Command for Warn {
         #[transformers::reply_member] member: Member,
         #[transformers::reply_consume] reason: Option<String>,
         params: std::collections::HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let guild = crate::utils::get_guild_info(&ctx, msg.guild_id).await;
         let Ok(author_member) = msg.member(&ctx).await else {
@@ -106,6 +118,20 @@ impl Command for Warn {
         }
 
         let db_id = tinyid().await;
+        let ref_url = params.get("ref").and_then(|(active, arg)| {
+            if *active {
+                if let CommandArgument::String(s) = arg {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+        let reason_is_default = reason == "No reason provided";
+
+        let ref_data = resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await;
 
         trace.point("executing_sanctions");
         crate::moderation::warn_member(
@@ -115,8 +141,11 @@ impl Command for Warn {
             msg.guild_id.unwrap_or_default(),
             db_id.clone(),
             reason.clone(),
+            ref_data.clone(),
         )
         .await?;
+
+        save_ref(&db_id, &ref_data, reason_is_default).await;
 
         if inferred && let Some(reply) = msg.referenced_message.clone() {
             if reply.author.id != ctx.cache.current_user().id {
@@ -143,7 +172,8 @@ impl Command for Warn {
                 format!("{}{a}{}", static_response_parts.0, static_response_parts.1)
             }))
             .automatically_delete(inferred)
-            .mark_silent(params.contains_key("silent"));
+            .mark_silent(params.contains_key("silent"))
+            .ref_data(ref_data.clone());
 
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;

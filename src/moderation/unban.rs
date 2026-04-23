@@ -6,7 +6,7 @@ use crate::{
     SQL,
     constants::BRAND_BLUE,
     event_handler::CommandError,
-    utils::{LogType, guild_log, logging::LogContext},
+    utils::{LogType, guild_log, logging::LogContext, reference::apply_ref_button},
 };
 
 pub async fn unban_user(
@@ -16,6 +16,7 @@ pub async fn unban_user(
     guild_id: GuildId,
     db_id: String,
     mut reason: String,
+    ref_data: (Option<String>, Option<String>),
 ) -> Result<(), CommandError> {
     if reason.len() > 500 {
         reason.truncate(500);
@@ -77,27 +78,30 @@ pub async fn unban_user(
         });
     }
 
+    let embed = CreateEmbed::new()
+        .description(format!(
+            "**MEMBER UNBANNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
+            author.mention(),
+            user.mention()
+        ))
+        .thumbnail(user.face())
+        .color(BRAND_BLUE);
+
+    let msg = apply_ref_button(CreateMessage::new().add_embed(embed), &db_id, &ref_data);
+
     guild_log(
         &ctx,
         LogType::MemberModeration,
         guild_id,
-        CreateMessage::new()
-            .add_embed(
-                CreateEmbed::new()
-                    .description(format!(
-                        "**MEMBER UNBANNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
-                        author.mention(),
-                        user.mention(),
-                    ))
-                    .color(BRAND_BLUE)
-            ),
-            Some(LogContext {
-                target_id: user.id.get(),
-                moderator_id: author.user.id.get(),
-                db_id: Some(db_id.clone()),
-                content: None,
-            }),
-    ).await;
+        msg,
+        Some(LogContext {
+            target_id: user.id.get(),
+            moderator_id: author.user.id.get(),
+            db_id: Some(db_id.clone()),
+            content: None,
+        }),
+    )
+    .await;
 
     Ok(())
 }

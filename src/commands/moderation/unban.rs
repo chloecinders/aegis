@@ -9,7 +9,10 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::{InferType, Token},
     transformers::Transformers,
-    utils::tinyid,
+    utils::{
+        reference::{embeds_for_ref, resolve_ref, save_ref},
+        tinyid,
+    },
 };
 use ouroboros_macros::command;
 use serenity::{
@@ -56,7 +59,12 @@ impl Command for Unban {
     }
 
     fn get_params(&self) -> Vec<&'static CommandParameter<'static>> {
-        vec![]
+        vec![&CommandParameter {
+            name: "ref",
+            short: "r",
+            transformer: &Transformers::some_string,
+            desc: "A reference link (Discord message URL or image URL)",
+        }]
     }
 
     #[command]
@@ -66,7 +74,8 @@ impl Command for Unban {
         msg: Message,
         #[transformers::reply_user] user: User,
         #[transformers::reply_consume] reason: Option<String>,
-        trace: &mut crate::utils::TraceContext,
+        params: std::collections::HashMap<&str, (bool, CommandArgument)>,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         let inferred = matches!(_user_arg.inferred, Some(InferType::Message));
         let mut reason = reason
@@ -85,6 +94,18 @@ impl Command for Unban {
         }
 
         let db_id = tinyid().await;
+        let ref_url = params.get("ref").and_then(|(active, arg)| {
+            if *active {
+                if let CommandArgument::String(s) = arg {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+        let reason_is_default = reason == "No reason provided";
 
         let Ok(author_member) = msg.member(&ctx).await else {
             return Err(CommandError {
@@ -94,6 +115,8 @@ impl Command for Unban {
             });
         };
 
+        let ref_data = resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await;
+
         trace.point("executing_sanctions");
         crate::moderation::unban_user(
             &ctx,
@@ -102,20 +125,27 @@ impl Command for Unban {
             msg.guild_id.unwrap_or_default(),
             db_id.clone(),
             reason.clone(),
+            ref_data.clone(),
         )
         .await?;
 
-        let reply = CreateMessage::new()
-            .add_embed(
-                CreateEmbed::new()
-                    .description(format!(
-                        "**{} UNBANNED**\n-# Log ID: `{db_id}`\n```\n{reason}\n```",
-                        user.mention()
-                    ))
-                    .color(BRAND_BLUE),
-            )
+        save_ref(&db_id, &ref_data, reason_is_default).await;
+
+        let embed = CreateEmbed::new()
+            .description(format!(
+                "**{} UNBANNED**\n-# Log ID: `{db_id}`\n```\n{reason}\n```",
+                user.mention()
+            ))
+            .color(BRAND_BLUE);
+
+        let mut reply = CreateMessage::new()
+            .add_embed(embed)
             .reference_message(&msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
+
+        for ref_embed in embeds_for_ref(&ref_data) {
+            reply = reply.add_embed(ref_embed);
+        }
 
         let reply_msg = msg.channel_id.send_message(&ctx, reply).await;
 

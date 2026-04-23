@@ -7,7 +7,10 @@ use tokio::sync::Mutex;
 use crate::{
     commands::Command,
     event_handler::Handler,
-    utils::permissions::{permissions_for_channel, permissions_for_guild},
+    utils::{
+        TraceContext,
+        permissions::{permissions_for_channel, permissions_for_guild},
+    },
 };
 
 #[derive(Default)]
@@ -25,7 +28,7 @@ impl PermissionCache {
     pub async fn can_run(
         &mut self,
         request: CommandPermissionRequest,
-        trace: Option<&mut crate::utils::TraceContext>,
+        trace: Option<&mut TraceContext>,
     ) -> CommandPermissionResult {
         let cmd_perms = request.command.get_permissions();
 
@@ -126,7 +129,7 @@ impl GuildPermissionCache {
     pub async fn can_run(
         &mut self,
         request: CommandPermissionRequest,
-        mut trace: Option<&mut crate::utils::TraceContext>,
+        mut trace: Option<&mut TraceContext>,
     ) -> CommandPermissionResult {
         let perms = request.command.get_permissions();
 

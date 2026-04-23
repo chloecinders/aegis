@@ -11,7 +11,8 @@ use tracing::{error, warn};
 use crate::{
     GUILD_SETTINGS, SQL,
     commands::{
-        Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions, CommandSyntax, TransformerError, TransformerFn, TransformerFnArc
+        Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
+        CommandSyntax, TransformerError, TransformerFn, TransformerFnArc,
     },
     constants::BRAND_BLUE,
     event_handler::CommandError,
@@ -82,7 +83,7 @@ impl Command for Config {
         msg: Message,
         args: Vec<Token>,
         _params: HashMap<&str, (bool, CommandArgument)>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         // find the config subcommand first
         let mut args_iter = args.into_iter();

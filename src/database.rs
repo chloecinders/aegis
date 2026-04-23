@@ -49,6 +49,7 @@ pub async fn run_migrations() {
     create_log_messages_context_030420262050().await;
     add_content_to_log_messages_context_041220261300().await;
     create_command_traces_041320261850().await;
+    create_action_refs_table_230420261710().await;
 }
 
 pub async fn create_actions_223320250818() {
@@ -378,5 +379,26 @@ pub async fn create_command_traces_041320261850() {
     .await
     {
         panic!("Couldnt run database migration create_command_traces_041320261850; Err = {err:?}");
+    }
+}
+
+pub async fn create_action_refs_table_230420261710() {
+    if let Err(err) = query!(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.action_refs
+        (
+            action_id character varying(128) COLLATE pg_catalog."default" NOT NULL,
+            message_content text,
+            image_url text,
+            CONSTRAINT action_refs_pkey PRIMARY KEY (action_id)
+        );
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!(
+            "Couldnt run database migration create_action_refs_table_230420261710; Err = {err:?}"
+        );
     }
 }

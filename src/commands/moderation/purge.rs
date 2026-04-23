@@ -66,7 +66,7 @@ impl Command for Purge {
         msg: Message,
         #[transformers::i32] count: i32,
         #[transformers::consume] filters: String,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if !(2..=99).contains(&count) {
             return Err(CommandError {

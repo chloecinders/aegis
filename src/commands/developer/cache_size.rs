@@ -65,7 +65,7 @@ impl Command for CacheSize {
         ctx: Context,
         msg: Message,
         handler: &Handler,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if !crate::utils::is_developer(&msg.author) {
             return Ok(());

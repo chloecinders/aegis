@@ -53,7 +53,7 @@ impl Command for PermDbg {
         &self,
         ctx: Context,
         msg: Message,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if is_developer(&msg.author) {
             let channel_id = msg.channel_id;

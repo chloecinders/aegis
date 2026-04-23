@@ -26,4 +26,17 @@ pub struct Environment {
     pub webhook: Option<String>,
     pub ocr_training_data: Option<String>,
     pub ocr_character_whitelist: Option<String>,
+    pub s3: S3,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct S3 {
+    pub endpoint: String,
+    pub bucket: String,
+    pub access_key: String,
+    pub secret_key: String,
+    #[serde(default)]
+    pub region: Option<String>,
+    #[serde(default)]
+    pub public_base_url: Option<String>,
 }

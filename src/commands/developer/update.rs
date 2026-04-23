@@ -65,7 +65,7 @@ impl Command for Update {
         #[transformers::bool] send_announcement: Option<bool>,
         #[transformers::string] title: Option<String>,
         #[transformers::consume] description: Option<String>,
-        trace: &mut crate::utils::TraceContext,
+        trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
         if !is_developer(&msg.author) {
             return Ok(());

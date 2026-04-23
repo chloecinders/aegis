@@ -185,7 +185,7 @@ impl Rule {
 
             regex.is_match(input)
         } else {
-            input.contains(&self.rule)
+            fuzzy_substring_match(&self.rule, input, 0.95)
         }
     }
 
@@ -203,4 +203,49 @@ impl Rule {
                 | Punishment::Log { reason, .. } => reason.capacity(),
             }
     }
+}
+
+fn fuzzy_substring_match(rule: &str, input: &str, threshold: f64) -> bool {
+    if input.contains(rule) {
+        return true;
+    }
+    let rule_lower = rule.to_lowercase();
+    let input_lower = input.to_lowercase();
+    if input_lower.contains(&rule_lower) {
+        return true;
+    }
+
+    let m = rule_lower.chars().count();
+    let n = input_lower.chars().count();
+    if m == 0 {
+        return true;
+    }
+    if n == 0 || m > n {
+        return false;
+    }
+
+    let max_errors = ((1.0 - threshold) * m as f64).ceil() as usize;
+
+    let r_chars: Vec<char> = rule_lower.chars().collect();
+    let i_chars: Vec<char> = input_lower.chars().collect();
+
+    let mut dp = vec![0; n + 1];
+
+    for i in 1..=m {
+        let mut prev = dp[0];
+        dp[0] = i;
+        for j in 1..=n {
+            let temp = dp[j];
+            let cost = if r_chars[i - 1] == i_chars[j - 1] {
+                0
+            } else {
+                1
+            };
+            dp[j] = std::cmp::min(std::cmp::min(dp[j] + 1, dp[j - 1] + 1), prev + cost);
+            prev = temp;
+        }
+    }
+
+    let min_dist = *dp.iter().skip(1).min().unwrap_or(&m);
+    min_dist <= max_errors
 }

@@ -81,7 +81,6 @@ pub async fn kick_member(
             author.mention(),
             member.mention()
         ))
-        .thumbnail(member.user.face())
         .color(BRAND_BLUE);
 
     let msg = apply_ref_button(CreateMessage::new().add_embed(embed), &db_id, &ref_data);

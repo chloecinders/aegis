@@ -64,6 +64,10 @@ impl CommandMessageResponse {
     }
 
     pub async fn send_dm(&self, ctx: &Context) {
+        if self.silent {
+            return;
+        }
+
         let ctx_clone = ctx.clone();
         let desc = self.dm_content.clone();
         let user = self.user.clone();
@@ -74,7 +78,7 @@ impl CommandMessageResponse {
             *lock = Some(tokio::spawn(async move {
                 let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
                 let dm = CreateMessage::new().add_embed(embed);
-                user.direct_message(&ctx_clone, dm).await.is_err()
+                user.direct_message(&ctx_clone, dm).await.is_ok()
             }));
         }
     }
@@ -100,7 +104,7 @@ impl CommandMessageResponse {
                         _ => String::from(" | DM failed"),
                     }
                 }
-                _ => String::from(" | DM failed"),
+                _ => String::new(),
             };
 
             if finished {
@@ -138,16 +142,19 @@ impl CommandMessageResponse {
                 Ok(b) if b => String::new(),
                 _ => String::from(" | DM failed"),
             };
-            let desc = (*self.server_content)(addition);
 
-            let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
-            let mut embeds = vec![embed];
-            for ref_embed in self.ref_embeds.clone() {
-                embeds.push(ref_embed);
+            if !addition.is_empty() {
+                let desc = (*self.server_content)(addition);
+
+                let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
+                let mut embeds = vec![embed];
+                for ref_embed in self.ref_embeds.clone() {
+                    embeds.push(ref_embed);
+                }
+
+                trace.point("editing_response");
+                let _ = msg.edit(&ctx, EditMessage::new().embeds(embeds)).await;
             }
-
-            trace.point("editing_response");
-            let _ = msg.edit(&ctx, EditMessage::new().embeds(embeds)).await;
         }
 
         if self.delete {

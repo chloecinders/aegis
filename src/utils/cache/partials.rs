@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use serenity::all::{CacheHttp, Message, User};
 
 #[derive(Clone, Debug)]
@@ -13,7 +14,7 @@ impl PartialUser {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PartialAttachment {
     pub name: String,
     pub url: String,
@@ -28,7 +29,7 @@ impl PartialAttachment {
 #[derive(Clone, Debug)]
 pub struct PartialMessage {
     pub id: u64,
-    // pub guild_id: Option<u64>,
+    pub guild_id: Option<u64>,
     pub channel_id: u64,
     pub content: String,
     pub author: PartialUser,
@@ -39,7 +40,7 @@ impl From<Message> for PartialMessage {
     fn from(value: Message) -> Self {
         Self {
             id: value.id.get(),
-            // guild_id: value.guild_id.map(|g| g.get()),
+            guild_id: value.guild_id.map(|g| g.get()),
             channel_id: value.channel_id.get(),
             content: value.content,
             author: PartialUser {

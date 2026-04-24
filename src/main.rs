@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env, fs, panic,
     sync::Arc,
     time::{Duration, Instant},
@@ -47,6 +48,7 @@ pub static START_TIME: AutoOnceLock<Instant> = AutoOnceLock::new();
 pub static SQL: AutoOnceLock<PgPool> = AutoOnceLock::new();
 pub static GUILD_SETTINGS: AutoOnceLock<Mutex<GuildSettings>> = AutoOnceLock::new();
 pub static BOT_CONFIG: AutoOnceLock<Environment> = AutoOnceLock::new();
+pub static ENCRYPTION_KEYS: AutoOnceLock<Mutex<HashMap<u64, [u8; 32]>>> = AutoOnceLock::new();
 
 #[tokio::main]
 async fn main() {
@@ -109,6 +111,7 @@ async fn main() {
         .unwrap();
 
     BOT_CONFIG.set(active_env.clone()).unwrap();
+    ENCRYPTION_KEYS.set(Mutex::new(HashMap::new())).unwrap();
 
     panic::set_hook(Box::new(|info| {
         let payload_str = if let Some(s) = info.payload().downcast_ref::<&str>() {

@@ -10,7 +10,7 @@
         "Int8",
         "Int8",
         "Varchar",
-        "Text"
+        "Bytea"
       ]
     },
     "nullable": []

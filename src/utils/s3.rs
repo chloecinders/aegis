@@ -1,35 +1,34 @@
 use rand::RngCore;
 use s3::{Bucket, Region, creds::Credentials};
+use sha2::{Digest, Sha256};
 use tracing::warn;
 
 use crate::BOT_CONFIG;
 
-pub async fn upload_image(
-    guild_id: u64,
-    data: Vec<u8>,
-    ext: &str,
-    content_type: &str,
-) -> Option<String> {
+pub fn get_predicted_url(guild_id: u64, token: &str, ext: &str) -> (String, String) {
+    let endpoint = BOT_CONFIG.s3.endpoint.clone();
+    let public_base = BOT_CONFIG.s3.public_base_url.clone().unwrap_or(endpoint);
+    let key = format!("refs/{}/{}.{}", guild_id, token, ext);
+    let url = format!("{}/{}", public_base.trim_end_matches('/'), key);
+    (key, url)
+}
+
+pub async fn upload_image_with_key(key: String, data: Vec<u8>, content_type: &str) -> bool {
     let endpoint = BOT_CONFIG.s3.endpoint.clone();
     let bucket_name = BOT_CONFIG.s3.bucket.clone();
     let access_key = BOT_CONFIG.s3.access_key.clone();
     let secret_key = BOT_CONFIG.s3.secret_key.clone();
     let region_str = BOT_CONFIG.s3.region.clone().unwrap_or_default();
-    let public_base = BOT_CONFIG
-        .s3
-        .public_base_url
-        .clone()
-        .unwrap_or(endpoint.clone());
 
     if access_key.is_empty() || secret_key.is_empty() {
-        return None;
+        return false;
     }
 
     let creds = match Credentials::new(Some(&access_key), Some(&secret_key), None, None, None) {
         Ok(c) => c,
         Err(err) => {
             warn!("S3: failed to build credentials; err = {err:?}");
-            return None;
+            return false;
         }
     };
 
@@ -42,11 +41,9 @@ pub async fn upload_image(
         Ok(b) => b.with_path_style(),
         Err(err) => {
             warn!("S3: failed to create bucket handle; err = {err:?}");
-            return None;
+            return false;
         }
     };
-
-    let key = format!("refs/{}/{}.{}", guild_id, random_token(), ext);
 
     let mut bucket = bucket;
     bucket.add_header("x-amz-acl", "public-read");
@@ -55,14 +52,26 @@ pub async fn upload_image(
         .put_object_with_content_type(&key, &data, content_type)
         .await
     {
-        Ok(_) => {
-            let url = format!("{}/{}", public_base.trim_end_matches('/'), key);
-            Some(url)
-        }
+        Ok(_) => true,
         Err(err) => {
             warn!("S3: upload failed for key={key}; err = {err:?}");
-            None
+            false
         }
+    }
+}
+
+pub async fn upload_image(
+    guild_id: u64,
+    data: Vec<u8>,
+    ext: &str,
+    content_type: &str,
+) -> Option<String> {
+    let token = random_token();
+    let (key, url) = get_predicted_url(guild_id, &token, ext);
+    if upload_image_with_key(key, data, content_type).await {
+        Some(url)
+    } else {
+        None
     }
 }
 

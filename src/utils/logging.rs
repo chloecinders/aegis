@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serenity::all::{CacheHttp, ChannelId, CreateMessage, GuildId};
 use tracing::warn;
 
-use crate::{GUILD_SETTINGS, SQL};
+use crate::{ENCRYPTION_KEYS, GUILD_SETTINGS, SQL, utils::encryption::encrypt};
 
 #[derive(Clone, Debug)]
 pub struct LogContext {
@@ -82,7 +82,30 @@ pub async fn guild_log(
 
     match channel.send_message(http, msg).await {
         Ok(message) => {
-            if let Some(ctx) = context {
+            let mut final_content_bytes = None;
+
+            if let Some(mut ctx) = context {
+                let is_encrypted = {
+                    let lock = ENCRYPTION_KEYS.lock().await;
+                    lock.contains_key(&guild.get())
+                };
+
+                if let Some(content) = ctx.content.take() {
+                    let mut bytes = content.into_bytes();
+
+                    if is_encrypted && !bytes.is_empty() {
+                        let lock = ENCRYPTION_KEYS.lock().await;
+                        if let Some(key) = lock.get(&guild.get()) {
+                            if let Ok(content_str) = String::from_utf8(bytes.clone()) {
+                                if let Some(encrypted) = encrypt(key, &content_str) {
+                                    bytes = encrypted;
+                                }
+                            }
+                        }
+                    }
+                    final_content_bytes = Some(bytes);
+                }
+
                 if let Err(err) = sqlx::query(
                     "INSERT INTO log_messages_context (message_id, guild_id, target_id, moderator_id, db_id, content) VALUES ($1, $2, $3, $4, $5, $6)",
                 )
@@ -91,7 +114,7 @@ pub async fn guild_log(
                 .bind(ctx.target_id as i64)
                 .bind(ctx.moderator_id as i64)
                 .bind(ctx.db_id)
-                .bind(ctx.content)
+                .bind(final_content_bytes)
                 .execute(&*SQL).await {
                     warn!("Cannot save log message context into log_messages_context; err = {err}");
                 }

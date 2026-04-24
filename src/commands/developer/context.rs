@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    SQL,
+    ENCRYPTION_KEYS, SQL,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
@@ -10,11 +10,11 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
-    utils::is_developer,
+    utils::{encryption::decrypt, is_developer},
 };
 use ouroboros_macros::command;
 use serenity::{
-    all::{Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Message},
+    all::{Context, CreateAllowedMentions, CreateAttachment, CreateEmbed, CreateMessage, Message},
     async_trait,
 };
 
@@ -114,16 +114,35 @@ impl Command for ContextCmd {
                 .reference_message(&msg)
                 .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
-            if let Some(content) = &row.content {
-                if content.len() > 1500 {
-                    reply = reply.add_file(serenity::all::CreateAttachment::bytes(
-                        content.as_bytes(),
-                        "content.txt",
-                    ));
+            let mut final_content = row.content;
+
+            let is_encrypted = {
+                let lock = ENCRYPTION_KEYS.lock().await;
+                lock.contains_key(&(row.guild_id as u64))
+            };
+
+            if is_encrypted {
+                if let Some(content_bytes) = final_content.take() {
+                    let mut decrypted_str = String::from_utf8(content_bytes.clone()).unwrap_or_default();
+                    let lock = ENCRYPTION_KEYS.lock().await;
+                    if let Some(key) = lock.get(&(row.guild_id as u64)) {
+                        if let Some(decrypted) = decrypt(key, &content_bytes) {
+                            decrypted_str = decrypted;
+                        }
+                    }
+                    final_content = Some(decrypted_str.into_bytes());
+                }
+            }
+
+            if let Some(content_bytes) = final_content {
+                let content_str = String::from_utf8(content_bytes).unwrap_or_default();
+                if content_str.len() > 1500 {
+                    reply =
+                        reply.add_file(CreateAttachment::bytes(content_str.into_bytes(), "content.txt"));
                 } else {
                     description.push_str(&format!(
                         "```\n{}\n```\n\n",
-                        content.replace("```", "\\`\\`\\`")
+                        content_str.replace("```", "\\`\\`\\`")
                     ));
                 }
             }

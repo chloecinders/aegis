@@ -2,9 +2,10 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use serenity::{
     all::{
-        ChannelId, Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EventHandler, Guild,
-        GuildId, GuildMemberUpdateEvent, Member, Message, MessageId, MessageUpdateEvent,
-        PartialGuild, Role, RoleId, User,
+        ChannelId, Context, CreateAllowedMentions, CreateEmbed, CreateInteractionResponse,
+        CreateInteractionResponseMessage, CreateMessage, EventHandler, Guild, GuildId,
+        GuildMemberUpdateEvent, Member, Message, MessageId, MessageUpdateEvent, PartialGuild, Role,
+        RoleId, User,
     },
     async_trait,
 };
@@ -18,16 +19,16 @@ use crate::{
     SQL,
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog,
-        DeleteRule, Duration as DurationCommand, EditRef, ExtractId, Jeprof, Kick, Log, MsgDbg,
-        Mute, OcrCheck, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules, Say, ScheduleDowntime,
-        Softban, Stats, Trace, Unban, Unmute, Update, Warn,
+        DeleteRule, Duration as DurationCommand, EditRef, Edits, Encrypt, ExtractId, Jeprof, Kick,
+        Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules, Say,
+        ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update, Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
     utils::{
         cache::{message_cache::MessageCache, permission_cache::PermissionCache},
         consume_serenity_error,
-        reference::embeds_for_ref,
+        reference::{self, embeds_for_ref},
         rule_cache::RuleCache,
     },
 };
@@ -132,6 +133,7 @@ impl Handler {
             Arc::new(Ref::new()),
             Arc::new(EditRef::new()),
             Arc::new(Update::new()),
+            Arc::new(Edits::new()),
             // Arc::new(Config::new()),
             Arc::new(Say::new()),
             Arc::new(About::new()),
@@ -150,6 +152,7 @@ impl Handler {
             Arc::new(Jeprof::new()),
             Arc::new(ContextCmd::new()),
             Arc::new(Restart::new()),
+            Arc::new(Encrypt::new()),
         ];
 
         let cache = Arc::new(Mutex::new(MessageCache::new()));
@@ -319,7 +322,7 @@ impl EventHandler for Handler {
         new: Option<Message>,
         event: MessageUpdateEvent,
     ) {
-        let old_if_available;
+        let mut old_if_available;
 
         {
             let mut lock = self.message_cache.lock().await;
@@ -328,6 +331,10 @@ impl EventHandler for Handler {
             if let Ok(msg) = event.channel_id.message(&ctx, event.id).await {
                 lock.insert_message(event.channel_id.get(), msg);
             }
+        }
+
+        if old_if_available.is_none() {
+            old_if_available = MessageCache::fetch(event.channel_id.get(), event.id.get()).await;
         }
 
         message_update::message_update(self, ctx, old_if_available, new, event).await
@@ -340,14 +347,22 @@ impl EventHandler for Handler {
         deleted_message_id: MessageId,
         _guild_id: Option<GuildId>,
     ) {
-        let mut lock = self.message_cache.lock().await;
+        let mut old_if_available = {
+            let mut lock = self.message_cache.lock().await;
+            lock.get(channel_id.get(), deleted_message_id.get())
+                .cloned()
+        };
+
+        if old_if_available.is_none() {
+            old_if_available =
+                MessageCache::fetch(channel_id.get(), deleted_message_id.get()).await;
+        }
+
         let event = MessageDeleteEvent {
             channel_id,
             message_id: deleted_message_id,
         };
-        let old_if_available = lock
-            .get(event.channel_id.get(), event.message_id.get())
-            .cloned();
+
         message_delete::message_delete(self, ctx, event, old_if_available).await
     }
 
@@ -425,38 +440,92 @@ impl EventHandler for Handler {
         if let serenity::all::Interaction::Component(component) = interaction {
             if component.data.custom_id.starts_with("view_ref:") {
                 let action_id = component.data.custom_id.trim_start_matches("view_ref:");
-                if let Some(ref_data) = crate::utils::reference::get_ref(action_id).await {
+                if let Some(ref_data) = reference::get_ref(action_id).await {
                     let embeds = embeds_for_ref(&ref_data);
-                    if !embeds.is_empty() {
-                        let msg = serenity::all::CreateInteractionResponseMessage::new()
+                    let attachments = reference::attachments_for_ref(&ref_data).await;
+
+                    if !embeds.is_empty() || !attachments.is_empty() {
+                        let mut msg = CreateInteractionResponseMessage::new()
                             .embeds(embeds)
                             .ephemeral(true);
-                        let builder = serenity::all::CreateInteractionResponse::Message(msg);
+
+                        if !attachments.is_empty() {
+                            msg = msg.add_files(attachments.into_iter());
+                        }
+
+                        let builder = CreateInteractionResponse::Message(msg);
+
                         if let Err(err) = component.create_response(&ctx, builder).await {
                             tracing::warn!("Failed to create interaction response: {err:?}");
                         }
                     } else {
-                        let msg = serenity::all::CreateInteractionResponseMessage::new()
+                        let msg = CreateInteractionResponseMessage::new()
                             .content("This reference is empty.")
                             .ephemeral(true);
                         let _ = component
-                            .create_response(
-                                &ctx,
-                                serenity::all::CreateInteractionResponse::Message(msg),
-                            )
+                            .create_response(&ctx, CreateInteractionResponse::Message(msg))
                             .await;
                     }
                 } else {
-                    let msg = serenity::all::CreateInteractionResponseMessage::new()
+                    let msg = CreateInteractionResponseMessage::new()
                         .content("This reference could not be found in the database.")
                         .ephemeral(true);
                     let _ = component
-                        .create_response(
-                            &ctx,
-                            serenity::all::CreateInteractionResponse::Message(msg),
-                        )
+                        .create_response(&ctx, CreateInteractionResponse::Message(msg))
                         .await;
                 }
+            } else if component.data.custom_id == "disable_encryption" {
+                if let Some(member) = &component.member
+                    && let Ok(permissions) = member.permissions(&ctx)
+                {
+                    if !permissions.contains(serenity::all::Permissions::ADMINISTRATOR) {
+                        return;
+                    }
+
+                    if let Some(guild_id) = component.guild_id {
+                        let guild_id = guild_id.get();
+                        let _ = sqlx::query!(
+                            "DELETE FROM guild_encryption WHERE guild_id = $1",
+                            guild_id as i64
+                        )
+                        .execute(&*crate::SQL)
+                        .await;
+
+                        let _ = sqlx::query!("DELETE FROM message_edits WHERE message_id IN (SELECT message_id FROM message_store WHERE guild_id = $1)", guild_id as i64)
+                                    .execute(&*crate::SQL)
+                                    .await;
+
+                        let _ = sqlx::query!(
+                            "DELETE FROM message_store WHERE guild_id = $1",
+                            guild_id as i64
+                        )
+                        .execute(&*crate::SQL)
+                        .await;
+
+                        {
+                            let mut keys = crate::ENCRYPTION_KEYS.lock().await;
+                            keys.remove(&guild_id);
+                        }
+
+                        let msg = CreateInteractionResponseMessage::new()
+                                    .content("**ENCRYPTION DISABLED**\nAll previously cached messages have been wiped.")
+                                    .ephemeral(false);
+
+                        let _ = component
+                            .create_response(&ctx, CreateInteractionResponse::Message(msg))
+                            .await;
+
+                        let _ = component.message.delete(&ctx).await;
+                        return;
+                    }
+                }
+
+                let msg = CreateInteractionResponseMessage::new()
+                    .content("You do not have permission to disable encryption. Only Administrators can do this.")
+                    .ephemeral(true);
+                let _ = component
+                    .create_response(&ctx, CreateInteractionResponse::Message(msg))
+                    .await;
             }
         }
     }

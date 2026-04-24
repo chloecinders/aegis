@@ -4,6 +4,25 @@ use tracing::warn;
 
 use crate::{SQL, utils::s3};
 
+fn extract_message_content(msg: &Message) -> String {
+    if !msg.content.is_empty() {
+        msg.content.clone()
+    } else if let Some(embed) = msg.embeds.first() {
+        let desc = embed.description.clone().unwrap_or_default();
+
+        if embed.kind.clone().unwrap_or_default() == "auto_moderation_message" {
+            format!("Automod: {}", desc)
+        } else if desc.starts_with("**MESSAGE DELETED**") || desc.starts_with("**MESSAGE EDITED**")
+        {
+            String::from("<Stored context lost>")
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    }
+}
+
 pub async fn resolve_ref(
     ctx: &Context,
     msg: &Message,
@@ -26,9 +45,13 @@ pub async fn resolve_ref(
                     target_msg.link(),
                     target_msg.author.mention()
                 );
-                if !target_msg.content.is_empty() {
-                    c.push_str(&format!("```\n{}\n```", target_msg.content));
+
+                let extracted = extract_message_content(target_msg);
+
+                if !extracted.is_empty() {
+                    c.push_str(&format!("```\n{}\n```", extracted));
                 }
+
                 Some(c)
             };
 
@@ -53,11 +76,13 @@ pub async fn resolve_ref(
                     fetched.link(),
                     fetched.author.mention()
                 );
-                if !fetched.content.is_empty() {
-                    c.push_str(&format!("```\n{}\n```", fetched.content));
-                }
-                let content = Some(c);
+                let extracted = extract_message_content(&fetched);
 
+                if !extracted.is_empty() {
+                    c.push_str(&format!("```\n{}\n```", extracted));
+                }
+
+                let content = Some(c);
                 let image_url = upload_attachments(guild_id, &fetched.attachments).await;
 
                 return (content, image_url);
@@ -72,14 +97,26 @@ pub async fn resolve_ref(
         without_query.rsplit('.').next().unwrap_or(""),
         "jpg" | "jpeg" | "png" | "gif" | "webp"
     ) {
-        if let Ok(req) = reqwest::get(url).await {
-            if let Ok(bytes) = req.bytes().await {
-                let data = bytes.to_vec();
-                let ct = s3::detect_content_type(&data);
-                let ext = s3::ext_for_content_type(ct);
-                return (None, s3::upload_image(guild_id, data, ext, ct).await);
+        let token = s3::random_token();
+        let ext = without_query
+            .rsplit('.')
+            .next()
+            .unwrap_or("bin")
+            .to_string();
+        let (key, predicted_url) = s3::get_predicted_url(guild_id, &token, &ext);
+
+        let url_clone = url.to_string();
+        tokio::spawn(async move {
+            if let Ok(req) = reqwest::get(&url_clone).await {
+                if let Ok(bytes) = req.bytes().await {
+                    let data = bytes.to_vec();
+                    let ct = s3::detect_content_type(&data);
+                    let _ = s3::upload_image_with_key(key, data, ct).await;
+                }
             }
-        }
+        });
+
+        return (None, Some(predicted_url));
     }
 
     (Some(format!("```\n{}\n```", url)), None)
@@ -144,25 +181,35 @@ pub fn embeds_for_ref(
         main_embed = main_embed.description("**REFERENCE**");
     }
 
-    if let Some(urls_str) = &ref_data.1 {
-        let urls: Vec<&str> = urls_str.split(',').collect();
-        if let Some(first_url) = urls.first() {
-            main_embed = main_embed.image(*first_url);
-        }
-        embeds.push(main_embed);
-
-        for url in urls.into_iter().skip(1) {
-            embeds.push(
-                serenity::all::CreateEmbed::new()
-                    .color(crate::constants::BRAND_BLUE)
-                    .image(url),
-            );
-        }
-    } else {
-        embeds.push(main_embed);
-    }
+    embeds.push(main_embed);
 
     embeds
+}
+
+pub async fn attachments_for_ref(
+    ref_data: &(Option<String>, Option<String>),
+) -> Vec<serenity::all::CreateAttachment> {
+    let mut attachments = Vec::new();
+    if let Some(urls_str) = &ref_data.1 {
+        for (i, url) in urls_str.split(',').enumerate() {
+            if let Ok(req) = reqwest::get(url).await {
+                if let Ok(bytes) = req.bytes().await {
+                    let ext = url
+                        .split('?')
+                        .next()
+                        .unwrap_or("")
+                        .rsplit('.')
+                        .next()
+                        .unwrap_or("png");
+                    attachments.push(serenity::all::CreateAttachment::bytes(
+                        bytes.to_vec(),
+                        format!("reference_{}.{}", i, ext),
+                    ));
+                }
+            }
+        }
+    }
+    attachments
 }
 
 pub async fn get_ref(action_id: &str) -> Option<(Option<String>, Option<String>)> {
@@ -207,11 +254,13 @@ pub async fn update_ref(ctx: &Context, action_id: &str, new_ref_url: &str) -> bo
                         fetched.link(),
                         fetched.author.mention()
                     );
-                    if !fetched.content.is_empty() {
-                        c.push_str(&format!("```\n{}\n```", fetched.content));
-                    }
-                    let content = Some(c);
+                    let extracted = extract_message_content(&fetched);
 
+                    if !extracted.is_empty() {
+                        c.push_str(&format!("```\n{}\n```", extracted));
+                    }
+
+                    let content = Some(c);
                     let img_url = upload_attachments(guild_id, &fetched.attachments).await;
 
                     result = (content, img_url);
@@ -227,14 +276,26 @@ pub async fn update_ref(ctx: &Context, action_id: &str, new_ref_url: &str) -> bo
                 without_query.rsplit('.').next().unwrap_or(""),
                 "jpg" | "jpeg" | "png" | "gif" | "webp"
             ) {
-                if let Ok(req) = reqwest::get(new_ref_url).await {
-                    if let Ok(bytes) = req.bytes().await {
-                        let data = bytes.to_vec();
-                        let ct = s3::detect_content_type(&data);
-                        let ext = s3::ext_for_content_type(ct);
-                        result = (None, s3::upload_image(guild_id, data, ext, ct).await);
+                let token = s3::random_token();
+                let ext = without_query
+                    .rsplit('.')
+                    .next()
+                    .unwrap_or("bin")
+                    .to_string();
+                let (key, predicted_url) = s3::get_predicted_url(guild_id, &token, &ext);
+
+                let url_clone = new_ref_url.to_string();
+                tokio::spawn(async move {
+                    if let Ok(req) = reqwest::get(&url_clone).await {
+                        if let Ok(bytes) = req.bytes().await {
+                            let data = bytes.to_vec();
+                            let ct = s3::detect_content_type(&data);
+                            let _ = s3::upload_image_with_key(key, data, ct).await;
+                        }
                     }
-                }
+                });
+
+                result = (None, Some(predicted_url));
             } else {
                 result = (Some(format!("```\n{}\n```", new_ref_url)), None);
             }
@@ -288,7 +349,7 @@ pub async fn upload_attachments(
     guild_id: u64,
     attachments: &[serenity::all::Attachment],
 ) -> Option<String> {
-    let mut join_set = tokio::task::JoinSet::new();
+    let mut image_urls = Vec::new();
     for att in attachments.iter().filter(|a| {
         a.content_type
             .as_deref()
@@ -297,24 +358,22 @@ pub async fn upload_attachments(
     }) {
         let url = att.url.clone();
         let filename = att.filename.clone();
-        join_set.spawn(async move {
+
+        let token = s3::random_token();
+        let ext = filename.rsplit('.').next().unwrap_or("bin").to_string();
+        let (key, predicted_url) = s3::get_predicted_url(guild_id, &token, &ext);
+
+        image_urls.push(predicted_url);
+
+        tokio::spawn(async move {
             if let Ok(req) = reqwest::get(&url).await {
                 if let Ok(bytes) = req.bytes().await {
                     let data = bytes.to_vec();
-                    let ct = crate::utils::s3::detect_content_type(&data);
-                    let ext = filename.rsplit('.').next().unwrap_or("bin").to_string();
-                    return crate::utils::s3::upload_image(guild_id, data, &ext, ct).await;
+                    let ct = s3::detect_content_type(&data);
+                    let _ = s3::upload_image_with_key(key, data, ct).await;
                 }
             }
-            None
         });
-    }
-
-    let mut image_urls = Vec::new();
-    while let Some(res) = join_set.join_next().await {
-        if let Ok(Some(url)) = res {
-            image_urls.push(url);
-        }
     }
 
     if image_urls.is_empty() {

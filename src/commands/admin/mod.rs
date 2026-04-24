@@ -15,3 +15,6 @@ pub use rules::Rules;
 
 mod delete_rule;
 pub use delete_rule::DeleteRule;
+
+mod encrypt;
+pub use encrypt::Encrypt;

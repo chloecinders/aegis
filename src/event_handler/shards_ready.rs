@@ -5,14 +5,16 @@ use sqlx::query;
 use tracing::{error, info};
 
 use crate::{
-    BOT_CONFIG, GUILD_SETTINGS, SQL, event_handler::Handler,
-    utils::cache::permission_cache::CommandPermissionRequest,
+    BOT_CONFIG, ENCRYPTION_KEYS, GUILD_SETTINGS, SQL,
+    event_handler::Handler,
+    utils::{cache::permission_cache::CommandPermissionRequest, encryption::display_to_key},
 };
 
 pub async fn shards_ready(handler: &Handler, ctx: Context, _total_shards: u32) {
     finish_update(&ctx).await;
     check_whitelist(&ctx).await;
     update_guild_settings(&ctx).await;
+    fetch_encryption_keys(&ctx).await;
     fill_message_cache(handler, &ctx).await;
 
     let handler_clone = handler.clone();
@@ -243,4 +245,66 @@ async fn set_activity(handler: &Handler, ctx: &Context) {
         "Moderating Members... | {}help",
         handler.prefix
     ))));
+}
+
+pub async fn fetch_encryption_keys(ctx: &Context) {
+    info!("Fetching encryption keys for configured guilds");
+
+    let records = match sqlx::query!(
+        "SELECT guild_id, key_channel_id, key_message_id FROM guild_encryption WHERE encrypted = true AND key_channel_id IS NOT NULL AND key_message_id IS NOT NULL"
+    )
+    .fetch_all(&*SQL)
+    .await {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Failed to fetch encryption configurations: {}", e);
+            return;
+        }
+    };
+
+    let bot_id = ctx.cache.current_user().id;
+
+    for record in records {
+        let channel_id = serenity::all::ChannelId::new(record.key_channel_id.unwrap() as u64);
+        let message_id = serenity::all::MessageId::new(record.key_message_id.unwrap() as u64);
+
+        if let Ok(msg) = channel_id.message(&ctx, message_id).await {
+            let mut key_found = false;
+
+            if msg.author.id == bot_id {
+                let content_source = if !msg.embeds.is_empty() {
+                    msg.embeds[0].description.clone().unwrap_or_default()
+                } else {
+                    msg.content.clone()
+                };
+
+                if content_source.contains("**ENCRYPTION ENABLED**") {
+                    if let Some(start) = content_source.find("```\n") {
+                        let content_after = &content_source[start + 4..];
+
+                        if let Some(end) = content_after.find("\n```") {
+                            let key_str = &content_after[..end];
+
+                            if let Some(key) = display_to_key(key_str.trim()) {
+                                let mut keys = ENCRYPTION_KEYS.lock().await;
+                                keys.insert(record.guild_id as u64, key);
+                                info!("Loaded encryption key for guild {}", record.guild_id);
+                                key_found = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if key_found {
+                continue;
+            }
+            error!(
+                "Failed to decode encryption key for guild {}",
+                record.guild_id
+            );
+        } else {
+            error!("Could not fetch key message for guild {}", record.guild_id);
+        }
+    }
 }

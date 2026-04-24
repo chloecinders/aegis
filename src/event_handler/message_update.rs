@@ -7,7 +7,11 @@ use serenity::all::{
 use crate::{
     constants::SOFT_YELLOW,
     event_handler::Handler,
-    utils::{LogType, cache::partials::PartialMessage, create_diff, guild_log},
+    utils::{
+        LogType,
+        cache::{message_cache::MessageCache, partials::PartialMessage},
+        create_diff, guild_log,
+    },
 };
 
 pub async fn message_update(
@@ -58,6 +62,8 @@ pub async fn message_update(
         new_msg.channel_id.get(),
         guild_id
     );
+
+    MessageCache::insert_edit(guild_id, new_msg.id.get(), new_msg.content.clone());
 
     let old_content_saved = old_if_available
         .as_ref()

@@ -48,5 +48,6 @@ pub use other::clamp_chars;
 pub mod trace;
 pub use trace::*;
 
+pub mod encryption;
 pub mod reference;
 pub mod s3;

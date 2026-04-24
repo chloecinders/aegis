@@ -42,6 +42,7 @@ impl Transformers {
 
                 let (content, infer_type) = if let Some(embed) = reply.embeds.first() {
                     let desc = embed.clone().description.unwrap_or_default();
+
                     if embed.clone().kind.unwrap_or_default() == "auto_moderation_message" {
                         (format!("Automod: {desc}"), InferType::SystemMessage)
                     } else if desc.starts_with("**MESSAGE DELETED**")

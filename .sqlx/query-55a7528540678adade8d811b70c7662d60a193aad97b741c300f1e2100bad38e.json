@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO message_store\n                (message_id, channel_id, guild_id, author_id, author_name, content, attachment_urls)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n                ON CONFLICT (message_id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Bytea",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "55a7528540678adade8d811b70c7662d60a193aad97b741c300f1e2100bad38e"
+}

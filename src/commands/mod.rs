@@ -232,6 +232,7 @@ mod admin;
 pub use admin::CreateOcrRule;
 pub use admin::DefineLog;
 pub use admin::DeleteRule;
+pub use admin::Encrypt;
 pub use admin::OcrCheck;
 pub use admin::Rules;
 
@@ -257,6 +258,7 @@ mod moderation;
 pub use moderation::Ban;
 pub use moderation::Duration;
 pub use moderation::EditRef;
+pub use moderation::Edits;
 pub use moderation::Kick;
 pub use moderation::Log;
 pub use moderation::Mute;

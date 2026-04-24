@@ -10,7 +10,7 @@ use crate::{
     lexer::{InferType, Token},
     transformers::Transformers,
     utils::{
-        reference::{embeds_for_ref, resolve_ref, save_ref},
+        reference::{self, embeds_for_ref, resolve_ref, save_ref},
         tinyid,
     },
 };
@@ -131,10 +131,16 @@ impl Command for Unban {
 
         save_ref(&db_id, &ref_data, reason_is_default).await;
 
+        let mut header_addition = String::new();
+        if ref_data.1.is_some() && !ref_data.1.as_ref().unwrap().is_empty() {
+            header_addition.push_str(" | + Images");
+        }
+
         let embed = CreateEmbed::new()
             .description(format!(
-                "**{} UNBANNED**\n-# Log ID: `{db_id}`\n```\n{reason}\n```",
-                user.mention()
+                "**{} UNBANNED**\n-# Log ID: `{db_id}`{}\n```\n{reason}\n```",
+                user.mention(),
+                header_addition
             ))
             .color(BRAND_BLUE);
 
@@ -157,6 +163,7 @@ impl Command for Unban {
             }
         };
 
+        trace.point("done");
         if inferred && let Some(reply) = msg.referenced_message.clone() {
             if reply.author.id != ctx.cache.current_user().id {
                 let _ = reply.delete(&ctx).await;

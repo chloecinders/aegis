@@ -23,6 +23,9 @@ tesseract-rs = { version = "0.1.20", features = ["build-tesseract"] }
 regex = "1.12.2"
 rust-s3 = "0.37.1"
 rand = "0.9"
+aes-gcm = "0.10"
+base64 = "0.22"
+sha2 = "0.11.0"
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6.0", features = ["stats", "profiling"] }

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM message_edits WHERE message_id IN (SELECT message_id FROM message_store WHERE guild_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65f0ae231ae8113755534679f22f487317849abc3b93e38159a1efeebc7a5fce"
+}

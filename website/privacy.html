@@ -25,7 +25,7 @@
         <main>
             <div class="document-page">
                 <h1>Privacy Policy</h1>
-                <div class="last-updated">Last Updated: April 19, 2026</div>
+                <div class="last-updated">Last Updated: April 24, 2026</div>
 
                 <h2>1. Introduction</h2>
                 <p>This Privacy Policy explains how the public instance of the Ouroboros Discord bot collects,
@@ -42,11 +42,13 @@
                         configuration.</li>
                     <li>Message Content: The Bot relies on the Message Content Intent to read commands, process
                         replies, and handle automated moderation rules. Message contents are primarily kept in an
-                        ephemeral, memory-only dynamic cache.</li>
-                    <li>Audit Log Data: Data retrieved from Discord's Audit logs to enrich moderation context
-                        (e.g., discovering who deleted a message).</li>
-                    <li>Moderation Records: Specific historical logs of user infractions (warns, kicks, bans)
-                        invoked by your moderation team.</li>
+                        ephemeral, memory-only dynamic cache. If persistently stored for context, servers can opt-in
+                        to AES-256-GCM encryption so data is strictly unreadable at rest.</li>
+                    <li>Audit Log & Auto-Mod Data: Data retrieved from Discord's Audit logs and Auto-Moderation
+                        alerts to enrich moderation context.</li>
+                    <li>Moderation Records & Media: Specific historical logs of user infractions. If a moderation action
+                        references a message with images, those files are securely uploaded to our private S3 buckets
+                        so context is preserved even if the original Discord message is deleted.</li>
                 </ul>
 
                 <h2>3. How We Use the Data</h2>

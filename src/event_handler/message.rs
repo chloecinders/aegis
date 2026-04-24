@@ -296,7 +296,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         member.user.id.get() as i64,
                         author.user.id.get() as i64,
                         Some(db_id),
-                        None::<String>
+                        None::<Vec<u8>>
                     )
                     .execute(&*crate::SQL)
                     .await;

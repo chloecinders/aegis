@@ -50,6 +50,10 @@ pub async fn run_migrations() {
     add_content_to_log_messages_context_041220261300().await;
     create_command_traces_041320261850().await;
     create_action_refs_table_230420261710().await;
+    create_message_store_240420261815().await;
+    create_guild_encryption_240420261815().await;
+    create_message_edits_240420261820().await;
+    alter_log_messages_context_content_to_bytea_240420262108().await;
 }
 
 pub async fn create_actions_223320250818() {
@@ -400,5 +404,89 @@ pub async fn create_action_refs_table_230420261710() {
         panic!(
             "Couldnt run database migration create_action_refs_table_230420261710; Err = {err:?}"
         );
+    }
+}
+
+pub async fn create_message_store_240420261815() {
+    if let Err(err) = sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.message_store
+        (
+            message_id bigint NOT NULL PRIMARY KEY,
+            channel_id bigint NOT NULL,
+            guild_id bigint NOT NULL,
+            author_id bigint NOT NULL,
+            author_name text NOT NULL,
+            content bytea,
+            attachment_urls jsonb,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        "#,
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!("Couldnt run database migration create_message_store_240420261815; Err = {err:?}");
+    }
+}
+
+pub async fn create_guild_encryption_240420261815() {
+    if let Err(err) = sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.guild_encryption
+        (
+            guild_id bigint NOT NULL PRIMARY KEY,
+            encrypted boolean NOT NULL DEFAULT false,
+            key_channel_id bigint,
+            key_message_id bigint
+        );
+        "#,
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!(
+            "Couldnt run database migration create_guild_encryption_240420261815; Err = {err:?}"
+        );
+    }
+}
+
+pub async fn create_message_edits_240420261820() {
+    if let Err(err) = sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS public.message_edits
+        (
+            edit_id bigserial PRIMARY KEY,
+            message_id bigint NOT NULL,
+            content bytea,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        "#,
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!("Couldnt run database migration create_message_edits_240420261820; Err = {err:?}");
+    }
+}
+
+pub async fn alter_log_messages_context_content_to_bytea_240420262108() {
+    if let Err(err) = sqlx::query(
+        r#"
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='log_messages_context' AND column_name='content' AND data_type='text'
+            ) THEN
+                ALTER TABLE public.log_messages_context ALTER COLUMN content TYPE bytea USING convert_to(content, 'UTF8');
+            END IF;
+        END $$;
+        "#
+    )
+    .execute(&*SQL)
+    .await
+    {
+        panic!("Couldnt run database migration alter_log_messages_context_content_to_bytea_240420262108; Err = {err:?}");
     }
 }

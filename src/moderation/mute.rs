@@ -91,7 +91,7 @@ pub async fn mute_member(
     }
 
     let audit_reason = format!(
-        "Ouroboros Managed Mute: log id `{db_id}`. Please use Ouroboros to unmute to avoid accidental re-application!"
+        "Aegis Managed Mute: log id `{db_id}`. Please use Aegis to unmute to avoid accidental re-application!"
     );
 
     let edit = if let Some(expires_at) = expires_at {

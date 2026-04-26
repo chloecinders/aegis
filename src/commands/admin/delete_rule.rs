@@ -12,7 +12,7 @@ use crate::{
     transformers::Transformers,
     utils::{consume_pgsql_error, consume_serenity_error},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 use serenity::{
     all::{Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Message, Permissions},
     async_trait,

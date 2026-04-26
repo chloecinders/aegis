@@ -10,7 +10,7 @@ use crate::{
     transformers::Transformers,
     utils::{cache::trace_cache::TracePoint, is_developer},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 use serenity::{
     all::{Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Message},
     async_trait,

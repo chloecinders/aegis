@@ -12,7 +12,7 @@ use crate::{
     transformers::Transformers,
     utils::{encryption::decrypt, is_developer},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 use serenity::{
     all::{Context, CreateAllowedMentions, CreateAttachment, CreateEmbed, CreateMessage, Message},
     async_trait,

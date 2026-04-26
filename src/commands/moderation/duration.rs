@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use ouroboros_macros::command;
+use aegis_macros::command;
 use serenity::{
     all::{
         Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EditMember, Mentionable,

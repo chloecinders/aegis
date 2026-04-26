@@ -3,14 +3,14 @@
 version = 4
 
 [[package]]
-name = "Ouroboros"
+name = "Aegis"
 version = "0.1.0-pre"
 dependencies = [
+ "aegis_macros",
  "aes-gcm",
  "base64 0.22.1",
  "chrono",
  "image",
- "ouroboros_macros",
  "rand 0.9.4",
  "regex",
  "reqwest 0.12.23",
@@ -55,6 +55,16 @@ checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
 dependencies = [
  "crypto-common 0.1.6",
  "generic-array",
+]
+
+[[package]]
+name = "aegis_macros"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -2209,16 +2219,6 @@ checksum = "49203cdcae0030493bad186b28da2fa25645fa276a51b6fec8010d281e02ef79"
 dependencies = [
  "dlv-list",
  "hashbrown 0.14.5",
-]
-
-[[package]]
-name = "ouroboros_macros"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "proc-macro2",
- "quote",
- "syn 2.0.106",
 ]
 
 [[package]]

@@ -17,7 +17,7 @@ use crate::{
     transformers::Transformers,
     utils::{LogType, get_all_guilds, guild_log, is_developer},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 use std::sync::Arc;
 
 use crate::ShardManagerContainer;
@@ -85,11 +85,11 @@ impl Command for Update {
                 for guild in guilds {
                     guild_log(
                         &ctx_clone,
-                        LogType::OuroborosAnnonucements,
+                        LogType::AegisAnnonucements,
                         guild.id,
                         CreateMessage::new().add_embed(
                             CreateEmbed::new().color(BRAND_BLUE).description(format!(
-                                "**OUROBOROS UPDATE: {title}**\n\n{description}\n"
+                                "**Aegis UPDATE: {title}**\n\n{description}\n"
                             )),
                         ),
                         None,
@@ -123,7 +123,7 @@ impl Command for Update {
         let headers = request.headers_mut();
         headers.append(
             "User-Agent",
-            HeaderValue::from_str(format!("Ouroboros Bot v{}", env!("CARGO_PKG_VERSION")).as_str())
+            HeaderValue::from_str(format!("Aegis Bot v{}", env!("CARGO_PKG_VERSION")).as_str())
                 .unwrap(),
         );
 
@@ -183,10 +183,8 @@ impl Command for Update {
             let headers = artifacts_req.headers_mut();
             headers.append(
                 "User-Agent",
-                HeaderValue::from_str(
-                    format!("Ouroboros Bot v{}", env!("CARGO_PKG_VERSION")).as_str(),
-                )
-                .unwrap(),
+                HeaderValue::from_str(format!("Aegis Bot v{}", env!("CARGO_PKG_VERSION")).as_str())
+                    .unwrap(),
             );
 
             if let Some(token) = BOT_CONFIG.github_token.clone() {
@@ -254,10 +252,8 @@ impl Command for Update {
             let headers = download_req.headers_mut();
             headers.append(
                 "User-Agent",
-                HeaderValue::from_str(
-                    format!("Ouroboros Bot v{}", env!("CARGO_PKG_VERSION")).as_str(),
-                )
-                .unwrap(),
+                HeaderValue::from_str(format!("Aegis Bot v{}", env!("CARGO_PKG_VERSION")).as_str())
+                    .unwrap(),
             );
 
             if let Some(token) = BOT_CONFIG.github_token.clone() {
@@ -302,9 +298,9 @@ impl Command for Update {
                 };
 
                 #[cfg(target_os = "windows")]
-                let name = "Ouroboros.exe";
+                let name = "Aegis.exe";
                 #[cfg(not(target_os = "windows"))]
-                let name = "Ouroboros";
+                let name = "Aegis";
 
                 let Ok(mut file) = zip.by_name(&format!("release/{name}")) else {
                     return Err(String::from("Failed to extract file"));
@@ -359,7 +355,7 @@ impl Command for Update {
                     format!("{}:{}:{}", msg.channel_id.get(), msg.id.get(), run.head_sha),
                 );
 
-                let target = "./Ouroboros";
+                let target = "./Aegis";
 
                 let _ = fs::remove_file(target);
 

@@ -17,7 +17,7 @@ use crate::{
     transformers::Transformers,
     utils::encryption::decrypt,
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Edits;
 

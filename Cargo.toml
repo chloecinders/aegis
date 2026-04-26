@@ -1,5 +1,5 @@
 [package]
-name = "Ouroboros"
+name = "Aegis"
 version = "0.1.0-pre"
 edition = "2024"
 
@@ -12,7 +12,7 @@ tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "signal"]
 toml = "0.9.5"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-ouroboros_macros = { path = "./ouroboros_macros" }
+aegis_macros = { path = "./aegis_macros" }
 sqlx = { version = "0.8.6", features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio", "tls-native-tls"] }
 chrono = "0.4.41"
 reqwest = { version = "0.12.23", features = ["json"] }
@@ -31,4 +31,4 @@ tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6.0", features = ["stats", "profiling"] }
 
 [workspace]
-members = ["ouroboros_macros"]
+members = ["aegis_macros"]

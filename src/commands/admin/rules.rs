@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration, vec};
 
+use aegis_macros::command;
 use chrono::TimeDelta;
-use ouroboros_macros::command;
 use serenity::{
     all::{
         ButtonStyle, Context, CreateActionRow, CreateAllowedMentions, CreateButton, CreateEmbed,

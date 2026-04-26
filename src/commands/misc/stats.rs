@@ -12,7 +12,8 @@ use crate::{
     commands::{Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax},
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
-    lexer::Token, utils::TraceContext,
+    lexer::Token,
+    utils::TraceContext,
 };
 
 pub struct Stats;
@@ -130,3 +131,6 @@ impl Command for Stats {
         Ok(())
     }
 }
+
+// WIKICONTENT
+// Shows some statistics about the bot

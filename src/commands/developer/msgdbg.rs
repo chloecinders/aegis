@@ -12,7 +12,7 @@ use crate::{
     lexer::{Token, lex},
     utils::{consume_serenity_error, is_developer},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct MsgDbg;
 

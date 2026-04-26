@@ -21,7 +21,7 @@ use crate::{
         tinyid,
     },
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Ban;
 

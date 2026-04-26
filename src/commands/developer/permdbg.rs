@@ -12,7 +12,7 @@ use crate::{
     lexer::Token,
     utils::{consume_serenity_error, is_developer, permissions_for_channel},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct PermDbg;
 

@@ -18,7 +18,7 @@ use crate::{
     transformers::Transformers,
     utils::{LogType, guild_log},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Purge;
 
@@ -43,7 +43,7 @@ impl Command for Purge {
         Messages older than 2 weeks are ignored. \
         Count must be between 2 and 99. \
         Optional filters can be applied after the count: \
-        \n`+user/+u @ouroboros` -> Message Author \
+        \n`+user/+u @aegis` -> Message Author \
         \n`+string/+s \"content\"` -> Message Content"
     }
 

@@ -1,8 +1,8 @@
-# Ouroboros
+# Aegis
 
 Discord mod bot that is supposed to do one thing and one thing well. Currently in private beta but open source if you want to self host it yourself.
 
-https://ouroboros.chloecinders.com/
+https://aegis.chloecinders.com/
 
 Open source as I believe that people, especially moderators, should know exactly what their tools do.
 
@@ -55,7 +55,7 @@ token = "" # bot token
 prefix = "+" # bot prefix
 database_url = "postgres://user:password@ip/database" # database url, must be postgres
 max_connections = 5 # database max connections
-repository = "chloecinders/ouroboros" # the repository to update from
+repository = "chloecinders/aegis" # the repository to update from
 github_token = "" # the github token with actions access to the repository in case its private (must add the artifacts permission to the token)
 dev_ids = [1234567890] # list of user ids which have access to developer commands
 whitelist_enabled = false # enables the whitelist

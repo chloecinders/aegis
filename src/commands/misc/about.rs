@@ -12,7 +12,8 @@ use crate::{
     commands::{Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax},
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
-    lexer::Token, utils::TraceContext,
+    lexer::Token,
+    utils::TraceContext,
 };
 
 pub struct About;
@@ -93,7 +94,7 @@ impl Command for About {
                 r#"**ABOUT**
 Hey, I'm {}!
 A moderation bot made for one purpose and one purpose only: Moderation.
-I'm currently in private beta but my source code is available at <https://github.com/chloecinders/ouroboros>.
+I'm currently in private beta but my source code is available at <https://github.com/chloecinders/aegis>.
 Join our Discord server: <https://discord.gg/SdUf7TrbDq>
 Type `+help` to see a list of all commands!
 

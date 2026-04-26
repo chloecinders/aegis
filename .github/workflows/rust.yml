@@ -38,7 +38,7 @@ jobs:
             - name: Upload binary
               uses: actions/upload-artifact@v4
               with:
-                  name: ouroboros-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+                  name: aegis-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
                   path: |
-                      target/**/release/Ouroboros
-                      target/**/release/Ouroboros.exe
+                      target/**/release/Aegis
+                      target/**/release/Aegis.exe

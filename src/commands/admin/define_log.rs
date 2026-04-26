@@ -27,7 +27,7 @@ use crate::{
     transformers::Transformers,
     utils::{LogType, consume_pgsql_error, consume_serenity_error},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct DefineLog;
 

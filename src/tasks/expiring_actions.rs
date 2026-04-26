@@ -131,7 +131,7 @@ pub async fn check_expiring_timeouts(cache_http: impl CacheHttp) {
             let capped_timeout = std::cmp::min(new_timeout, chrono::Duration::days(27));
 
             let reason = format!(
-                "Ouroboros Managed Mute: log id `{}`. Please use Ouroboros to unmute to avoid accidental re-application!",
+                "Aegis Managed Mute: log id `{}`. Please use Aegis to unmute to avoid accidental re-application!",
                 entry.id
             );
             let edit = EditMember::new()

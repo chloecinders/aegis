@@ -19,7 +19,7 @@ use crate::{
         encryption::{generate_key, key_to_display},
     },
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Encrypt;
 

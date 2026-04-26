@@ -14,7 +14,7 @@ use crate::{
         tinyid,
     },
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 use serenity::{
     all::{Context, Mentionable, Message, Permissions},
     async_trait,

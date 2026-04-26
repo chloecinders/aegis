@@ -16,7 +16,7 @@ use crate::{
         ocr::{ImageData, image_to_string_with_rotation},
     },
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct OcrCheck;
 

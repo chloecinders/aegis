@@ -13,7 +13,7 @@ use crate::{
     lexer::Token,
     utils::{consume_serenity_error, is_developer},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Jeprof;
 
@@ -130,7 +130,7 @@ impl Command for Jeprof {
                 trace.point("running_jeprof");
 
                 let exe = std::env::current_exe()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("./Ouroboros"));
+                    .unwrap_or_else(|_| std::path::PathBuf::from("./Aegis"));
 
                 let output = match std::process::Command::new("jeprof")
                     .arg("--text")

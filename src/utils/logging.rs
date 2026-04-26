@@ -20,7 +20,7 @@ pub enum LogType {
     MemberUpdate,
     ActionUpdate,
     MessageUpdate,
-    OuroborosAnnonucements,
+    AegisAnnonucements,
     AvatarUpdate,
 }
 
@@ -31,7 +31,7 @@ impl LogType {
             LogType::MemberUpdate => "Member Update",
             LogType::ActionUpdate => "Action Update",
             LogType::MessageUpdate => "Message Delete",
-            LogType::OuroborosAnnonucements => "Ouroboros Announcements",
+            LogType::AegisAnnonucements => "Aegis Announcements",
             LogType::AvatarUpdate => "Member Avatar Updates",
         })
     }
@@ -42,7 +42,7 @@ impl LogType {
             LogType::MemberUpdate => "Nickname, role changes",
             LogType::ActionUpdate => "Modeartion action duration/reason change",
             LogType::MessageUpdate => "Message deletions and edits",
-            LogType::OuroborosAnnonucements => "Scheduled bot downtime, updates",
+            LogType::AegisAnnonucements => "Scheduled bot downtime, updates",
             LogType::AvatarUpdate => "Avatar updates (Can get very spammy in large servers!)",
         })
     }
@@ -53,7 +53,7 @@ impl LogType {
             LogType::MemberUpdate,
             LogType::ActionUpdate,
             LogType::MessageUpdate,
-            LogType::OuroborosAnnonucements,
+            LogType::AegisAnnonucements,
         ]
     }
 

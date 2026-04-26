@@ -11,7 +11,7 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::Token,
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct ColonThree;
 

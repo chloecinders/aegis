@@ -1,0 +1,7 @@
+{
+    "name": "aegis-wiki",
+    "version": "1.0.0",
+    "scripts": {
+        "generate-wiki": "node website/generate-wiki.js"
+    }
+}

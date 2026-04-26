@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use ouroboros_macros::command;
+use aegis_macros::command;
 use serenity::{
     all::{
         Context, CreateAllowedMentions, CreateEmbed, CreateMessage, Mentionable, Message,

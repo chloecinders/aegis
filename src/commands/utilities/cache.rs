@@ -21,7 +21,7 @@ use crate::{
     transformers::Transformers,
     utils::{LogType, guild_log},
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Cache;
 

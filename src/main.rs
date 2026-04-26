@@ -189,7 +189,7 @@ async fn main() {
 fn update(arg: &str) -> std::io::Result<()> {
     let exe = env::current_exe()?;
 
-    let name = "Ouroboros.exe";
+    let name = "Aegis.exe";
 
     let mut target = exe.parent().unwrap().to_path_buf();
     target.push(name);
@@ -223,7 +223,7 @@ fn cleanup() -> std::io::Result<()> {
         if path.is_file()
             && let Some(filename) = path.file_name().and_then(|f| f.to_str())
             && filename.starts_with("new_")
-            && filename.contains("ouroboros")
+            && filename.contains("aegis")
         {
             fs::remove_file(&path)?;
         }

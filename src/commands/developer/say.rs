@@ -15,7 +15,7 @@ use crate::{
     transformers::Transformers,
     utils::is_developer,
 };
-use ouroboros_macros::command;
+use aegis_macros::command;
 
 pub struct Say;
 

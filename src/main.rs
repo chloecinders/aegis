@@ -18,7 +18,7 @@ use crate::{
     auto_once::AutoOnceLock,
     config::{Config, Environment},
     event_handler::Handler,
-    utils::{GuildSettings, send_error},
+    utils::{GuildSettings, consume_pgsql_error, send_error},
 };
 use std::process::Command as SystemCommand;
 
@@ -104,7 +104,11 @@ async fn main() {
         }.await
     });
 
-    database::run_migrations().await;
+    if let Err(err) = sqlx::migrate!().run(&*SQL).await {
+        let dbg = format!("{err:?}");
+        consume_pgsql_error("MIGRATIONS".into(), err.into());
+        panic!("Could not run database migrations: {dbg}");
+    }
 
     GUILD_SETTINGS
         .set(Mutex::new(GuildSettings::new()))

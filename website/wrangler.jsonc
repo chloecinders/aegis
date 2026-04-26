@@ -1,12 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ouroboros",
+  "name": "aegis",
   "compatibility_date": "2026-04-23",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": "./dist"
   },
   "compatibility_flags": [
     "nodejs_compat"

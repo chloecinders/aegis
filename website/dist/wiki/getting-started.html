@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="" />
+        <title>Getting Started - Aegis</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+        <link rel="stylesheet" href="/styles.css" />
+    </head>
+
+    <body>
+        <div class="container">
+            <header>
+                <nav class="nav">
+                    <a href="/" class="logo">Aegis</a>
+                    <div class="nav-links">
+                        <a href="/wiki/overview" class="active">Wiki</a>
+                        <a href="/terms" class="">Terms</a>
+                        <a href="/privacy" class="">Privacy</a>
+                        <a href="https://github.com/chloecinders/aegis">GitHub</a>
+                        <a href="https://discord.gg/SdUf7TrbDq">Discord</a>
+                    </div>
+                </nav>
+            </header>
+            <main>
+        <div class="wiki-layout">
+            <aside class="sidebar">
+                <div id="sidebar-commands"><h3>General</h3><ul><li><a href="/wiki/getting-started" class="active">Getting Started</a></li><li><a href="/wiki/overview" >Overview</a></li><li><a href="/wiki/self-hosting" >Self Hosting</a></li></ul><h3>Admin</h3><ul><li><a href="/wiki/config.html" >config</a></li><li><a href="/wiki/create_ocr_rule.html" >create_ocr_rule</a></li><li><a href="/wiki/delete_rule.html" >delete_rule</a></li><li><a href="/wiki/dlog.html" >dlog</a></li><li><a href="/wiki/encrypt.html" >encrypt</a></li><li><a href="/wiki/rules.html" >rules</a></li></ul><h3>Developer</h3><ul><li><a href="/wiki/cachesize.html" >cachesize</a></li><li><a href="/wiki/context.html" >context</a></li><li><a href="/wiki/jeprof.html" >jeprof</a></li><li><a href="/wiki/msgdbg.html" >msgdbg</a></li><li><a href="/wiki/ocr_check.html" >ocr_check</a></li><li><a href="/wiki/permdbg.html" >permdbg</a></li><li><a href="/wiki/restart.html" >restart</a></li><li><a href="/wiki/say.html" >say</a></li><li><a href="/wiki/sd.html" >sd</a></li><li><a href="/wiki/trace.html" >trace</a></li><li><a href="/wiki/update.html" >update</a></li></ul><h3>Misc</h3><ul><li><a href="/wiki/_3.html" >:3</a></li><li><a href="/wiki/about.html" >about</a></li><li><a href="/wiki/ping.html" >ping</a></li><li><a href="/wiki/stats.html" >stats</a></li></ul><h3>Moderation</h3><ul><li><a href="/wiki/ban.html" >ban</a></li><li><a href="/wiki/duration.html" >duration</a></li><li><a href="/wiki/edit_ref.html" >edit_ref</a></li><li><a href="/wiki/edits.html" >edits</a></li><li><a href="/wiki/kick.html" >kick</a></li><li><a href="/wiki/log.html" >log</a></li><li><a href="/wiki/mute.html" >mute</a></li><li><a href="/wiki/purge.html" >purge</a></li><li><a href="/wiki/reason.html" >reason</a></li><li><a href="/wiki/ref.html" >ref</a></li><li><a href="/wiki/softban.html" >softban</a></li><li><a href="/wiki/unban.html" >unban</a></li><li><a href="/wiki/unmute.html" >unmute</a></li><li><a href="/wiki/warn.html" >warn</a></li></ul><h3>Utilities</h3><ul><li><a href="/wiki/cache.html" >cache</a></li><li><a href="/wiki/eid.html" >eid</a></li></ul></div>
+            </aside>
+            <article class="wiki-content">
+                <h1>Getting Started</h1>
+<p>This guide walks you through adding Aegis to your server and getting it running in a few minutes.</p>
+
+<h2>1. Invite the Bot</h2>
+<p>Use the invite link on the <a href="/index.html">home page</a> or join the
+<a href="https://discord.gg/SdUf7TrbDq">Discord server</a> to get the official public instance added to your server.
+Aegis requires the following gateway intents to function: <strong>Message Content</strong>, <strong>Guild Members</strong>, and <strong>Guild Moderation</strong>.</p>
+
+<h2>2. Set the Bot's Role Position</h2>
+<p>Aegis must have a role that sits <strong>above</strong> the roles of any members it needs to moderate. Drag the Aegis role above your moderator and member roles in <strong>Server Settings → Roles</strong>. Without this, ban, kick, and timeout commands will fail with a hierarchy error.</p>
+
+<h2>3. Configure a Log Channel</h2>
+<p>Run <code>+config log #channel</code> to point Aegis at a channel where moderation actions will be logged. This is strongly recommended before using any moderation commands.</p>
+
+<h2>4. Basic Usage</h2>
+<p>All commands use the <code>+</code> prefix by default. Here are a few to get started:</p>
+<div class="syntax-box">
+<code>+ban &lt;user&gt; [duration] [reason]</code><br>
+<code>+kick &lt;user&gt; [reason]</code><br>
+<code>+mute &lt;user&gt; &lt;duration&gt; [reason]</code><br>
+<code>+warn &lt;user&gt; [reason]</code>
+</div>
+
+<p>Reply to a user's message before running a command and Aegis will automatically resolve the target, so you don't need to look up their ID.</p>
+
+<h2>5. Permissions</h2>
+<p>Commands are gated by Discord permissions. For example, <code>+ban</code> requires the <strong>Ban Members</strong> permission. Staff members without the relevant Discord permission will be denied. See the individual command pages in the sidebar for exact permission requirements.</p>
+
+<h2>6. Self-Hosting</h2>
+<p>Prefer to run your own instance? See the <a href="/wiki/self-hosting.html">Self-Hosting guide</a> for full setup instructions.</p>
+            </article>
+        </div></main>
+            <footer>
+                <p>&copy; 2026 Chloe Cinders &amp; Contributors</p>
+            </footer>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="{{META_DESCRIPTION}}" />
+        <title>{{TITLE}} - Aegis</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+        <link rel="stylesheet" href="/styles.css" />
+    </head>
+
+    <body>
+        <div class="container">
+            <header>
+                <nav class="nav">
+                    <a href="/" class="logo">Aegis</a>
+                    <div class="nav-links">
+                        <a href="/wiki/overview" class="{{ACTIVE_WIKI}}">Wiki</a>
+                        <a href="/terms" class="{{ACTIVE_TERMS}}">Terms</a>
+                        <a href="/privacy" class="{{ACTIVE_PRIVACY}}">Privacy</a>
+                        <a href="https://github.com/chloecinders/aegis">GitHub</a>
+                        <a href="https://discord.gg/SdUf7TrbDq">Discord</a>
+                    </div>
+                </nav>
+            </header>
+            <main>{{CONTENT}}</main>
+            <footer>
+                <p>&copy; 2026 Chloe Cinders &amp; Contributors</p>
+            </footer>
+        </div>
+    </body>
+</html>

@@ -20,8 +20,10 @@ pub enum LogType {
     MemberUpdate,
     ActionUpdate,
     MessageUpdate,
-    AegisAnnonucements,
+    AegisAnnouncements,
     AvatarUpdate,
+    Channels,
+    Roles,
 }
 
 impl LogType {
@@ -31,8 +33,10 @@ impl LogType {
             LogType::MemberUpdate => "Member Update",
             LogType::ActionUpdate => "Action Update",
             LogType::MessageUpdate => "Message Delete",
-            LogType::AegisAnnonucements => "Aegis Announcements",
+            LogType::AegisAnnouncements => "Aegis Announcements",
             LogType::AvatarUpdate => "Member Avatar Updates",
+            LogType::Channels => "Channels",
+            LogType::Roles => "Roles",
         })
     }
 
@@ -42,8 +46,10 @@ impl LogType {
             LogType::MemberUpdate => "Nickname, role changes",
             LogType::ActionUpdate => "Modeartion action duration/reason change",
             LogType::MessageUpdate => "Message deletions and edits",
-            LogType::AegisAnnonucements => "Scheduled bot downtime, updates",
+            LogType::AegisAnnouncements => "Scheduled bot downtime, updates",
             LogType::AvatarUpdate => "Avatar updates (Can get very spammy in large servers!)",
+            LogType::Channels => "Channel create/update/delete events",
+            LogType::Roles => "Role create/update/delete events",
         })
     }
 
@@ -53,7 +59,9 @@ impl LogType {
             LogType::MemberUpdate,
             LogType::ActionUpdate,
             LogType::MessageUpdate,
-            LogType::AegisAnnonucements,
+            LogType::AegisAnnouncements,
+            LogType::Channels,
+            LogType::Roles,
         ]
     }
 

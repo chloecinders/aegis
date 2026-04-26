@@ -22,7 +22,7 @@ use crate::{
     transformers::Transformers,
     utils::{
         can_target,
-        reference::{self, embeds_for_ref, resolve_ref, save_ref},
+        reference::{embeds_for_ref, resolve_ref, save_ref},
         tinyid,
     },
 };

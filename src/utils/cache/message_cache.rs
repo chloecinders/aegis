@@ -76,7 +76,7 @@ impl MessageCache {
         tokio::spawn(async move {
             let guild_id = message.guild_id.unwrap_or(0);
 
-            let mut content = message.content;
+            let content = message.content;
 
             let is_encrypted = {
                 let lock = ENCRYPTION_KEYS.lock().await;

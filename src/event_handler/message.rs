@@ -23,6 +23,7 @@ pub async fn message(handler: &Handler, ctx: Context, msg: Message) {
     }
 }
 
+#[allow(deprecated)]
 async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
     if msg.attachments.is_empty() || msg.author.bot {
         return;

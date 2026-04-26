@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 use sqlx::{prelude::FromRow, query_as, types::Json};
+use tracing::warn;
 
 use crate::{
     SQL,
@@ -46,7 +47,7 @@ impl GuildSettings {
     }
 
     async fn fetch_data(&self) -> Result<HashMap<u64, Settings>, AnyError> {
-        if let Ok(data) = query_as!(
+        match query_as!(
             GuildSettingsRow,
             r#"SELECT
                 guild_id,
@@ -57,26 +58,30 @@ impl GuildSettings {
         .fetch_all(&*SQL)
         .await
         {
-            let mut map: HashMap<u64, Settings> = HashMap::new();
+            Ok(data) => {
+                let mut map: HashMap<u64, Settings> = HashMap::new();
 
-            data.into_iter().for_each(|record| {
-                map.insert(
-                    record.guild_id as u64,
-                    Settings {
-                        log: SettingsLog {
-                            log_channel_ids: record
-                                .log_channel_ids
-                                .map(|j| j.0)
-                                .unwrap_or_default(),
-                            log_bots: record.log_bot,
+                data.into_iter().for_each(|record| {
+                    map.insert(
+                        record.guild_id as u64,
+                        Settings {
+                            log: SettingsLog {
+                                log_channel_ids: record
+                                    .log_channel_ids
+                                    .map(|j| j.0)
+                                    .unwrap_or_default(),
+                                log_bots: record.log_bot,
+                            },
                         },
-                    },
-                );
-            });
+                    );
+                });
 
-            Ok(map)
-        } else {
-            Err(AnyError::new("database_faild"))
+                Ok(map)
+            }
+            Err(err) => {
+                warn!("database {err:?}");
+                Err(AnyError::new("database_failed"))
+            }
         }
     }
 }

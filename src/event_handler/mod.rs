@@ -2,10 +2,10 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use serenity::{
     all::{
-        ChannelId, Context, CreateAllowedMentions, CreateEmbed, CreateInteractionResponse,
-        CreateInteractionResponseMessage, CreateMessage, EventHandler, Guild, GuildId,
-        GuildMemberUpdateEvent, Member, Message, MessageId, MessageUpdateEvent, PartialGuild, Role,
-        RoleId, User,
+        AuditLogEntry, ChannelId, Context, CreateAllowedMentions, CreateEmbed,
+        CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EventHandler,
+        Guild, GuildId, GuildMemberUpdateEvent, Member, Message, MessageId, MessageUpdateEvent,
+        PartialGuild, Role, RoleId, User,
     },
     async_trait,
 };
@@ -93,6 +93,7 @@ struct MessageDeleteEvent {
 mod help_cmd;
 
 // events
+mod guild_audit_log_entry_create;
 mod guild_create;
 mod guild_member_removal;
 mod guild_member_update;
@@ -434,6 +435,15 @@ impl EventHandler for Handler {
         new_data: PartialGuild,
     ) {
         guild_update::guild_update(self, ctx, old_data_if_available, new_data).await
+    }
+
+    async fn guild_audit_log_entry_create(
+        &self,
+        ctx: Context,
+        entry: AuditLogEntry,
+        guild_id: GuildId,
+    ) {
+        guild_audit_log_entry_create::guild_audit_log_entry_create(self, ctx, entry, guild_id).await
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: serenity::all::Interaction) {

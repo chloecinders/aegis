@@ -10,7 +10,7 @@ use crate::{
     lexer::{InferType, Token},
     transformers::Transformers,
     utils::{
-        reference::{self, embeds_for_ref, resolve_ref, save_ref},
+        reference::{embeds_for_ref, resolve_ref, save_ref},
         tinyid,
     },
 };

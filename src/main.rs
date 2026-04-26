@@ -104,18 +104,18 @@ async fn main() {
         }.await
     });
 
-    if let Err(err) = sqlx::migrate!().run(&*SQL).await {
-        let dbg = format!("{err:?}");
-        consume_pgsql_error("MIGRATIONS".into(), err.into());
-        panic!("Could not run database migrations: {dbg}");
-    }
-
     GUILD_SETTINGS
         .set(Mutex::new(GuildSettings::new()))
         .unwrap();
 
     BOT_CONFIG.set(active_env.clone()).unwrap();
     ENCRYPTION_KEYS.set(Mutex::new(HashMap::new())).unwrap();
+
+    if let Err(err) = sqlx::migrate!().run(&*SQL).await {
+        let dbg = format!("{err:?}");
+        consume_pgsql_error("MIGRATIONS".into(), err.into());
+        panic!("Could not run database migrations: {dbg}");
+    }
 
     panic::set_hook(Box::new(|info| {
         let payload_str = if let Some(s) = info.payload().downcast_ref::<&str>() {

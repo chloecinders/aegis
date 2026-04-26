@@ -85,7 +85,7 @@ impl Command for Update {
                 for guild in guilds {
                     guild_log(
                         &ctx_clone,
-                        LogType::AegisAnnonucements,
+                        LogType::AegisAnnouncements,
                         guild.id,
                         CreateMessage::new().add_embed(
                             CreateEmbed::new().color(BRAND_BLUE).description(format!(

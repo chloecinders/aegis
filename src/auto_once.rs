@@ -16,6 +16,7 @@ impl<T> AutoOnceLock<T> {
 impl<T> Deref for AutoOnceLock<T> {
     type Target = T;
 
+    #[track_caller]
     fn deref(&self) -> &Self::Target {
         match self.0.get() {
             Some(v) => v,

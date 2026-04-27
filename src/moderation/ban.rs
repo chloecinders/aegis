@@ -9,7 +9,11 @@ use crate::{
     SQL,
     constants::BRAND_BLUE,
     event_handler::CommandError,
-    utils::{LogType, can_target, guild_log, logging::LogContext, reference::apply_ref_button},
+    utils::{
+        LogType, can_target, guild_log,
+        logging::LogContext,
+        reference::{RefData, apply_ref_button},
+    },
 };
 
 pub async fn ban_member(
@@ -21,7 +25,7 @@ pub async fn ban_member(
     reason: String,
     clear_days: u8,
     duration: TimeDelta,
-    ref_data: (Option<String>, Option<String>),
+    ref_data: RefData,
 ) -> Result<(), CommandError> {
     let res = can_target(&ctx, &author, &member, Permissions::MODERATE_MEMBERS).await;
 
@@ -57,7 +61,7 @@ pub async fn ban_user(
     mut reason: String,
     clear_days: u8,
     duration: TimeDelta,
-    ref_data: (Option<String>, Option<String>),
+    ref_data: RefData,
 ) -> Result<(), CommandError> {
     if reason.len() > 500 {
         reason.truncate(500);
@@ -172,7 +176,6 @@ pub async fn ban_user(
             author.mention(),
             user.mention()
         ))
-        .thumbnail(user.face())
         .color(BRAND_BLUE);
 
     let msg = apply_ref_button(CreateMessage::new().add_embed(embed), &db_id, &ref_data);

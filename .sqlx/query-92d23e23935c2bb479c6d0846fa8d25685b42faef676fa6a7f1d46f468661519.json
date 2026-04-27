@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ref_message_id, ref_channel_id, ref_author_id, ref_content, image_url\n         FROM action_refs WHERE action_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ref_message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "ref_channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "ref_author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "ref_content",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 4,
+        "name": "image_url",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "92d23e23935c2bb479c6d0846fa8d25685b42faef676fa6a7f1d46f468661519"
+}

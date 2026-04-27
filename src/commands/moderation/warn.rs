@@ -145,7 +145,13 @@ impl Command for Warn {
         )
         .await?;
 
-        save_ref(&db_id, &ref_data, reason_is_default).await;
+        save_ref(
+            &db_id,
+            &ref_data,
+            msg.guild_id.map(|g| g.get()).unwrap_or(0),
+            reason_is_default,
+        )
+        .await;
 
         if inferred && let Some(reply) = msg.referenced_message.clone() {
             if reply.author.id != ctx.cache.current_user().id {

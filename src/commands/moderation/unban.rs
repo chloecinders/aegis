@@ -10,7 +10,7 @@ use crate::{
     lexer::{InferType, Token},
     transformers::Transformers,
     utils::{
-        reference::{embeds_for_ref, resolve_ref, save_ref},
+        reference::{resolve_ref, save_ref},
         tinyid,
     },
 };
@@ -129,11 +129,24 @@ impl Command for Unban {
         )
         .await?;
 
-        save_ref(&db_id, &ref_data, reason_is_default).await;
+        save_ref(
+            &db_id,
+            &ref_data,
+            msg.guild_id.map(|g| g.get()).unwrap_or(0),
+            reason_is_default,
+        )
+        .await;
 
         let mut header_addition = String::new();
-        if ref_data.1.is_some() && !ref_data.1.as_ref().unwrap().is_empty() {
-            header_addition.push_str(" | + Images");
+        let has_content = ref_data.content.is_some();
+        let has_image = ref_data.image_url.is_some();
+
+        if has_content && has_image {
+            header_addition.push_str(" | + ref, + image");
+        } else if has_content {
+            header_addition.push_str(" | + ref");
+        } else if has_image {
+            header_addition.push_str(" | + image");
         }
 
         let embed = CreateEmbed::new()
@@ -144,14 +157,10 @@ impl Command for Unban {
             ))
             .color(BRAND_BLUE);
 
-        let mut reply = CreateMessage::new()
+        let reply = CreateMessage::new()
             .add_embed(embed)
             .reference_message(&msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
-
-        for ref_embed in embeds_for_ref(&ref_data) {
-            reply = reply.add_embed(ref_embed);
-        }
 
         let reply_msg = msg.channel_id.send_message(&ctx, reply).await;
 

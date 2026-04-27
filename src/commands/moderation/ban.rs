@@ -313,7 +313,7 @@ impl Command for Ban {
             .await?;
         }
 
-        save_ref(&db_id_for_ref, &ref_data, reason_is_default).await;
+        save_ref(&db_id_for_ref, &ref_data, guild_id.get(), reason_is_default).await;
 
         let ctx_clone = ctx.clone();
         let msg_clone = msg.clone();

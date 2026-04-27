@@ -9,6 +9,7 @@ use crate::{
     utils::{
         command_processing::process,
         ocr::{ImageData, image_to_string_with_rotation, likely_has_text},
+        reference::RefData,
         rule_cache::Punishment,
         tinyid,
     },
@@ -194,7 +195,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     guild_id,
                     db_id,
                     formatted_reason,
-                    (None, None),
+                    RefData::default(),
                 )
                 .await;
             }
@@ -212,7 +213,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     db_id,
                     formatted_reason,
                     day_clear_amount,
-                    (None, None),
+                    RefData::default(),
                 )
                 .await;
             }
@@ -225,7 +226,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     guild_id,
                     db_id,
                     formatted_reason,
-                    (None, None),
+                    RefData::default(),
                 )
                 .await;
             }
@@ -245,7 +246,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     formatted_reason,
                     day_clear_amount,
                     chrono::TimeDelta::try_seconds(duration as i64).unwrap_or_default(),
-                    (None, None),
+                    RefData::default(),
                 )
                 .await;
             }
@@ -263,7 +264,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                     db_id,
                     formatted_reason,
                     chrono::TimeDelta::try_seconds(duration as i64).unwrap_or_default(),
-                    (None, None),
+                    RefData::default(),
                 )
                 .await;
             }

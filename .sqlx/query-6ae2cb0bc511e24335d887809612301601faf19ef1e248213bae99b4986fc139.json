@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO action_refs\n             (action_id, ref_message_id, ref_channel_id, ref_author_id, ref_content, image_url)\n         VALUES ($1, $2, $3, $4, $5, $6)\n         ON CONFLICT (action_id) DO UPDATE\n             SET ref_message_id = EXCLUDED.ref_message_id,\n                 ref_channel_id = EXCLUDED.ref_channel_id,\n                 ref_author_id  = EXCLUDED.ref_author_id,\n                 ref_content    = EXCLUDED.ref_content,\n                 image_url      = EXCLUDED.image_url",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6ae2cb0bc511e24335d887809612301601faf19ef1e248213bae99b4986fc139"
+}

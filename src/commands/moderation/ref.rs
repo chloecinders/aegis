@@ -90,7 +90,8 @@ impl Command for Ref {
         };
 
         trace.point("fetching_ref");
-        let Some((message_content, image_url)) = reference::get_ref(&action_id).await else {
+        let guild_id = msg.guild_id.map(|g| g.get()).unwrap_or(0);
+        let Some(ref_data) = reference::get_ref(&action_id, guild_id).await else {
             let reply = CreateMessage::new()
                 .add_embed(
                     CreateEmbed::new()
@@ -112,17 +113,22 @@ impl Command for Ref {
 
         let mut description = format!("**Reference for `{action_id}`**");
 
-        if let Some(ref content) = message_content {
-            description.push_str(&format!("\n```\n{}\n```", content));
+        if let Some(header) = ref_data.header() {
+            description.push('\n');
+            description.push_str(&header);
+        }
+
+        if let Some(ref content) = ref_data.content {
+            description.push_str(&format!("\n```\n{content}\n```"));
         }
 
         embed = embed.description(description);
 
-        if let Some(ref url) = image_url {
+        if let Some(ref url) = ref_data.image_url {
             embed = embed.image(url);
         }
 
-        if message_content.is_none() && image_url.is_none() {
+        if ref_data.is_empty() {
             embed = embed.description(format!("**No reference data for `{action_id}`**"));
         }
 

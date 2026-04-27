@@ -8,7 +8,11 @@ use crate::{
     SQL,
     constants::BRAND_BLUE,
     event_handler::CommandError,
-    utils::{LogType, can_target, guild_log, logging::LogContext, reference::apply_ref_button},
+    utils::{
+        LogType, can_target, guild_log,
+        logging::LogContext,
+        reference::{RefData, apply_ref_button},
+    },
 };
 
 pub async fn softban(
@@ -19,7 +23,7 @@ pub async fn softban(
     db_id: String,
     mut reason: String,
     clear_days: u8,
-    ref_data: (Option<String>, Option<String>),
+    ref_data: RefData,
 ) -> Result<(), CommandError> {
     let res = can_target(&ctx, &author, &member, Permissions::MODERATE_MEMBERS).await;
 

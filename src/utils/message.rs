@@ -13,7 +13,7 @@ use crate::{
     commands::{CommandArgument, CommandParameter, TransformerError},
     constants::BRAND_BLUE,
     lexer::lex,
-    utils::{TraceContext, reference::embeds_for_ref},
+    utils::{TraceContext, reference::RefData},
 };
 
 pub struct CommandMessageResponse {
@@ -23,7 +23,7 @@ pub struct CommandMessageResponse {
     delete: bool,
     join_thread: Arc<Mutex<Option<JoinHandle<bool>>>>,
     silent: bool,
-    ref_raw: Option<(Option<String>, Option<String>)>,
+    ref_raw: Option<RefData>,
 }
 
 impl CommandMessageResponse {
@@ -58,7 +58,7 @@ impl CommandMessageResponse {
         self.silent = silent;
         self
     }
-    pub fn ref_data(mut self, ref_data: (Option<String>, Option<String>)) -> Self {
+    pub fn ref_data(mut self, ref_data: RefData) -> Self {
         self.ref_raw = Some(ref_data);
         self
     }
@@ -114,8 +114,14 @@ impl CommandMessageResponse {
         };
 
         if let Some(ref_data) = &self.ref_raw {
-            if ref_data.1.is_some() && !ref_data.1.as_ref().unwrap().is_empty() {
-                addition.push_str(" | + Images");
+            let has_content = ref_data.content.is_some();
+            let has_image = ref_data.image_url.is_some();
+            if has_content && has_image {
+                addition.push_str(" | + ref, + image");
+            } else if has_content {
+                addition.push_str(" | + ref");
+            } else if has_image {
+                addition.push_str(" | + image");
             }
         }
 
@@ -123,18 +129,13 @@ impl CommandMessageResponse {
             .description((*self.server_content)(addition))
             .color(BRAND_BLUE);
 
-        let mut reply = CreateMessage::new()
+        let reply = CreateMessage::new()
             .add_embed(embed)
             .reference_message(cmd_msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
-        if let Some(ref_data) = &self.ref_raw {
-            for ref_embed in embeds_for_ref(ref_data) {
-                reply = reply.add_embed(ref_embed);
-            }
-        }
-
         trace.point("sending_initial_response");
+
         let mut msg = match cmd_msg.channel_id.send_message(&ctx, reply).await {
             Ok(m) => m,
             Err(err) => {
@@ -148,25 +149,29 @@ impl CommandMessageResponse {
         if let Some(handle) = lock.take() {
             trace.point("waiting_for_dm_completion");
 
-            let addition = match handle.await {
+            let mut addition = match handle.await {
                 Ok(b) if b => String::new(),
                 _ => String::from(" | DM failed"),
             };
 
+            if let Some(ref_data) = &self.ref_raw {
+                let has_content = ref_data.content.is_some();
+                let has_image = ref_data.image_url.is_some();
+
+                if has_content && has_image {
+                    addition.push_str(" | + ref, + image");
+                } else if has_content {
+                    addition.push_str(" | + ref");
+                } else if has_image {
+                    addition.push_str(" | + image");
+                }
+            }
+
             if !addition.is_empty() {
                 let desc = (*self.server_content)(addition);
-
                 let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
-                let mut embeds = vec![embed];
-
-                if let Some(ref_data) = &self.ref_raw {
-                    for ref_embed in embeds_for_ref(ref_data) {
-                        embeds.push(ref_embed);
-                    }
-                }
-
                 trace.point("editing_response");
-                let _ = msg.edit(&ctx, EditMessage::new().embeds(embeds)).await;
+                let _ = msg.edit(&ctx, EditMessage::new().embeds(vec![embed])).await;
             }
         }
 

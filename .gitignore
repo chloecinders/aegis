@@ -4,3 +4,4 @@ Config.toml
 tesseract
 dhat-heap.json
 prod-dhat-heap.json
+website/dist

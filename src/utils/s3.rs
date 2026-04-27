@@ -1,6 +1,6 @@
 use rand::RngCore;
 use s3::{Bucket, Region, creds::Credentials};
-use sha2::{Digest, Sha256};
+
 use tracing::warn;
 
 use crate::BOT_CONFIG;

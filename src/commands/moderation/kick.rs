@@ -177,7 +177,13 @@ impl Command for Kick {
         )
         .await?;
 
-        save_ref(&db_id_for_ref, &ref_data, reason_is_default).await;
+        save_ref(
+            &db_id_for_ref,
+            &ref_data,
+            msg.guild_id.map(|g| g.get()).unwrap_or(0),
+            reason_is_default,
+        )
+        .await;
 
         cmd_response.send_response(&ctx, &msg, trace).await;
 

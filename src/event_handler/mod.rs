@@ -450,7 +450,9 @@ impl EventHandler for Handler {
         if let serenity::all::Interaction::Component(component) = interaction {
             if component.data.custom_id.starts_with("view_ref:") {
                 let action_id = component.data.custom_id.trim_start_matches("view_ref:");
-                if let Some(ref_data) = reference::get_ref(action_id).await {
+                let guild_id = component.guild_id.map(|g| g.get()).unwrap_or(0);
+
+                if let Some(ref_data) = reference::get_ref(action_id, guild_id).await {
                     let embeds = embeds_for_ref(&ref_data);
                     let attachments = reference::attachments_for_ref(&ref_data).await;
 

@@ -52,7 +52,12 @@ pub static ENCRYPTION_KEYS: AutoOnceLock<Mutex<HashMap<u64, [u8; 32]>>> = AutoOn
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::fmt().init();
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     #[cfg(target_os = "windows")]
     if let Some(arg) = std::env::args()

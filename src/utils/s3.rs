@@ -1,5 +1,6 @@
 use rand::RngCore;
 use s3::{Bucket, Region, creds::Credentials};
+use std::fmt::Write;
 
 use tracing::warn;
 
@@ -60,21 +61,6 @@ pub async fn upload_image_with_key(key: String, data: Vec<u8>, content_type: &st
     }
 }
 
-pub async fn upload_image(
-    guild_id: u64,
-    data: Vec<u8>,
-    ext: &str,
-    content_type: &str,
-) -> Option<String> {
-    let token = random_token();
-    let (key, url) = get_predicted_url(guild_id, &token, ext);
-    if upload_image_with_key(key, data, content_type).await {
-        Some(url)
-    } else {
-        None
-    }
-}
-
 pub fn detect_content_type(data: &[u8]) -> &'static str {
     match data {
         d if d.starts_with(b"\x89PNG") => "image/png",
@@ -85,21 +71,11 @@ pub fn detect_content_type(data: &[u8]) -> &'static str {
     }
 }
 
-pub fn ext_for_content_type(ct: &str) -> &'static str {
-    match ct {
-        "image/png" => "png",
-        "image/jpeg" => "jpg",
-        "image/gif" => "gif",
-        "image/webp" => "webp",
-        _ => "bin",
-    }
-}
-
 pub fn random_token() -> String {
     let mut bytes = [0u8; 16];
     rand::rng().fill_bytes(&mut bytes);
+
     bytes.iter().fold(String::with_capacity(32), |mut s, b| {
-        use std::fmt::Write;
         let _ = write!(s, "{b:02x}");
         s
     })

@@ -11,10 +11,7 @@ use crate::{
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
     lexer::Token,
-    utils::{
-        consume_serenity_error,
-        ocr::{ImageData, image_to_string_with_rotation},
-    },
+    utils::{consume_serenity_error, ocr::extract_text_from_bytes},
 };
 use aegis_macros::command;
 
@@ -82,24 +79,9 @@ impl Command for OcrCheck {
                 arg: None,
             });
         };
-        let Ok(img) = image::load_from_memory(&bytes) else {
-            return Err(CommandError {
-                title: String::from("failed to decode provided attachment"),
-                hint: None,
-                arg: None,
-            });
-        };
-
-        let img = img.to_rgba8();
-
-        let image_data = ImageData {
-            width: img.width().try_into().unwrap_or(0),
-            height: img.height().try_into().unwrap_or(0),
-            raw: img.into_raw(),
-        };
 
         trace.point("processing_ocr");
-        let image_str = match image_to_string_with_rotation(&image_data).await {
+        let image_str = match extract_text_from_bytes(&bytes).await {
             Ok(d) => d,
             Err(_) => {
                 return Err(CommandError {

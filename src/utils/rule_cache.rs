@@ -2,13 +2,37 @@ use regex::Regex;
 
 use crate::{SQL, database::ActionType, utils::consume_pgsql_error};
 
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
 pub struct RuleCache {
     ocr: Vec<Rule>,
+    recent_triggers: HashMap<(String, u64), Instant>,
 }
 
 impl RuleCache {
     pub fn new() -> Self {
-        Self { ocr: Vec::new() }
+        Self {
+            ocr: Vec::new(),
+            recent_triggers: HashMap::new(),
+        }
+    }
+
+    pub fn check_debounce(&mut self, rule_id: String, user_id: u64) -> bool {
+        let key = (rule_id, user_id);
+        if let Some(last_triggered) = self.recent_triggers.get(&key) {
+            if last_triggered.elapsed() < Duration::from_secs(15) {
+                return false;
+            }
+        }
+
+        if self.recent_triggers.len() > 1000 {
+            self.recent_triggers
+                .retain(|_, v| v.elapsed() < Duration::from_secs(15));
+        }
+
+        self.recent_triggers.insert(key, Instant::now());
+        true
     }
 
     pub fn insert_ocr(&mut self, rule: Rule) {
@@ -131,6 +155,7 @@ impl RuleCache {
                 .iter()
                 .map(|r| r.byte_footprint() - std::mem::size_of::<Rule>())
                 .sum::<usize>()
+            + self.recent_triggers.capacity() * std::mem::size_of::<((String, u64), Instant)>()
     }
 }
 

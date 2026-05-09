@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-
 use serenity::all::{
     Context, CreateEmbed, CreateEmbedAuthor, CreateMessage, GuildMemberUpdateEvent, Member,
-    MemberAction, Mentionable, audit_log::Action,
+    MemberAction, Mentionable,
+    audit_log::{Action, Change},
 };
 
 use crate::{
@@ -31,6 +30,7 @@ pub async fn guild_member_update(
 
     let mut moderator_id: Option<u64> = None;
     let mut reason: Option<String> = None;
+    let mut role_changes_from_log: Option<(String, String)> = None;
     let old_nick: Option<Option<String>> = old_if_available.clone().map(|o| o.nick);
 
     if let Some(log) = find_audit_log(
@@ -50,6 +50,40 @@ pub async fn guild_member_update(
     {
         moderator_id = Some(log.user_id.get());
         reason = log.reason.clone();
+
+        if let Some(changes) = &log.changes {
+            let added = changes
+                .iter()
+                .filter_map(|c| {
+                    if let Change::RolesAdded { new, .. } = c {
+                        new.as_ref()
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .map(|r| r.id.mention().to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            let removed = changes
+                .iter()
+                .filter_map(|c| {
+                    if let Change::RolesRemove { new, .. } = c {
+                        new.as_ref()
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .map(|r| r.id.mention().to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            if !added.is_empty() || !removed.is_empty() {
+                role_changes_from_log = Some((added, removed));
+            }
+        }
     }
 
     let name = if let Some(old) = old_nick {
@@ -139,23 +173,39 @@ pub async fn guild_member_update(
     //     }
     // };
 
-    let roles = if let Some(old) = old_if_available
-        && let Some(new) = new
-    {
-        let old_set: HashSet<_> = old.roles.iter().cloned().map(|r| (r, ())).collect();
-        let new_set: HashSet<_> = new.roles.iter().cloned().map(|r| (r, ())).collect();
+    let roles = if let Some((added, removed)) = role_changes_from_log {
+        format!(
+            "\n\nRoles:\n{}{}{}",
+            if added.is_empty() {
+                String::new()
+            } else {
+                format!("+{added}")
+            },
+            if !added.is_empty() && !removed.is_empty() {
+                "\n"
+            } else {
+                ""
+            },
+            if removed.is_empty() {
+                String::new()
+            } else {
+                format!("-{removed}")
+            }
+        )
+    } else if let (Some(old), Some(new)) = (old_if_available, new) {
+        use std::collections::HashSet;
+        let old_set: HashSet<_> = old.roles.into_iter().collect();
+        let new_set: HashSet<_> = new.roles.into_iter().collect();
 
         let removed = old_set
             .difference(&new_set)
-            .cloned()
-            .map(|r| r.0.mention().to_string())
+            .map(|r| r.mention().to_string())
             .collect::<Vec<_>>()
             .join(" ");
 
         let added = new_set
             .difference(&old_set)
-            .cloned()
-            .map(|r| r.0.mention().to_string())
+            .map(|r| r.mention().to_string())
             .collect::<Vec<_>>()
             .join(" ");
 
@@ -185,11 +235,11 @@ pub async fn guild_member_update(
         String::new()
     };
 
-    if (name.is_empty() && roles.is_empty())
-        || (name.is_empty()
-            && !roles.is_empty()
-            && moderator_id.unwrap_or(0) == event.user.id.get())
-    {
+    if name.is_empty() && roles.is_empty() {
+        return;
+    }
+
+    if name.is_empty() && !roles.is_empty() && moderator_id.unwrap_or(0) == event.user.id.get() {
         return;
     }
 

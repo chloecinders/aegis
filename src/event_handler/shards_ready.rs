@@ -288,7 +288,6 @@ pub async fn fetch_encryption_keys(ctx: &Context) {
                             if let Some(key) = display_to_key(key_str.trim()) {
                                 let mut keys = ENCRYPTION_KEYS.lock().await;
                                 keys.insert(record.guild_id as u64, key);
-                                info!("Loaded encryption key for guild {}", record.guild_id);
                                 key_found = true;
                             }
                         }

@@ -16,7 +16,6 @@ pub fn command(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut main_bindings = Vec::new();
     let mut needs_args_iter = false;
 
-    // First pass to see if we need args iter
     for arg in &sig.inputs {
         if let FnArg::Typed(PatType { attrs, .. }) = arg {
             for attr in attrs {

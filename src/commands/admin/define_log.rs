@@ -73,13 +73,11 @@ impl Command for DefineLog {
         #[transformers::guild_channel] channel: Option<GuildChannel>,
         trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
-        let channel = channel.unwrap_or_else(|| {
-            msg.guild(&ctx.cache)
-                .unwrap()
-                .channels
-                .get(&msg.channel_id)
-                .unwrap()
-                .clone()
+        let channel = channel.unwrap_or({
+            let Ok(Some(channel)) = msg.channel(&ctx).await.map(|c| c.guild()) else {
+                return Err(CommandError::new("Could not fetch current channel..."));
+            };
+            channel
         });
 
         let channel_ids: HashMap<LogType, u64>;

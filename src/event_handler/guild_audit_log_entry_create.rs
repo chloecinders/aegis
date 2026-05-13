@@ -173,9 +173,9 @@ fn format_role_changes(changes: &[Change]) -> String {
 
 fn field_diff(label: &str, old: Option<String>, new: Option<String>) -> String {
     match (old, new) {
-        (Some(o), Some(n)) if o != n => format!("{label}: `{o}` → `{n}`"),
-        (None, Some(n)) => format!("{label}: (none) → `{n}`"),
-        (Some(o), None) => format!("{label}: `{o}` → (none)"),
+        (Some(o), Some(n)) if o != n => format!("{label}: `{o}` -> `{n}`"),
+        (None, Some(n)) => format!("{label}: (none) -> `{n}`"),
+        (Some(o), None) => format!("{label}: `{o}` -> (none)"),
         _ => String::new(),
     }
 }

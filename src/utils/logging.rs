@@ -24,6 +24,7 @@ pub enum LogType {
     AvatarUpdate,
     Channels,
     Roles,
+    VoiceActivity,
 }
 
 impl LogType {
@@ -37,6 +38,7 @@ impl LogType {
             LogType::AvatarUpdate => "Member Avatar Updates",
             LogType::Channels => "Channels",
             LogType::Roles => "Roles",
+            LogType::VoiceActivity => "Voice Activity",
         })
     }
 
@@ -50,6 +52,7 @@ impl LogType {
             LogType::AvatarUpdate => "Avatar updates (Can get very spammy in large servers!)",
             LogType::Channels => "Channel create/update/delete events",
             LogType::Roles => "Role create/update/delete events",
+            LogType::VoiceActivity => "Voice joins, leaves, moves, mutes, deafens",
         })
     }
 
@@ -62,6 +65,7 @@ impl LogType {
             LogType::AegisAnnouncements,
             LogType::Channels,
             LogType::Roles,
+            LogType::VoiceActivity,
         ]
     }
 

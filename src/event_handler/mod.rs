@@ -5,7 +5,7 @@ use serenity::{
         AuditLogEntry, ChannelId, Context, CreateAllowedMentions, CreateEmbed,
         CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, EventHandler,
         Guild, GuildId, GuildMemberUpdateEvent, Member, Message, MessageId, MessageUpdateEvent,
-        PartialGuild, Role, RoleId, User,
+        PartialGuild, Role, RoleId, User, VoiceState,
     },
     async_trait,
 };
@@ -104,6 +104,7 @@ mod message;
 mod message_delete;
 mod message_update;
 mod shards_ready;
+mod voice_state_update;
 
 #[derive(Clone)]
 pub struct Handler {
@@ -444,6 +445,10 @@ impl EventHandler for Handler {
         guild_id: GuildId,
     ) {
         guild_audit_log_entry_create::guild_audit_log_entry_create(self, ctx, entry, guild_id).await
+    }
+
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
+        voice_state_update::voice_state_update(self, ctx, old, new).await
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: serenity::all::Interaction) {

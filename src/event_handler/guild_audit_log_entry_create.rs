@@ -1,7 +1,7 @@
 use serenity::all::{
     AuditLogEntry, ChannelAction, Context, CreateEmbed, CreateMessage, GuildId, Mentionable,
     RoleAction,
-    audit_log::{Action, Change},
+    audit_log::{Action, Change, VoiceChannelStatusAction},
 };
 
 use crate::{
@@ -19,6 +19,9 @@ pub async fn guild_audit_log_entry_create(
     match entry.action {
         Action::Channel(action) => handle_channel_action(ctx, entry, guild_id, action).await,
         Action::Role(action) => handle_role_action(ctx, entry, guild_id, action).await,
+        Action::VoiceChannelStatus(action) => {
+            handle_voice_channel_status_action(ctx, entry, guild_id, action).await
+        }
         _ => {}
     }
 }
@@ -68,10 +71,8 @@ fn format_channel_changes(changes: &[Change]) -> String {
 
     for change in changes {
         match change {
-            Change::Name { old, new } => lines.push(field_diff("Name", opt_str(old), opt_str(new))),
-            Change::Topic { old, new } => {
-                lines.push(field_diff("Topic", opt_str(old), opt_str(new)))
-            }
+            Change::Name { old, new } => lines.push(field_diff("Name", old.clone(), new.clone())),
+            Change::Topic { old, new } => lines.push(field_diff("Topic", old.clone(), new.clone())),
             Change::Nsfw { old, new } => {
                 lines.push(field_diff("NSFW", opt_bool(old), opt_bool(new)))
             }
@@ -147,7 +148,7 @@ fn format_role_changes(changes: &[Change]) -> String {
 
     for change in changes {
         match change {
-            Change::Name { old, new } => lines.push(field_diff("Name", opt_str(old), opt_str(new))),
+            Change::Name { old, new } => lines.push(field_diff("Name", old.clone(), new.clone())),
             Change::Color { old, new } => lines.push(field_diff(
                 "Color",
                 old.map(|v| format!("#{v:06X}")),
@@ -180,10 +181,47 @@ fn field_diff(label: &str, old: Option<String>, new: Option<String>) -> String {
     }
 }
 
-fn opt_str(v: &Option<String>) -> Option<String> {
-    v.clone()
-}
-
 fn opt_bool(v: &Option<bool>) -> Option<String> {
     v.map(|b| if b { "yes" } else { "no" }.to_string())
+}
+
+async fn handle_voice_channel_status_action(
+    ctx: Context,
+    entry: AuditLogEntry,
+    guild_id: GuildId,
+    action: VoiceChannelStatusAction,
+) {
+    let actor = format!("<@{}>", entry.user_id.get());
+    let channel_id = entry.target_id.map(|id| id.get());
+
+    let channel_mention = channel_id
+        .map(|id| serenity::all::ChannelId::new(id).mention().to_string())
+        .unwrap_or_else(|| String::from("(unknown)"));
+
+    let label = match action {
+        VoiceChannelStatusAction::StatusUpdate => "VOICE STATUS SET",
+        VoiceChannelStatusAction::StatusDelete => "VOICE STATUS CLEARED",
+        _ => return,
+    };
+
+    let mut description = format!("**{label}**\n-# Channel: {channel_mention} | Actor: {actor}");
+
+    if matches!(action, VoiceChannelStatusAction::StatusUpdate) {
+        if let Some(opts) = entry.options {
+            description.push_str(&format!(
+                "\nNew Status:\n`{}`",
+                opts.status.unwrap_or(String::from("(none)"))
+            ));
+        }
+    }
+
+    if let Some(reason) = &entry.reason {
+        description.push_str(&format!("\nReason:\n```{reason} ```"));
+    }
+
+    let embed = CreateEmbed::new()
+        .color(SOFT_YELLOW)
+        .description(description);
+    let msg = CreateMessage::new().add_embed(embed);
+    guild_log(&ctx, LogType::VoiceActivity, guild_id, msg, None).await;
 }

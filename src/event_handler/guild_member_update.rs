@@ -1,6 +1,6 @@
 use serenity::all::{
-    Context, CreateEmbed, CreateEmbedAuthor, CreateMessage, GuildMemberUpdateEvent, Member,
-    MemberAction, Mentionable,
+    Context, CreateEmbed, CreateEmbedAuthor, CreateMessage, GuildId, GuildMemberUpdateEvent,
+    Member, MemberAction, Mentionable,
     audit_log::{Action, Change},
 };
 
@@ -28,28 +28,93 @@ pub async fn guild_member_update(
         return;
     }
 
-    let mut moderator_id: Option<u64> = None;
-    let mut reason: Option<String> = None;
-    let mut role_changes_from_log: Option<(String, String)> = None;
-    let old_nick: Option<Option<String>> = old_if_available.clone().map(|o| o.nick);
+    let (moderator_id, reason, role_changes_from_log) =
+        fetch_audit_log_info(&ctx, event.guild_id, event.user.id.get()).await;
 
-    if let Some(log) = find_audit_log(
+    let old_nick = old_if_available.clone().map(|o| o.nick);
+    let name = format_name_change(old_nick, event.nick.clone());
+
+    let old_timeout = old_if_available
+        .clone()
+        .and_then(|o| o.communication_disabled_until);
+    let new_timeout = event.communication_disabled_until;
+
+    handle_timeout_change(
         &ctx,
-        event.guild_id,
-        Action::Member(MemberAction::Update),
-        |a| a.target_id.map(|id| id.get()).unwrap_or(0) == event.user.id.get(),
+        &event,
+        old_timeout,
+        new_timeout,
+        moderator_id,
+        &reason,
     )
+    .await;
+
+    let roles = format_role_change(role_changes_from_log, &old_if_available, &new);
+
+    if name.is_empty() && roles.is_empty() {
+        return;
+    }
+
+    if name.is_empty() && !roles.is_empty() && moderator_id.unwrap_or(0) == event.user.id.get() {
+        return;
+    }
+
+    let moderator = if let Some(id) = moderator_id {
+        format!(" | Actor: <@{id}>")
+    } else {
+        String::new()
+    };
+
+    let reason_str = if let Some(reason) = reason {
+        format!("\nReason:\n```{reason} ```")
+    } else {
+        String::new()
+    };
+
+    let details = format!("{}{}{}", name, reason_str, roles);
+    let description = format!(
+        "**MEMBER UPDATE**\n-# <@{}>{}\n{}",
+        event.user.id,
+        moderator,
+        details.trim_start()
+    );
+    let embed = CreateEmbed::new()
+        .color(BRAND_BLUE)
+        .description(description)
+        .author(
+            CreateEmbedAuthor::new(format!("{}: {}", event.user.name, event.user.id.get()))
+                .icon_url(
+                    event
+                        .user
+                        .avatar_url()
+                        .unwrap_or(event.user.default_avatar_url()),
+                ),
+        );
+    let msg = CreateMessage::new().add_embed(embed);
+
+    guild_log(&ctx, LogType::MemberUpdate, event.guild_id, msg, None).await;
+}
+
+async fn fetch_audit_log_info(
+    ctx: &Context,
+    guild_id: GuildId,
+    user_id: u64,
+) -> (Option<u64>, Option<String>, Option<(String, String)>) {
+    if let Some(log) = find_audit_log(ctx, guild_id, Action::Member(MemberAction::Update), |a| {
+        a.target_id.map(|id| id.get()).unwrap_or(0) == user_id
+    })
     .await
     .or(find_audit_log(
-        &ctx,
-        event.guild_id,
+        ctx,
+        guild_id,
         Action::Member(MemberAction::RoleUpdate),
-        |a| a.target_id.map(|id| id.get()).unwrap_or(0) == event.user.id.get(),
+        |a| a.target_id.map(|id| id.get()).unwrap_or(0) == user_id,
     )
     .await)
     {
-        moderator_id = Some(log.user_id.get());
-        reason = log.reason.clone();
+        let moderator_id = Some(log.user_id.get());
+        let reason = log.reason.clone();
+        let mut role_changes_from_log = None;
 
         if let Some(changes) = &log.changes {
             let added = changes
@@ -84,96 +149,113 @@ pub async fn guild_member_update(
                 role_changes_from_log = Some((added, removed));
             }
         }
-    }
 
-    let name = if let Some(old) = old_nick {
-        if old == event.nick {
+        (moderator_id, reason, role_changes_from_log)
+    } else {
+        (None, None, None)
+    }
+}
+
+fn format_name_change(old_nick: Option<Option<String>>, new_nick: Option<String>) -> String {
+    if let Some(old) = old_nick {
+        if old == new_nick {
             String::new()
         } else {
             format!(
                 "\n\nName:\n`{}` -> `{}`",
                 old.unwrap_or(String::from("(none)")),
-                event.nick.unwrap_or(String::from("(none)"))
+                new_nick.unwrap_or(String::from("(none)"))
             )
         }
     } else {
         String::new()
-    };
+    }
+}
 
-    // if let Some(old) = old_if_available.clone()
-    //     && let Some(new) = new.clone()
-    // {
-    //     let lhs = old.avatar.or(old.user.avatar);
-    //     let rhs = new.avatar.or(new.user.avatar);
+async fn handle_timeout_change(
+    ctx: &Context,
+    event: &GuildMemberUpdateEvent,
+    old_timeout: Option<serenity::all::Timestamp>,
+    new_timeout: Option<serenity::all::Timestamp>,
+    moderator_id: Option<u64>,
+    reason: &Option<String>,
+) {
+    if old_timeout == new_timeout {
+        return;
+    }
 
-    //     if matches!(
-    //         (lhs, rhs, old.user.avatar, new.user.avatar),
-    //         (Some(a), Some(b), Some(ua_old), Some(ua_new))
-    //             if a == ua_old && b == ua_new
-    //     ) {
-    //         let client = Client::new();
+    if let Some(actor_id) = moderator_id {
+        if actor_id == ctx.cache.current_user().id.get() {
+            return;
+        }
 
-    //         if let (Some(old_image), Some(new_image)) = (
-    //             get_member_avatar_image(&client, old).await,
-    //             get_member_avatar_image(&client, new).await,
-    //         ) {
-    //             let target_height = old_image.height();
+        let (action_title, duration_str) = if let Some(until) = new_timeout {
+            let now = serenity::all::Timestamp::now().unix_timestamp();
+            let until_ts = until.unix_timestamp();
+            if until_ts > now {
+                let duration = until_ts - now;
+                let time_string = if duration >= 86400 * 27 {
+                    String::from("28 days")
+                } else if duration >= 86400 {
+                    format!("{} days", (duration as f64 / 86400.0).round())
+                } else if duration >= 3600 {
+                    format!("{} hours", (duration as f64 / 3600.0).round())
+                } else if duration >= 60 {
+                    format!("{} minutes", (duration as f64 / 60.0).round())
+                } else {
+                    format!("{} seconds", duration)
+                };
+                ("MEMBER MUTED", time_string)
+            } else {
+                ("MEMBER UNMUTED", String::new())
+            }
+        } else if old_timeout.is_some() {
+            ("MEMBER UNMUTED", String::new())
+        } else {
+            ("", String::new())
+        };
 
-    //             let old_image = old_image.resize(
-    //                 old_image.width() * target_height / old_image.height(),
-    //                 target_height,
-    //                 FilterType::Lanczos3,
-    //             );
+        if !action_title.is_empty() {
+            let mut description = format!(
+                "**{}**\n-# Actor: <@{}> | Target: <@{}>",
+                action_title, actor_id, event.user.id
+            );
 
-    //             let new_image = new_image.resize(
-    //                 new_image.width() * target_height / new_image.height(),
-    //                 target_height,
-    //                 FilterType::Lanczos3,
-    //             );
+            if !duration_str.is_empty() {
+                description.push_str(&format!(" | Duration: {}", duration_str));
+            }
 
-    //             let total_width = target_height * 2;
-    //             let mut output = DynamicImage::new_rgba8(total_width, target_height);
+            if let Some(reason_text) = reason {
+                description.push_str(&format!("\n```\n{}\n```", reason_text));
+            }
 
-    //             output.copy_from(&old_image, 0, 0).unwrap();
-    //             output.copy_from(&new_image, new_image.width(), 0).unwrap();
+            guild_log(
+                ctx,
+                LogType::MemberModeration,
+                event.guild_id,
+                CreateMessage::new().add_embed(
+                    CreateEmbed::new()
+                        .description(description)
+                        .color(BRAND_BLUE),
+                ),
+                Some(crate::utils::logging::LogContext {
+                    target_id: event.user.id.get(),
+                    moderator_id: actor_id,
+                    db_id: None,
+                    content: None,
+                }),
+            )
+            .await;
+        }
+    }
+}
 
-    //             let mut buff = Vec::new();
-    //             if output
-    //                 .write_to(&mut Cursor::new(&mut buff), image::ImageFormat::WebP)
-    //                 .is_ok()
-    //             {
-    //                 let description = format!("**AVATAR UPDATE**\n-# <@{}>", event.user.id);
-
-    //                 let embed = CreateEmbed::new()
-    //                     .color(BRAND_BLUE)
-    //                     .description(description)
-    //                     .author(
-    //                         CreateEmbedAuthor::new(format!(
-    //                             "{}: {}",
-    //                             event.user.name,
-    //                             event.user.id.get()
-    //                         ))
-    //                         .icon_url(
-    //                             event
-    //                                 .user
-    //                                 .avatar_url()
-    //                                 .unwrap_or(event.user.default_avatar_url()),
-    //                         ),
-    //                     )
-    //                     .image("attachment://avatar.webp");
-
-    //                 let msg = CreateMessage::new()
-    //                     .add_embed(embed)
-    //                     .add_file(CreateAttachment::bytes(buff, "avatar.webp"));
-
-    //                 guild_log(&ctx, LogType::AvatarUpdate, event.guild_id, msg, None).await;
-    //                 return;
-    //             }
-    //         };
-    //     }
-    // };
-
-    let roles = if let Some((added, removed)) = role_changes_from_log {
+fn format_role_change(
+    role_changes_from_log: Option<(String, String)>,
+    old_if_available: &Option<Member>,
+    new: &Option<Member>,
+) -> String {
+    if let Some((added, removed)) = role_changes_from_log {
         format!(
             "\n\nRoles:\n{}{}{}",
             if added.is_empty() {
@@ -194,8 +276,8 @@ pub async fn guild_member_update(
         )
     } else if let (Some(old), Some(new)) = (old_if_available, new) {
         use std::collections::HashSet;
-        let old_set: HashSet<_> = old.roles.into_iter().collect();
-        let new_set: HashSet<_> = new.roles.into_iter().collect();
+        let old_set: HashSet<_> = old.roles.iter().collect();
+        let new_set: HashSet<_> = new.roles.iter().collect();
 
         let removed = old_set
             .difference(&new_set)
@@ -233,62 +315,5 @@ pub async fn guild_member_update(
         }
     } else {
         String::new()
-    };
-
-    if name.is_empty() && roles.is_empty() {
-        return;
     }
-
-    if name.is_empty() && !roles.is_empty() && moderator_id.unwrap_or(0) == event.user.id.get() {
-        return;
-    }
-
-    let moderator = if let Some(id) = moderator_id {
-        format!(" | Actor: <@{id}>")
-    } else {
-        String::new()
-    };
-
-    let reason = if let Some(reason) = reason {
-        format!("\nReason:\n```{reason} ```")
-    } else {
-        String::new()
-    };
-
-    let description = format!(
-        "**MEMBER UPDATE**\n-# <@{}>{}{}{}{}",
-        event.user.id, moderator, name, reason, roles
-    );
-    let embed = CreateEmbed::new()
-        .color(BRAND_BLUE)
-        .description(description)
-        .author(
-            CreateEmbedAuthor::new(format!("{}: {}", event.user.name, event.user.id.get()))
-                .icon_url(
-                    event
-                        .user
-                        .avatar_url()
-                        .unwrap_or(event.user.default_avatar_url()),
-                ),
-        );
-    let msg = CreateMessage::new().add_embed(embed);
-
-    guild_log(&ctx, LogType::MemberUpdate, event.guild_id, msg, None).await;
 }
-
-// async fn get_member_avatar_image(client: &Client, member: Member) -> Option<image::DynamicImage> {
-//     let avatar_req = client
-//         .get(
-//             member.avatar_url().unwrap_or(
-//                 member
-//                     .user
-//                     .avatar_url()
-//                     .unwrap_or(member.user.default_avatar_url()),
-//             ),
-//         )
-//         .send()
-//         .await
-//         .ok()?;
-//     let bytes = avatar_req.bytes().await.ok()?;
-//     image::load_from_memory(&bytes).ok()
-// }

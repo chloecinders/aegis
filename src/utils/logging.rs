@@ -25,6 +25,7 @@ pub enum LogType {
     Channels,
     Roles,
     VoiceActivity,
+    Expressions,
 }
 
 impl LogType {
@@ -39,6 +40,7 @@ impl LogType {
             LogType::Channels => "Channels",
             LogType::Roles => "Roles",
             LogType::VoiceActivity => "Voice Activity",
+            LogType::Expressions => "Expressions",
         })
     }
 
@@ -53,6 +55,7 @@ impl LogType {
             LogType::Channels => "Channel create/update/delete events",
             LogType::Roles => "Role create/update/delete events",
             LogType::VoiceActivity => "Voice joins, leaves, moves, mutes, deafens",
+            LogType::Expressions => "Emoji/sticker create, update, delete events",
         })
     }
 
@@ -66,6 +69,7 @@ impl LogType {
             LogType::Channels,
             LogType::Roles,
             LogType::VoiceActivity,
+            LogType::Expressions,
         ]
     }
 

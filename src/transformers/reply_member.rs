@@ -27,6 +27,7 @@ impl Transformers {
 
             if let Some(reply) = msg.referenced_message.clone() {
                 let mut target_user = reply.author.clone();
+                let mut is_log_message = false;
 
                 if let Ok(Some(row)) =
                     sqlx::query("SELECT target_id FROM log_messages_context WHERE message_id = $1")
@@ -34,6 +35,7 @@ impl Transformers {
                         .fetch_optional(&*crate::SQL)
                         .await
                 {
+                    is_log_message = true;
                     let target_id_i64: i64 = row.try_get("target_id").unwrap_or(0);
                     if target_id_i64 > 0 {
                         if let Ok(user) = ctx.http.get_user((target_id_i64 as u64).into()).await {
@@ -62,7 +64,7 @@ impl Transformers {
                     }));
                 };
 
-                let infer_type = if matches!(reply.kind, MessageType::AutoModAction) {
+                let infer_type = if is_log_message || matches!(reply.kind, MessageType::AutoModAction) {
                     InferType::SystemMessage
                 } else {
                     InferType::Message

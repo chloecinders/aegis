@@ -48,7 +48,7 @@ impl RefData {
     }
 }
 
-fn extract_message_content(msg: &Message) -> Option<String> {
+async fn extract_message_content(msg: &Message, guild_id: u64) -> Option<String> {
     if !msg.content.is_empty() {
         return Some(msg.content.clone());
     }
@@ -58,6 +58,26 @@ fn extract_message_content(msg: &Message) -> Option<String> {
             return Some(desc);
         }
         if desc.starts_with("**MESSAGE DELETED**") || desc.starts_with("**MESSAGE EDITED**") {
+            if let Ok(Some(row)) = sqlx::query(
+                "SELECT content FROM log_messages_context WHERE message_id = $1"
+            )
+            .bind(msg.id.get() as i64)
+            .fetch_optional(&*SQL)
+            .await
+            {
+                let content_bytes: Option<Vec<u8>> = sqlx::Row::try_get(&row, "content").unwrap_or(None);
+                if let Some(bytes) = content_bytes {
+                    let lock = ENCRYPTION_KEYS.lock().await;
+                    if let Some(key) = lock.get(&guild_id) {
+                        if let Some(decrypted) = decrypt(key, &bytes) {
+                            return Some(decrypted);
+                        }
+                    }
+                    if let Ok(decrypted) = String::from_utf8(bytes) {
+                        return Some(decrypted);
+                    }
+                }
+            }
             return Some(String::from("<Stored context lost>"));
         }
     }
@@ -81,7 +101,7 @@ pub async fn resolve_ref(
                 return RefData::default();
             }
 
-            let content = extract_message_content(target_msg);
+            let content = extract_message_content(target_msg, guild_id).await;
             let image_url = upload_attachments(guild_id, &target_msg.attachments).await;
 
             return RefData {
@@ -104,7 +124,7 @@ pub async fn resolve_ref(
                 .message(ctx, MessageId::new(message_id))
                 .await
             {
-                let content = extract_message_content(&fetched);
+                let content = extract_message_content(&fetched, guild_id).await;
                 let image_url = upload_attachments(guild_id, &fetched.attachments).await;
                 return RefData {
                     message_id: Some(fetched.id.get()),

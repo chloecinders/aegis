@@ -1,12 +1,15 @@
 use std::{iter::Peekable, vec::IntoIter};
 
 use serenity::all::{Context, Message};
+use sqlx::Row;
 
 use crate::{
+    ENCRYPTION_KEYS,
     commands::{CommandArgument, TransformerError, TransformerReturn},
     event_handler::MissingArgumentError,
     lexer::{InferType, Token},
     transformers::Transformers,
+    utils::encryption::decrypt,
 };
 
 impl Transformers {
@@ -20,14 +23,26 @@ impl Transformers {
                 return Transformers::consume(ctx, msg, args).await;
             } else if let Some(reply) = msg.referenced_message.clone() {
                 if let Ok(Some(row)) =
-                    sqlx::query("SELECT content FROM log_messages_context WHERE message_id = $1")
+                    sqlx::query("SELECT guild_id, content FROM log_messages_context WHERE message_id = $1")
                         .bind(reply.id.get() as i64)
                         .fetch_optional(&*crate::SQL)
                         .await
                 {
-                    if let Some(content) =
-                        sqlx::Row::try_get::<Option<String>, _>(&row, "content").unwrap_or(None)
-                    {
+                    let guild_id: i64 = row.try_get("guild_id").unwrap_or(0);
+                    let content_bytes: Option<Vec<u8>> = row.try_get("content").unwrap_or(None);
+
+                    let decrypted_content = if let Some(bytes) = content_bytes {
+                        let lock = ENCRYPTION_KEYS.lock().await;
+                        if let Some(key) = lock.get(&(guild_id as u64)) {
+                            decrypt(key, &bytes).or_else(|| String::from_utf8(bytes.clone()).ok())
+                        } else {
+                            String::from_utf8(bytes).ok()
+                        }
+                    } else {
+                        None
+                    };
+
+                    if let Some(content) = decrypted_content {
                         return Ok(Token {
                             contents: Some(CommandArgument::String(content)),
                             raw: String::new(),

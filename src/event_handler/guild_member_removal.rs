@@ -7,7 +7,7 @@ use serenity::all::{
 };
 
 use crate::{
-    constants::BRAND_BLUE,
+    constants::{BRAND_BLUE, BRAND_RED},
     event_handler::Handler,
     utils::{LogType, guild_log, snowflake_to_timestamp},
 };
@@ -145,6 +145,28 @@ pub async fn guild_member_removal(
             )
             .await;
         }
-        _ => {}
+        LeaveType::User => {
+            guild_log(
+                &ctx,
+                LogType::MemberJoinLeave,
+                guild_id,
+                CreateMessage::new().add_embed(
+                    CreateEmbed::new()
+                        .description(format!(
+                            "**MEMBER LEFT**\n-# User: {} | ID: {}",
+                            user.mention(),
+                            user.id.get()
+                        ))
+                        .color(BRAND_RED),
+                ),
+                Some(crate::utils::logging::LogContext {
+                    target_id: user.id.get(),
+                    moderator_id: 0,
+                    db_id: None,
+                    content: None,
+                }),
+            )
+            .await;
+        }
     }
 }

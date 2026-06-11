@@ -95,6 +95,7 @@ mod help_cmd;
 // events
 mod guild_audit_log_entry_create;
 mod guild_create;
+mod guild_member_addition;
 mod guild_member_removal;
 mod guild_member_update;
 mod guild_role_delete;
@@ -384,6 +385,10 @@ impl EventHandler for Handler {
         event: GuildMemberUpdateEvent,
     ) {
         guild_member_update::guild_member_update(self, ctx, old_if_available, new, event).await
+    }
+
+    async fn guild_member_addition(&self, ctx: Context, new_member: Member) {
+        guild_member_addition::guild_member_addition(self, ctx, new_member).await
     }
 
     async fn guild_member_removal(

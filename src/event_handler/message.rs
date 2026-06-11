@@ -2,13 +2,17 @@ use serenity::{
     all::{Context, Message},
     futures::{StreamExt, stream::FuturesUnordered},
 };
+use sha2::{Digest, Sha256};
 
 use crate::{
     event_handler::Handler,
     moderation,
     utils::{
-        command_processing::process, ocr::extract_text_from_bytes, reference::RefData,
-        rule_cache::Punishment, tinyid,
+        command_processing::process,
+        ocr::extract_text_from_bytes,
+        reference::RefData,
+        rule_cache::{Punishment, db_check_image_hash, db_record_image_hash},
+        tinyid,
     },
 };
 
@@ -19,6 +23,12 @@ pub async fn message(handler: &Handler, ctx: Context, msg: Message) {
         process(handler, ctx.clone(), msg.clone()).await;
         return;
     }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
 }
 
 #[allow(deprecated)]
@@ -51,25 +61,63 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
             let Ok(req) = reqwest::get(attachment.proxy_url.clone()).await else {
                 return None;
             };
-
             let Ok(bytes) = req.bytes().await else {
                 return None;
             };
 
+            let image_hash = sha256_hex(&bytes);
+
+            {
+                let cache = rule_cache.lock().await;
+                if let Some(cached) = cache.image_hash_cache.get(guild_id_u64, &image_hash) {
+                    return match cached {
+                        Some(rule_id) => cache.get_by_id(rule_id).cloned(),
+                        None => None,
+                    };
+                }
+            }
+
+            if let Some(rule_id) = db_check_image_hash(guild_id_u64, &image_hash).await {
+                let mut cache = rule_cache.lock().await;
+                cache.image_hash_cache.insert(
+                    guild_id_u64,
+                    image_hash.clone(),
+                    Some(rule_id.clone()),
+                );
+                return cache.get_by_id(&rule_id).cloned();
+            }
+
             let image_str = match extract_text_from_bytes(&bytes).await {
                 Ok(d) => d,
-                Err(_) => {
-                    return None;
-                }
+                Err(_) => return None,
             };
 
-            let rule = {
-                let rule_cache = rule_cache.lock().await;
-                let rule = rule_cache.matches(guild_id_u64, image_str);
-                rule.cloned()
+            let result = {
+                let cache = rule_cache.lock().await;
+                cache.matches(guild_id_u64, image_str)
             };
 
-            return rule;
+            {
+                let mut cache = rule_cache.lock().await;
+                cache.image_hash_cache.insert(
+                    guild_id_u64,
+                    image_hash.clone(),
+                    result.as_ref().map(|(rule, _)| rule.id.clone()),
+                );
+            }
+
+            if let Some((ref rule, ref pat)) = result {
+                db_record_image_hash(
+                    guild_id_u64,
+                    &image_hash,
+                    &rule.id,
+                    pat.is_regex,
+                    &pat.pattern,
+                )
+                .await;
+            }
+
+            result.map(|(rule, _pat)| rule)
         }));
     }
 
@@ -276,7 +324,7 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                                     rule.name.to_uppercase(),
                                     formatted_reason
                                 ))
-                                .color(crate::constants::BRAND_BLUE)
+                                .color(crate::constants::BRAND_BLUE),
                         )
                         .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 

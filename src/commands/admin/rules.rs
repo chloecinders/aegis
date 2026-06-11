@@ -34,6 +34,7 @@ struct LogRecord {
     r#type: String,
     rule: String,
     is_regex: bool,
+    patterns: Option<serde_json::Value>,
     created_at: sqlx::types::chrono::NaiveDateTime,
     reason: String,
     punishment_type: ActionType,
@@ -50,10 +51,10 @@ impl Rules {
     }
 
     async fn get_one_response(&self, guild_id: i64, log: String) -> Result<String, CommandError> {
-        let res = query_as!(
+        let res = sqlx::query_as!(
             LogRecord,
             r#"
-                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1 AND id = $2;
+                SELECT id, guild_id, name, type, rule, is_regex, patterns, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1 AND id = $2;
             "#,
             guild_id,
             log
@@ -111,16 +112,30 @@ impl Rules {
         chunk.iter().for_each(|data| {
             let record = data.clone();
 
-            let rule = if record.rule.len() > 100 && compact {
-                format!("{}...", &record.rule[..97])
+            let rule = if let Some(serde_json::Value::Array(arr)) = &record.patterns {
+                let mut lines = Vec::new();
+                for v in arr {
+                    if let Some(pat) = v.get("pattern").and_then(|p| p.as_str()) {
+                        let is_re = v.get("is_regex").and_then(|b| b.as_bool()).unwrap_or(false);
+                        if is_re {
+                            lines.push(format!("/{}/ [regex]", pat));
+                        } else {
+                            lines.push(format!("{} [plain]", pat));
+                        }
+                    }
+                }
+                lines.join("\n")
             } else {
-                record.rule
-            };
-
-            let rule = if record.is_regex {
-                format!("/{}/", rule)
-            } else {
-                rule
+                let r = if record.rule.len() > 100 && compact {
+                    format!("{}...", &record.rule[..97])
+                } else {
+                    record.rule
+                };
+                if record.is_regex {
+                    format!("/{}/", r)
+                } else {
+                    r
+                }
             };
 
             let time_string = if let Some(duration) = record.duration.map(|d| TimeDelta::seconds(d))
@@ -227,10 +242,10 @@ impl Command for Rules {
 
         trace.point("fetching_rules");
 
-        let res = query_as!(
+        let res = sqlx::query_as!(
             LogRecord,
             r#"
-                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1;
+                SELECT id, guild_id, name, type, rule, is_regex, patterns, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1;
             "#,
             msg.guild_id.map(|g| g.get()).unwrap_or(0) as i64
         )

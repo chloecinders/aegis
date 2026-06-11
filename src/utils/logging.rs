@@ -18,6 +18,7 @@ pub struct LogContext {
 pub enum LogType {
     MemberModeration,
     MemberUpdate,
+    MemberJoinLeave,
     ActionUpdate,
     MessageUpdate,
     AegisAnnouncements,
@@ -33,6 +34,7 @@ impl LogType {
         String::from(match self {
             LogType::MemberModeration => "Member Moderation",
             LogType::MemberUpdate => "Member Update",
+            LogType::MemberJoinLeave => "Member Join/Leave",
             LogType::ActionUpdate => "Action Update",
             LogType::MessageUpdate => "Message Delete",
             LogType::AegisAnnouncements => "Aegis Announcements",
@@ -48,6 +50,7 @@ impl LogType {
         String::from(match self {
             LogType::MemberModeration => "New warns, bans, mutes, etc.",
             LogType::MemberUpdate => "Nickname, role changes",
+            LogType::MemberJoinLeave => "Member joins and leaves",
             LogType::ActionUpdate => "Modeartion action duration/reason change",
             LogType::MessageUpdate => "Message deletions and edits",
             LogType::AegisAnnouncements => "Scheduled bot downtime, updates",
@@ -63,6 +66,7 @@ impl LogType {
         vec![
             LogType::MemberModeration,
             LogType::MemberUpdate,
+            LogType::MemberJoinLeave,
             LogType::ActionUpdate,
             LogType::MessageUpdate,
             LogType::AegisAnnouncements,

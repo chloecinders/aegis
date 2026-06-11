@@ -1,13 +1,81 @@
+use std::collections::{HashMap, VecDeque};
+use std::time::{Duration, Instant};
+
 use regex::Regex;
+use serde_json::Value;
 
 use crate::{SQL, database::ActionType, utils::consume_pgsql_error};
 
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+const IMAGE_HASH_CACHE_MAX: usize = 10_000;
+
+#[derive(Clone, Debug)]
+pub struct OcrPattern {
+    pub pattern: String,
+    pub is_regex: bool,
+}
+
+pub struct ImageHashCache {
+    entries: HashMap<(u64, String), Option<String>>,
+    order: VecDeque<(u64, String)>,
+}
+
+impl ImageHashCache {
+    fn new() -> Self {
+        Self {
+            entries: HashMap::new(),
+            order: VecDeque::new(),
+        }
+    }
+
+    pub fn get(&self, guild_id: u64, image_hash: &str) -> Option<&Option<String>> {
+        self.entries.get(&(guild_id, image_hash.to_string()))
+    }
+
+    pub fn insert(&mut self, guild_id: u64, image_hash: String, rule_id: Option<String>) {
+        let key = (guild_id, image_hash);
+        if !self.entries.contains_key(&key) {
+            if self.entries.len() >= IMAGE_HASH_CACHE_MAX {
+                if let Some(old_key) = self.order.pop_front() {
+                    self.entries.remove(&old_key);
+                }
+            }
+            self.order.push_back(key.clone());
+        }
+        self.entries.insert(key, rule_id);
+    }
+
+    pub fn invalidate_rule(&mut self, rule_id: &str) {
+        let to_remove: Vec<_> = self
+            .entries
+            .iter()
+            .filter(|(_, v)| v.as_deref() == Some(rule_id))
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        for key in &to_remove {
+            self.entries.remove(key);
+        }
+
+        self.order.retain(|k| self.entries.contains_key(k));
+    }
+
+    fn byte_footprint(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self.entries.capacity()
+                * (std::mem::size_of::<(u64, String)>() + std::mem::size_of::<Option<String>>())
+            + self
+                .entries
+                .iter()
+                .map(|(k, v)| k.1.capacity() + v.as_ref().map(|s| s.capacity()).unwrap_or(0))
+                .sum::<usize>()
+            + self.order.capacity() * std::mem::size_of::<(u64, String)>()
+    }
+}
 
 pub struct RuleCache {
     ocr: Vec<Rule>,
     recent_triggers: HashMap<(String, u64), Instant>,
+    pub image_hash_cache: ImageHashCache,
 }
 
 impl RuleCache {
@@ -15,6 +83,7 @@ impl RuleCache {
         Self {
             ocr: Vec::new(),
             recent_triggers: HashMap::new(),
+            image_hash_cache: ImageHashCache::new(),
         }
     }
 
@@ -41,26 +110,32 @@ impl RuleCache {
 
     pub fn remove(&mut self, id: &str) {
         self.ocr.retain(|r| r.id != id);
+        self.image_hash_cache.invalidate_rule(id);
+    }
+
+    pub fn get_by_id(&self, id: &str) -> Option<&Rule> {
+        self.ocr.iter().find(|r| r.id == id)
+    }
+
+    pub fn add_pattern_to_rule(&mut self, rule_id: &str, pattern: OcrPattern) {
+        if let Some(rule) = self.ocr.iter_mut().find(|r| r.id == rule_id) {
+            rule.patterns.push(pattern);
+        }
     }
 
     pub fn has_ocr_rules(&self, guild_id: u64) -> bool {
-        for rule in &self.ocr {
-            if rule.guild_id == guild_id {
-                return true;
-            }
-        }
-
-        false
+        self.ocr.iter().any(|r| r.guild_id == guild_id)
     }
 
-    pub fn matches(&self, guild_id: u64, input: String) -> Option<&Rule> {
+    pub fn matches(&self, guild_id: u64, input: String) -> Option<(Rule, OcrPattern)> {
         for rule in &self.ocr {
-            if rule.guild_id == guild_id && rule.matches(&input) {
-                return Some(rule);
+            if rule.guild_id == guild_id {
+                if let Some(pat) = rule.matches_detail(&input) {
+                    return Some((rule.clone(), pat.clone()));
+                }
             }
         }
-
-        return None;
+        None
     }
 
     pub async fn populate_from_db(&mut self) {
@@ -73,7 +148,7 @@ impl RuleCache {
                 type,
                 rule,
                 is_regex,
-                created_at,
+                patterns,
                 reason,
                 punishment_type,
                 duration,
@@ -131,11 +206,31 @@ impl RuleCache {
                 },
             };
 
+            let patterns: Vec<OcrPattern> = if let Some(Value::Array(arr)) =
+                record.get::<Option<Value>, _>("patterns")
+            {
+                arr.into_iter()
+                    .filter_map(|v| {
+                        let pattern = v.get("pattern")?.as_str()?.to_string();
+                        let is_regex = v.get("is_regex").and_then(|b| b.as_bool()).unwrap_or(false);
+                        Some(OcrPattern { pattern, is_regex })
+                    })
+                    .collect()
+            } else {
+                vec![OcrPattern {
+                    pattern: record.get("rule"),
+                    is_regex: record.get("is_regex"),
+                }]
+            };
+
+            if patterns.is_empty() {
+                return;
+            }
+
             let rule = Rule {
                 name: record.get("name"),
                 id: record.get("id"),
-                rule: record.get("rule"),
-                is_regex: record.get("is_regex"),
+                patterns,
                 guild_id: record.get::<i64, _>("guild_id") as u64,
                 punishment: punish,
             };
@@ -156,7 +251,49 @@ impl RuleCache {
                 .map(|r| r.byte_footprint() - std::mem::size_of::<Rule>())
                 .sum::<usize>()
             + self.recent_triggers.capacity() * std::mem::size_of::<((String, u64), Instant)>()
+            + self.image_hash_cache.byte_footprint()
     }
+}
+
+pub async fn db_check_image_hash(guild_id: u64, image_hash: &str) -> Option<String> {
+    let result = sqlx::query(
+        "SELECT rule_id FROM ocr_image_hashes \
+         WHERE guild_id = $1 AND image_hash = $2 LIMIT 1",
+    )
+    .bind(guild_id as i64)
+    .bind(image_hash)
+    .fetch_optional(&*SQL)
+    .await;
+
+    match result {
+        Ok(Some(row)) => {
+            use sqlx::Row;
+            Some(row.get("rule_id"))
+        }
+        _ => None,
+    }
+}
+
+pub async fn db_record_image_hash(
+    guild_id: u64,
+    image_hash: &str,
+    rule_id: &str,
+    is_regex: bool,
+    matched_pattern: &str,
+) {
+    let _ = sqlx::query(
+        "INSERT INTO ocr_image_hashes \
+             (image_hash, rule_id, guild_id, is_regex, matched_pattern) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT (image_hash, rule_id) DO NOTHING",
+    )
+    .bind(image_hash)
+    .bind(rule_id)
+    .bind(guild_id as i64)
+    .bind(is_regex)
+    .bind(matched_pattern)
+    .execute(&*SQL)
+    .await;
 }
 
 #[derive(Clone, Debug)]
@@ -195,30 +332,43 @@ pub enum Punishment {
 pub struct Rule {
     pub name: String,
     pub id: String,
-    pub rule: String,
-    pub is_regex: bool,
+    pub patterns: Vec<OcrPattern>,
     pub guild_id: u64,
     pub punishment: Punishment,
 }
 
 impl Rule {
-    pub fn matches(&self, input: &str) -> bool {
-        if self.is_regex {
-            let Ok(regex) = Regex::new(&self.rule) else {
-                return false;
+    pub fn matches_detail<'a>(&'a self, input: &str) -> Option<&'a OcrPattern> {
+        for pat in &self.patterns {
+            let matched = if pat.is_regex {
+                Regex::new(&pat.pattern)
+                    .map(|re| re.is_match(input))
+                    .unwrap_or(false)
+            } else {
+                fuzzy_substring_match(&pat.pattern, input, 0.95)
             };
 
-            regex.is_match(input)
-        } else {
-            fuzzy_substring_match(&self.rule, input, 0.95)
+            if matched {
+                return Some(pat);
+            }
         }
+        None
+    }
+
+    #[allow(dead_code)]
+    pub fn matches(&self, input: &str) -> bool {
+        self.matches_detail(input).is_some()
     }
 
     pub fn byte_footprint(&self) -> usize {
         std::mem::size_of::<Self>()
             + self.name.capacity()
             + self.id.capacity()
-            + self.rule.capacity()
+            + self
+                .patterns
+                .iter()
+                .map(|p| std::mem::size_of::<OcrPattern>() + p.pattern.capacity())
+                .sum::<usize>()
             + match &self.punishment {
                 Punishment::Warn { reason, .. }
                 | Punishment::Kick { reason, .. }

@@ -18,7 +18,12 @@ use crate::{
     utils::{LogType, get_all_guilds, guild_log, is_developer},
 };
 use aegis_macros::command;
-use std::sync::Arc;
+use std::{
+    fs::{self, File, create_dir_all},
+    io,
+    path::Path,
+    sync::Arc,
+};
 
 use crate::ShardManagerContainer;
 
@@ -292,7 +297,7 @@ impl Command for Update {
             trace.point("extracting_artifact_zip");
 
             let unzip_result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
-                let reader = std::io::Cursor::new(bytes);
+                let reader = io::Cursor::new(bytes);
                 let Ok(mut zip) = zip::ZipArchive::new(reader) else {
                     return Err(String::from("Failed to create a zip cursor"));
                 };
@@ -302,17 +307,44 @@ impl Command for Update {
                 #[cfg(not(target_os = "windows"))]
                 let name = "Aegis";
 
-                let Ok(mut file) = zip.by_name(&format!("release/{name}")) else {
-                    return Err(String::from("Failed to extract file"));
-                };
-
-                let mut buffer = Vec::with_capacity(file.size() as usize);
-
-                if let Err(err) = std::io::copy(&mut file, &mut buffer) {
-                    return Err(format!("{err:?}"));
+                let dist_path = Path::new("website/dist");
+                if dist_path.exists() {
+                    let _ = fs::remove_dir_all(dist_path);
                 }
 
-                Ok(buffer)
+                let mut binary_buffer = None;
+
+                for i in 0..zip.len() {
+                    let Ok(mut file) = zip.by_index(i) else {
+                        continue;
+                    };
+                    let file_name = file.name().to_string();
+
+                    if file_name == format!("release/{name}")
+                        || file_name.ends_with(&format!("/{name}"))
+                    {
+                        let mut buffer = Vec::with_capacity(file.size() as usize);
+                        if let Err(err) = io::copy(&mut file, &mut buffer) {
+                            return Err(format!("{err:?}"));
+                        }
+                        binary_buffer = Some(buffer);
+                    } else if let Some(idx) = file_name.find("website/dist/") {
+                        let rel_path = &file_name[idx..];
+                        let outpath = Path::new(rel_path);
+                        if file_name.ends_with('/') {
+                            let _ = create_dir_all(&outpath);
+                        } else {
+                            if let Some(parent) = outpath.parent() {
+                                let _ = create_dir_all(parent);
+                            }
+                            if let Ok(mut outfile) = File::create(&outpath) {
+                                let _ = io::copy(&mut file, &mut outfile);
+                            }
+                        }
+                    }
+                }
+
+                binary_buffer.ok_or_else(|| String::from("Failed to find executable in archive"))
             })
             .await;
 

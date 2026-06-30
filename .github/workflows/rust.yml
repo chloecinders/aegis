@@ -32,6 +32,14 @@ jobs:
             - name: Fmt
               run: cargo fmt --all
 
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: Generate Wiki
+              run: node website/generate-wiki.js
+
             - name: Build
               run: cargo build --release --verbose
 
@@ -42,3 +50,4 @@ jobs:
                   path: |
                       target/**/release/Aegis
                       target/**/release/Aegis.exe
+                      website/dist/**

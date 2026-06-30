@@ -232,6 +232,7 @@ impl Command for Unmute {
                 CommandPermissions::moderation().as_slice(),
             ]
             .concat(),
+            silence_typing: false,
         }
     }
 }

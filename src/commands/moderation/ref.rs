@@ -154,6 +154,7 @@ impl Command for Ref {
                 Permissions::BAN_MEMBERS,
             ],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

@@ -223,6 +223,11 @@ impl Command for Edits {
     }
 
     fn get_permissions(&self) -> CommandPermissions {
-        CommandPermissions::default()
+        CommandPermissions {
+            required: vec![],
+            one_of: vec![],
+            bot: CommandPermissions::baseline(),
+            silence_typing: false,
+        }
     }
 }

@@ -222,6 +222,7 @@ impl Command for Kick {
                 CommandPermissions::moderation().as_slice(),
             ]
             .concat(),
+            silence_typing: false,
         }
     }
 }

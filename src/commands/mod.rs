@@ -149,6 +149,8 @@ pub struct CommandPermissions {
     pub one_of: Vec<Permissions>,
     /// Permissions the bot needs to run the command
     pub bot: Vec<Permissions>,
+    /// If true, the bot will not broadcast typing before running this command
+    pub silence_typing: bool,
 }
 
 impl CommandPermissions {
@@ -241,6 +243,7 @@ pub use developer::CacheSize;
 pub use developer::ContextCmd;
 pub use developer::Jeprof;
 pub use developer::MsgDbg;
+pub use developer::OcrDbg;
 pub use developer::PermDbg;
 pub use developer::Restart;
 pub use developer::Say;

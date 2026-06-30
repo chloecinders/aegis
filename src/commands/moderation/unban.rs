@@ -219,6 +219,7 @@ impl Command for Unban {
                 CommandPermissions::moderation().as_slice(),
             ]
             .concat(),
+            silence_typing: false,
         }
     }
 }

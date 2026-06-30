@@ -145,6 +145,7 @@ impl Command for DeleteRule {
             required: vec![Permissions::ADMINISTRATOR],
             one_of: vec![],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

@@ -11,7 +11,7 @@ use crate::{
         command_processing::process,
         ocr::extract_text_from_bytes,
         reference::RefData,
-        rule_cache::{Punishment, db_check_image_hash, db_record_image_hash},
+        rule_cache::{OcrDebugEntry, Punishment, db_check_image_hash, db_record_image_hash},
         tinyid,
     },
 };
@@ -58,9 +58,11 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
 
     let mut handles = vec![];
     let guild_id_u64 = guild_id.get();
+    let msg_id = msg.id.get();
 
     for attachment in msg.attachments.clone().into_iter() {
         let rule_cache = handler.rule_cache.clone();
+        let ocr_result_cache = handler.ocr_result_cache.clone();
 
         handles.push(tokio::spawn(async move {
             let Ok(req) = reqwest::get(attachment.proxy_url.clone()).await else {
@@ -99,8 +101,28 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
 
             let result = {
                 let cache = rule_cache.lock().await;
-                cache.matches(guild_id_u64, image_str)
+                cache.matches(guild_id_u64, image_str.clone())
             };
+
+            {
+                let debug_entry = OcrDebugEntry {
+                    text: image_str.clone(),
+                    matched: result.as_ref().map(|(rule, pat)| {
+                        (
+                            rule.name.clone(),
+                            rule.id.clone(),
+                            pat.pattern.clone(),
+                            pat.is_regex,
+                        )
+                    }),
+                };
+
+                let mut ocr_cache = ocr_result_cache.lock().await;
+                let existing = ocr_cache.get(msg_id).cloned().unwrap_or_default();
+                let mut updated = existing;
+                updated.push(debug_entry);
+                ocr_cache.insert(msg_id, updated);
+            }
 
             {
                 let mut cache = rule_cache.lock().await;

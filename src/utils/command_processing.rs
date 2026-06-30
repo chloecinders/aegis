@@ -9,8 +9,10 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::{Token, lex},
     utils::{
-        cache::permission_cache::{CommandPermissionRequest, CommandPermissionResult},
-        cache::trace_cache::CommandTrace,
+        cache::{
+            permission_cache::{CommandPermissionRequest, CommandPermissionResult},
+            trace_cache::CommandTrace,
+        },
         extract_command_parameters, is_developer,
         trace::TraceContext,
     },
@@ -63,11 +65,6 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
     if let Some(c) = command {
         let mut trace = TraceContext::new();
         trace.point("lexing_and_finding");
-
-        {
-            let typing_http = ctx.http.clone();
-            tokio::spawn(msg.channel_id.broadcast_typing(typing_http));
-        }
 
         let mut parts = parts;
 
@@ -273,6 +270,13 @@ pub async fn process(handler: &Handler, ctx: Context, mut msg: Message) {
             }
 
             trace.point("transform_args");
+
+            // Only start typing now — after all permission and argument checks have passed,
+            // and only if the command hasn't opted out of the typing indicator.
+            if !c.get_permissions().silence_typing {
+                let typing_http = ctx.http.clone();
+                tokio::spawn(msg.channel_id.broadcast_typing(typing_http));
+            }
 
             let res = c
                 .run(

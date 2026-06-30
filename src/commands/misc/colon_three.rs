@@ -64,6 +64,7 @@ impl Command for ColonThree {
             required: vec![],
             one_of: vec![],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

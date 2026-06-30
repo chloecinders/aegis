@@ -8,8 +8,8 @@ use tracing::warn;
 use crate::{
     BOT_CONFIG,
     commands::{
-        Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax,
-        TransformerFnArc,
+        Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
+        CommandSyntax, TransformerFnArc,
     },
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
@@ -60,6 +60,15 @@ impl Command for Update {
 
     fn get_params(&self) -> Vec<&'static CommandParameter<'static>> {
         vec![]
+    }
+
+    fn get_permissions(&self) -> CommandPermissions {
+        CommandPermissions {
+            required: vec![],
+            one_of: vec![],
+            bot: CommandPermissions::baseline(),
+            silence_typing: true,
+        }
     }
 
     #[command]

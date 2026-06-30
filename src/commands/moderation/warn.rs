@@ -213,6 +213,7 @@ impl Command for Warn {
             required: vec![Permissions::MANAGE_NICKNAMES],
             one_of: vec![],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

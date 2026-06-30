@@ -6,7 +6,48 @@ use serde_json::Value;
 
 use crate::{SQL, database::ActionType, utils::consume_pgsql_error};
 
-const IMAGE_HASH_CACHE_MAX: usize = 10_000;
+const IMAGE_HASH_CACHE_MAX: usize = 10000;
+const OCR_RESULT_CACHE_MAX: usize = 1000;
+
+/// Stores the OCR output for a single message attachment, plus whether it matched a rule.
+#[derive(Clone, Debug)]
+pub struct OcrDebugEntry {
+    /// The raw OCR text extracted from the image.
+    pub text: String,
+    /// If the text matched a rule: (rule name, rule id, matched pattern, is_regex).
+    pub matched: Option<(String, String, String, bool)>,
+}
+
+/// A small bounded FIFO cache that maps message_id → Vec of per-attachment debug entries.
+pub struct OcrResultCache {
+    entries: std::collections::HashMap<u64, Vec<OcrDebugEntry>>,
+    order: std::collections::VecDeque<u64>,
+}
+
+impl OcrResultCache {
+    pub fn new() -> Self {
+        Self {
+            entries: std::collections::HashMap::new(),
+            order: std::collections::VecDeque::new(),
+        }
+    }
+
+    pub fn insert(&mut self, message_id: u64, entries: Vec<OcrDebugEntry>) {
+        if !self.entries.contains_key(&message_id) {
+            if self.entries.len() >= OCR_RESULT_CACHE_MAX {
+                if let Some(old) = self.order.pop_front() {
+                    self.entries.remove(&old);
+                }
+            }
+            self.order.push_back(message_id);
+        }
+        self.entries.insert(message_id, entries);
+    }
+
+    pub fn get(&self, message_id: u64) -> Option<&Vec<OcrDebugEntry>> {
+        self.entries.get(&message_id)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct OcrPattern {

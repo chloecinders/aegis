@@ -249,6 +249,7 @@ impl Command for Purge {
                 CommandPermissions::moderation().as_slice(),
             ]
             .concat(),
+            silence_typing: true,
         }
     }
 }

@@ -174,6 +174,7 @@ impl Command for ContextCmd {
             required: vec![],
             one_of: vec![],
             bot: CommandPermissions::baseline(),
+            silence_typing: true,
         }
     }
 }

@@ -150,6 +150,7 @@ impl Command for Trace {
             required: vec![],
             one_of: vec![],
             bot: CommandPermissions::baseline(),
+            silence_typing: true,
         }
     }
 }

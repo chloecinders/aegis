@@ -191,6 +191,7 @@ impl Command for Reason {
                 Permissions::BAN_MEMBERS,
             ],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

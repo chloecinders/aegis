@@ -5,8 +5,8 @@ use serenity::{
 
 use crate::{
     commands::{
-        Command, CommandArgument, CommandCategory, CommandParameter, CommandSyntax,
-        TransformerFnArc,
+        Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
+        CommandSyntax, TransformerFnArc,
     },
     event_handler::{CommandError, Handler},
     lexer::Token,
@@ -46,6 +46,15 @@ impl Command for ScheduleDowntime {
 
     fn get_params(&self) -> Vec<&'static CommandParameter<'static>> {
         vec![]
+    }
+
+    fn get_permissions(&self) -> CommandPermissions {
+        CommandPermissions {
+            required: vec![],
+            one_of: vec![],
+            bot: CommandPermissions::baseline(),
+            silence_typing: true,
+        }
     }
 
     #[command]

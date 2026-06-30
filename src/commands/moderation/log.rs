@@ -624,6 +624,7 @@ impl Command for Log {
                 Permissions::BAN_MEMBERS,
             ],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

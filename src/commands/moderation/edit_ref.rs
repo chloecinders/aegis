@@ -154,6 +154,7 @@ impl Command for EditRef {
                 Permissions::BAN_MEMBERS,
             ],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

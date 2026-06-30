@@ -191,6 +191,7 @@ impl Command for Jeprof {
             required: vec![],
             one_of: vec![],
             bot: CommandPermissions::baseline(),
+            silence_typing: true,
         }
     }
 }

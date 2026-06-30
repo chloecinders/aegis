@@ -20,8 +20,8 @@ use crate::{
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog,
         DeleteRule, Duration as DurationCommand, EditRef, Edits, Encrypt, ExtractId, Jeprof, Kick,
-        Log, MsgDbg, Mute, OcrCheck, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules, Say,
-        ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update, Warn,
+        Log, MsgDbg, Mute, OcrCheck, OcrDbg, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules,
+        Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update, Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
@@ -29,7 +29,7 @@ use crate::{
         cache::{message_cache::MessageCache, permission_cache::PermissionCache},
         consume_serenity_error,
         reference::{self, embeds_for_ref},
-        rule_cache::RuleCache,
+        rule_cache::{OcrResultCache, RuleCache},
     },
 };
 #[derive(Debug)]
@@ -114,6 +114,7 @@ pub struct Handler {
     pub message_cache: Arc<Mutex<MessageCache>>,
     pub permission_cache: Arc<Mutex<PermissionCache>>,
     pub rule_cache: Arc<Mutex<RuleCache>>,
+    pub ocr_result_cache: Arc<Mutex<OcrResultCache>>,
 }
 
 impl Handler {
@@ -154,6 +155,7 @@ impl Handler {
             Arc::new(CacheSize::new()),
             Arc::new(Jeprof::new()),
             Arc::new(ContextCmd::new()),
+            Arc::new(OcrDbg::new()),
             Arc::new(Restart::new()),
             Arc::new(Encrypt::new()),
         ];
@@ -182,6 +184,7 @@ impl Handler {
             message_cache: cache,
             permission_cache: Arc::new(Mutex::new(PermissionCache::new())),
             rule_cache: rule_cache,
+            ocr_result_cache: Arc::new(Mutex::new(OcrResultCache::new())),
         }
     }
 }

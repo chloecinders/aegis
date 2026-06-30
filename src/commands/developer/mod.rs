@@ -27,3 +27,6 @@ pub use jeprof::Jeprof;
 
 mod context;
 pub use context::ContextCmd;
+
+mod ocrdbg;
+pub use ocrdbg::OcrDbg;

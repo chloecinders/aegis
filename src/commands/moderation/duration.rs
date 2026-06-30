@@ -310,6 +310,7 @@ impl Command for Duration {
                 Permissions::BAN_MEMBERS,
             ],
             bot: CommandPermissions::baseline(),
+            silence_typing: false,
         }
     }
 }

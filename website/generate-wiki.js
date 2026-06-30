@@ -322,4 +322,17 @@ Object.entries(mainPages).forEach(([page, meta]) => {
     }
 });
 
-console.log(`Compiled ${generalWikiFiles.length} wiki page(s) and ${commands.length} command page(s).`);
+["styles.css", "transcript.js"].forEach((file) => {
+    const srcPath = path.join(SOURCE_DIR, file);
+    if (fs.existsSync(srcPath)) {
+        fs.copyFileSync(srcPath, path.join(DIST_DIR, file));
+    }
+});
+
+const imagesSrc = path.join(SOURCE_DIR, "images");
+const imagesDist = path.join(DIST_DIR, "images");
+if (fs.existsSync(imagesSrc)) {
+    fs.cpSync(imagesSrc, imagesDist, { recursive: true });
+}
+
+console.log(`Compiled ${generalWikiFiles.length} wiki page(s) and ${commands.length} command page(s), and copied static assets.`);

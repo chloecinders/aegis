@@ -51,3 +51,5 @@ pub use trace::*;
 pub mod encryption;
 pub mod reference;
 pub mod s3;
+pub mod transcript;
+pub use transcript::{fetch_transcript_data, save_transcript};

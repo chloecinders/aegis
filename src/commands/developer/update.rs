@@ -341,6 +341,16 @@ impl Command for Update {
                 return Ok(());
             }
 
+            let _ = tokio::process::Command::new("git")
+                .arg("pull")
+                .status()
+                .await;
+
+            let _ = tokio::process::Command::new("node")
+                .arg("website/generate-wiki.js")
+                .status()
+                .await;
+
             #[cfg(not(target_os = "windows"))]
             {
                 if let Some(handle) = log_thread_handle {

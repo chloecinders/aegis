@@ -10,7 +10,6 @@ use serenity::{
     },
     async_trait,
 };
-use sqlx::query_as;
 use tracing::warn;
 
 use crate::{

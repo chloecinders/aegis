@@ -31,7 +31,7 @@ pub async fn finish_update(ctx: &Context) {
         if let Some(arg) = std::env::args()
             .collect::<Vec<String>>()
             .iter()
-            .find(|a| a.starts_with("--id"))
+            .find(|a| a.starts_with("--id") || a.starts_with("--update"))
         {
             let Some(ids) = arg.split("=").last() else {
                 return;
@@ -45,6 +45,12 @@ pub async fn finish_update(ctx: &Context) {
             return;
         }
     };
+
+    info!("Running generate-wiki after update startup");
+    let _ = tokio::process::Command::new("node")
+        .arg("website/generate-wiki.js")
+        .status()
+        .await;
 
     let mut parts = ids.split(':');
 

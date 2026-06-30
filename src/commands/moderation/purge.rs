@@ -8,6 +8,7 @@ use serenity::{
 use tracing::warn;
 
 use crate::{
+    BOT_CONFIG,
     commands::{
         Command, CommandArgument, CommandCategory, CommandParameter, CommandPermissions,
         CommandSyntax, TransformerFnArc,
@@ -16,7 +17,7 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::{Token, lex},
     transformers::Transformers,
-    utils::{LogType, guild_log},
+    utils::{LogType, guild_log, save_transcript},
 };
 use aegis_macros::command;
 
@@ -175,6 +176,19 @@ impl Command for Purge {
             .collect::<Vec<_>>();
 
         let final_count = ids.len();
+        let messages_to_save: Vec<Message> = filtered.iter().map(|m| (*m).clone()).collect();
+
+        trace.point("generating_transcript");
+
+        let guild_id_val = msg.guild_id.map(|g| g.get()).unwrap_or(0);
+        let transcript_id = save_transcript(
+            &ctx,
+            guild_id_val,
+            msg.channel_id.get(),
+            &format!("@{}", msg.author.name),
+            &messages_to_save,
+        )
+        .await;
 
         trace.point("executing_sanctions");
 
@@ -193,20 +207,27 @@ impl Command for Purge {
             });
         };
 
+        let base_url = BOT_CONFIG
+            .web_url
+            .clone()
+            .unwrap_or_else(|| format!("http://localhost:{}", BOT_CONFIG.web_port.unwrap_or(3000)));
+        let transcript_url = format!("{base_url}/transcript/{guild_id_val}/{transcript_id}");
+
         trace.point("submitting_guild_log");
 
         guild_log(
             &ctx,
-            LogType::MemberModeration,
+            LogType::MessageUpdate,
             msg.guild_id.unwrap(),
             CreateMessage::new()
                 .add_embed(
                     CreateEmbed::new()
                         .description(format!(
-                            "**MESSAGES PURGED**\n-# Actor: {} | Channel: <#{}> | Count: {}\n```\n{}\n```",
+                            "**MESSAGES PURGED**\n-# Actor: {} | Channel: <#{}> | Count: {}\n[View Transcript]({})\n```\n{}\n```",
                             msg.author.mention(),
                             msg.channel_id.get(),
                             final_count,
+                            transcript_url,
                             ids.join("\n")
                         ))
                         .color(BRAND_BLUE)

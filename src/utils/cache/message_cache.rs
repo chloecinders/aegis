@@ -4,6 +4,7 @@ use std::{
 };
 
 use serenity::all::Message;
+use sqlx::Row;
 use tracing::error;
 
 use crate::{
@@ -94,24 +95,42 @@ impl MessageCache {
                 content.into_bytes()
             };
 
+            let embeds_str = serde_json::to_string(&message.embeds).unwrap_or_default();
+            let embeds_bytes = if is_encrypted && !embeds_str.is_empty() && embeds_str != "[]" {
+                let lock = ENCRYPTION_KEYS.lock().await;
+                if let Some(key) = lock.get(&guild_id) {
+                    encrypt(key, &embeds_str).unwrap_or_else(|| embeds_str.into_bytes())
+                } else {
+                    embeds_str.into_bytes()
+                }
+            } else {
+                embeds_str.into_bytes()
+            };
+
             let attachments_json =
                 serde_json::to_value(&message.attachment_urls).unwrap_or(serde_json::Value::Null);
 
-            if let Err(err) = sqlx::query!(
+            if let Err(err) = sqlx::query(
                 r#"
                 INSERT INTO message_store
-                (message_id, channel_id, guild_id, author_id, author_name, content, attachment_urls)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (message_id) DO NOTHING
+                (message_id, channel_id, guild_id, author_id, author_name, author_display_name, author_avatar_url, content, attachment_urls, embeds)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                ON CONFLICT (message_id) DO UPDATE SET
+                    author_display_name = COALESCE(EXCLUDED.author_display_name, message_store.author_display_name),
+                    author_avatar_url = COALESCE(EXCLUDED.author_avatar_url, message_store.author_avatar_url),
+                    attachment_urls = COALESCE(EXCLUDED.attachment_urls, message_store.attachment_urls)
                 "#,
-                message.id as i64,
-                channel_id as i64,
-                guild_id as i64,
-                message.author.id as i64,
-                message.author.name,
-                content_bytes,
-                attachments_json
             )
+            .bind(message.id as i64)
+            .bind(channel_id as i64)
+            .bind(guild_id as i64)
+            .bind(message.author.id as i64)
+            .bind(&message.author.name)
+            .bind(message.author.display_name.as_deref())
+            .bind(message.author.avatar_url.as_deref())
+            .bind(&content_bytes)
+            .bind(attachments_json)
+            .bind(&embeds_bytes)
             .execute(&*SQL)
             .await
             {
@@ -193,21 +212,21 @@ impl MessageCache {
     }
 
     pub async fn fetch(channel_id: u64, message_id: u64) -> Option<PartialMessage> {
-        let record = sqlx::query!(
+        let record = sqlx::query(
             r#"
-            SELECT message_id, channel_id, guild_id, author_id, author_name, content, attachment_urls
+            SELECT message_id, channel_id, guild_id, author_id, author_name, author_display_name, author_avatar_url, content, attachment_urls, embeds
             FROM message_store
             WHERE message_id = $1 AND channel_id = $2
             "#,
-            message_id as i64,
-            channel_id as i64
         )
+        .bind(message_id as i64)
+        .bind(channel_id as i64)
         .fetch_optional(&*SQL)
         .await
         .ok()??;
 
-        let guild_id = record.guild_id as u64;
-        let content_bytes = record.content.unwrap_or_default();
+        let guild_id: u64 = record.try_get::<i64, _>("guild_id").unwrap_or_default() as u64;
+        let content_bytes: Vec<u8> = record.try_get("content").unwrap_or_default();
 
         let is_encrypted = {
             let lock = ENCRYPTION_KEYS.lock().await;
@@ -226,21 +245,41 @@ impl MessageCache {
             String::from_utf8(content_bytes).unwrap_or_default()
         };
 
-        let attachment_urls: Vec<PartialAttachment> =
-            serde_json::from_value(record.attachment_urls.unwrap_or(serde_json::Value::Null))
-                .unwrap_or_default();
+        let embeds_bytes: Vec<u8> = record.try_get("embeds").unwrap_or_default();
+        let embeds_str = if is_encrypted && !embeds_bytes.is_empty() {
+            let lock = ENCRYPTION_KEYS.lock().await;
+            if let Some(key) = lock.get(&guild_id) {
+                encryption::decrypt(key, &embeds_bytes)
+                    .unwrap_or_else(|| String::from_utf8(embeds_bytes).unwrap_or_default())
+            } else {
+                String::from_utf8(embeds_bytes).unwrap_or_default()
+            }
+        } else {
+            String::from_utf8(embeds_bytes).unwrap_or_default()
+        };
+
+        let attachment_urls: Vec<PartialAttachment> = serde_json::from_value(
+            record
+                .try_get("attachment_urls")
+                .unwrap_or(serde_json::Value::Null),
+        )
+        .unwrap_or_default();
+        let embeds: Vec<serde_json::Value> = serde_json::from_str(&embeds_str).unwrap_or_default();
 
         Some(PartialMessage {
-            id: record.message_id as u64,
+            id: record.try_get::<i64, _>("message_id").unwrap_or_default() as u64,
             guild_id: Some(guild_id),
-            channel_id: record.channel_id as u64,
+            channel_id: record.try_get::<i64, _>("channel_id").unwrap_or_default() as u64,
             content,
             author: PartialUser {
-                id: record.author_id as u64,
-                name: record.author_name,
+                id: record.try_get::<i64, _>("author_id").unwrap_or_default() as u64,
+                name: record.try_get("author_name").unwrap_or_default(),
+                display_name: record.try_get("author_display_name").ok().flatten(),
+                avatar_url: record.try_get("author_avatar_url").ok().flatten(),
                 bot: false,
             },
             attachment_urls,
+            embeds,
         })
     }
 }

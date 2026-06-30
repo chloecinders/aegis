@@ -40,6 +40,11 @@ function normalizeDescription(text) {
     return text.trim();
 }
 
+function parseAlerts(text) {
+    if (!text) return "";
+    return text;
+}
+
 function getSyntaxDef(s) {
     let inner = "";
     let required = null;
@@ -161,11 +166,12 @@ function extractCommandInfo(filePath) {
     const wikiMarker = content.match(/\/\/\/? WIKICONTENT/);
     if (wikiMarker) {
         const afterMarker = content.slice(wikiMarker.index + wikiMarker[0].length);
-        wikiContent = afterMarker
+        const rawWikiContent = afterMarker
             .split("\n")
             .map((line) => line.replace(/^\/\/\/?\s?/, "").trim())
             .join("\n")
             .trim();
+        wikiContent = parseAlerts(rawWikiContent);
     }
     return {
         name: nameMatch[1],
@@ -249,7 +255,7 @@ fs.copyFileSync(path.join(SOURCE_DIR, "styles.css"), path.join(DIST_DIR, "styles
 
 generalWikiFiles.forEach((page) => {
     const sidebarHtml = generateSidebar(page.name);
-    const content = fs.readFileSync(page.path, "utf8");
+    const content = parseAlerts(fs.readFileSync(page.path, "utf8"));
     const wikiLayout = wrapInWikiLayout(content, page.name, sidebarHtml);
     const title = titleCase(page.name);
     fs.writeFileSync(path.join(WIKI_DIST_DIR, `${page.name}.html`), render(title, wikiLayout, "wiki"));

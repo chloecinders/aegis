@@ -26,6 +26,8 @@ pub struct Environment {
     pub webhook: Option<String>,
     pub ocr_training_data: Option<String>,
     pub ocr_character_whitelist: Option<String>,
+    pub web_port: Option<u16>,
+    pub web_url: Option<String>,
     pub s3: S3,
 }
 

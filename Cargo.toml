@@ -26,6 +26,9 @@ aes-gcm = "0.10"
 base64 = "0.22"
 sha2 = "0.11.0"
 kreuzberg = { version = "4.9.7", features = ["paddle-ocr"] }
+axum = "0.7"
+tower-http = { version = "0.5", features = ["fs"] }
+uuid = { version = "1", features = ["v4"] }
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
 tikv-jemalloc-ctl = { version = "0.6.0", features = ["stats", "profiling"] }

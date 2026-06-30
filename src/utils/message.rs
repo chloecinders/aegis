@@ -1,10 +1,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use serenity::{
-    FutureExt,
-    all::{
-        Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EditMessage, Message, UserId,
-    },
+use serenity::all::{
+    Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EditMessage, Message, UserId,
 };
 use tokio::{sync::Mutex, task::JoinHandle, time::sleep};
 use tracing::warn;
@@ -22,6 +19,7 @@ pub struct CommandMessageResponse {
     user: UserId,
     delete: bool,
     join_thread: Arc<Mutex<Option<JoinHandle<bool>>>>,
+    dm_result: Arc<Mutex<Option<bool>>>,
     silent: bool,
     ref_raw: Option<RefData>,
 }
@@ -34,6 +32,7 @@ impl CommandMessageResponse {
             user: user_id,
             delete: false,
             join_thread: Arc::new(Mutex::new(None)),
+            dm_result: Arc::new(Mutex::new(None)),
             silent: false,
             ref_raw: None,
         }
@@ -72,14 +71,28 @@ impl CommandMessageResponse {
         let desc = self.dm_content.clone();
         let user = self.user.clone();
 
-        {
-            let mut lock = self.join_thread.lock().await;
+        let mut lock = self.join_thread.lock().await;
+        *lock = Some(tokio::spawn(async move {
+            let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
+            let dm = CreateMessage::new().add_embed(embed);
+            user.direct_message(&ctx_clone, dm).await.is_ok()
+        }));
+    }
 
-            *lock = Some(tokio::spawn(async move {
-                let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
-                let dm = CreateMessage::new().add_embed(embed);
-                user.direct_message(&ctx_clone, dm).await.is_ok()
-            }));
+    pub async fn wait_for_dm(&self) -> bool {
+        if self.silent {
+            return true;
+        }
+
+        let mut lock = self.join_thread.lock().await;
+        if let Some(handle) = lock.take() {
+            let res = handle.await.unwrap_or(false);
+            let mut res_lock = self.dm_result.lock().await;
+            *res_lock = Some(res);
+            res
+        } else {
+            let res_lock = self.dm_result.lock().await;
+            res_lock.unwrap_or(true)
         }
     }
 
@@ -95,22 +108,20 @@ impl CommandMessageResponse {
             let mut lock = self.join_thread.lock().await;
             trace.point("inspecting_dm_thread");
 
-            let mut finished = false;
-            let res = match lock.as_mut() {
-                Some(h) if h.is_finished() => {
-                    finished = true;
-                    match h.now_or_never() {
-                        Some(Ok(b)) if b => String::new(),
-                        _ => String::from(" | DM failed"),
-                    }
+            if let Some(h) = lock.as_ref() {
+                if h.is_finished() {
+                    let handle = lock.take().unwrap();
+                    let res = handle.await.unwrap_or(false);
+                    let mut res_lock = self.dm_result.lock().await;
+                    *res_lock = Some(res);
                 }
-                _ => String::new(),
-            };
-
-            if finished {
-                lock.take();
             }
-            res
+
+            let res_lock = self.dm_result.lock().await;
+            match *res_lock {
+                Some(true) | None => String::new(),
+                Some(false) => String::from(" | DM failed"),
+            }
         };
 
         if let Some(ref_data) = &self.ref_raw {
@@ -149,25 +160,29 @@ impl CommandMessageResponse {
         if let Some(handle) = lock.take() {
             trace.point("waiting_for_dm_completion");
 
-            let mut addition = match handle.await {
-                Ok(b) if b => String::new(),
-                _ => String::from(" | DM failed"),
+            let dm_success = match handle.await {
+                Ok(b) => b,
+                Err(_) => false,
             };
+            let mut res_lock = self.dm_result.lock().await;
+            *res_lock = Some(dm_success);
 
-            if let Some(ref_data) = &self.ref_raw {
-                let has_content = ref_data.content.is_some();
-                let has_image = ref_data.image_url.is_some();
+            if !dm_success {
+                let mut addition = String::from(" | DM failed");
 
-                if has_content && has_image {
-                    addition.push_str(" | + ref, + image");
-                } else if has_content {
-                    addition.push_str(" | + ref");
-                } else if has_image {
-                    addition.push_str(" | + image");
+                if let Some(ref_data) = &self.ref_raw {
+                    let has_content = ref_data.content.is_some();
+                    let has_image = ref_data.image_url.is_some();
+
+                    if has_content && has_image {
+                        addition.push_str(" | + ref, + image");
+                    } else if has_content {
+                        addition.push_str(" | + ref");
+                    } else if has_image {
+                        addition.push_str(" | + image");
+                    }
                 }
-            }
 
-            if !addition.is_empty() {
                 let desc = (*self.server_content)(addition);
                 let embed = CreateEmbed::new().description(desc).color(BRAND_BLUE);
                 trace.point("editing_response");

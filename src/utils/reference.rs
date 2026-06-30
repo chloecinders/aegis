@@ -1,6 +1,13 @@
+use std::sync::LazyLock;
+
 use regex::Regex;
 use serenity::all::{ChannelId, Context, Mentionable, Message, MessageId, UserId};
 use tracing::warn;
+
+pub static DISCORD_MSG_URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"https?://(?:canary\.|ptb\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)")
+        .unwrap()
+});
 
 use crate::{
     ENCRYPTION_KEYS, SQL,
@@ -58,14 +65,14 @@ async fn extract_message_content(msg: &Message, guild_id: u64) -> Option<String>
             return Some(desc);
         }
         if desc.starts_with("**MESSAGE DELETED**") || desc.starts_with("**MESSAGE EDITED**") {
-            if let Ok(Some(row)) = sqlx::query(
-                "SELECT content FROM log_messages_context WHERE message_id = $1"
-            )
-            .bind(msg.id.get() as i64)
-            .fetch_optional(&*SQL)
-            .await
+            if let Ok(Some(row)) =
+                sqlx::query("SELECT content FROM log_messages_context WHERE message_id = $1")
+                    .bind(msg.id.get() as i64)
+                    .fetch_optional(&*SQL)
+                    .await
             {
-                let content_bytes: Option<Vec<u8>> = sqlx::Row::try_get(&row, "content").unwrap_or(None);
+                let content_bytes: Option<Vec<u8>> =
+                    sqlx::Row::try_get(&row, "content").unwrap_or(None);
                 if let Some(bytes) = content_bytes {
                     let lock = ENCRYPTION_KEYS.lock().await;
                     if let Some(key) = lock.get(&guild_id) {
@@ -78,10 +85,42 @@ async fn extract_message_content(msg: &Message, guild_id: u64) -> Option<String>
                     }
                 }
             }
-            return Some(String::from("<Stored context lost>"));
+            return None;
         }
     }
     None
+}
+
+pub fn discord_url_from_reason(reason: &str) -> Option<String> {
+    DISCORD_MSG_URL_REGEX
+        .find(reason)
+        .map(|m| m.as_str().to_string())
+}
+
+pub async fn try_resolve_discord_message_url(
+    ctx: &Context,
+    guild_id: u64,
+    url: &str,
+) -> Option<RefData> {
+    let caps = DISCORD_MSG_URL_REGEX.captures(url)?;
+    let channel_id = caps[2].parse::<u64>().ok()?;
+    let message_id = caps[3].parse::<u64>().ok()?;
+
+    let fetched = ChannelId::new(channel_id)
+        .message(ctx, MessageId::new(message_id))
+        .await
+        .ok()?;
+
+    let content = extract_message_content(&fetched, guild_id).await;
+    let image_url = upload_attachments(guild_id, &fetched.attachments).await;
+    Some(RefData {
+        message_id: Some(fetched.id.get()),
+        channel_id: Some(fetched.channel_id.get()),
+        guild_id: Some(guild_id),
+        author_id: Some(fetched.author.id.get()),
+        content,
+        image_url,
+    })
 }
 
 pub async fn resolve_ref(
@@ -98,6 +137,13 @@ pub async fn resolve_ref(
             let target_msg = msg.referenced_message.as_deref().unwrap_or(msg);
 
             if std::ptr::eq(target_msg, msg) {
+                let image_url = upload_attachments(guild_id, &msg.attachments).await;
+                if image_url.is_some() {
+                    return RefData {
+                        image_url,
+                        ..Default::default()
+                    };
+                }
                 return RefData::default();
             }
 
@@ -115,10 +161,7 @@ pub async fn resolve_ref(
         }
     };
 
-    let re =
-        Regex::new(r"https?://(?:canary\.|ptb\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)")
-            .unwrap();
-    if let Some(caps) = re.captures(url) {
+    if let Some(caps) = DISCORD_MSG_URL_REGEX.captures(url) {
         if let (Ok(channel_id), Ok(message_id)) = (caps[2].parse::<u64>(), caps[3].parse::<u64>()) {
             if let Ok(fetched) = ChannelId::new(channel_id)
                 .message(ctx, MessageId::new(message_id))

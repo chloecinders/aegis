@@ -16,7 +16,7 @@ use crate::{
     transformers::Transformers,
     utils::{
         CommandMessageResponse, can_target,
-        reference::{resolve_ref, save_ref},
+        reference::{RefData, resolve_ref, save_ref, try_resolve_discord_message_url},
         tinyid,
     },
 };
@@ -124,7 +124,6 @@ impl Command for Mute {
         }
 
         let db_id = tinyid().await;
-        let reason_is_default = reason == "No reason provided";
         let ref_url = params.get("ref").and_then(|(active, arg)| {
             if *active {
                 if let CommandArgument::String(s) = arg {
@@ -136,6 +135,23 @@ impl Command for Mute {
                 None
             }
         });
+        let pre_resolved_ref: Option<RefData> = if ref_url.is_none() {
+            let guild_id_u64 = msg.guild_id.map(|g| g.get()).unwrap_or(0);
+            if let Some(url) = crate::utils::reference::discord_url_from_reason(&reason) {
+                if let Some(rd) = try_resolve_discord_message_url(&ctx, guild_id_u64, &url).await {
+                    reason = String::from("No reason provided");
+                    Some(rd)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let reason_is_default = reason == "No reason provided";
         let db_id_for_ref = db_id.clone();
 
         if inferred && let Some(reply) = msg.referenced_message.clone() {
@@ -148,6 +164,12 @@ impl Command for Mute {
             .as_ref()
             .map(|g| g.name())
             .unwrap_or_else(|| String::from("UNKNOWN_GUILD"));
+
+        let ref_data = if let Some(rd) = pre_resolved_ref {
+            rd
+        } else {
+            resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await
+        };
 
         let time_string = if !duration.is_zero() {
             let (time, mut unit) = match () {
@@ -181,8 +203,6 @@ impl Command for Mute {
             String::from("permanent")
         };
 
-        let ref_data = resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await;
-
         let static_response_parts = (
             format!(
                 "**{} TIMEOUT**\n-# Log ID: `{db_id}` | Duration: {time_string}",
@@ -205,6 +225,9 @@ impl Command for Mute {
 
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
+
+        trace.point("waiting_for_dm");
+        cmd_response.wait_for_dm().await;
 
         trace.point("executing_sanctions");
         crate::moderation::mute_member(

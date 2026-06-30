@@ -15,7 +15,7 @@ use crate::{
     transformers::Transformers,
     utils::{
         CommandMessageResponse, can_target,
-        reference::{resolve_ref, save_ref},
+        reference::{RefData, resolve_ref, save_ref, try_resolve_discord_message_url},
         tinyid,
     },
 };
@@ -129,9 +129,29 @@ impl Command for Warn {
                 None
             }
         });
+        let pre_resolved_ref: Option<RefData> = if ref_url.is_none() {
+            let guild_id_u64 = msg.guild_id.map(|g| g.get()).unwrap_or(0);
+            if let Some(url) = crate::utils::reference::discord_url_from_reason(&reason) {
+                if let Some(rd) = try_resolve_discord_message_url(&ctx, guild_id_u64, &url).await {
+                    reason = String::from("No reason provided");
+                    Some(rd)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let reason_is_default = reason == "No reason provided";
 
-        let ref_data = resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await;
+        let ref_data = if let Some(rd) = pre_resolved_ref {
+            rd
+        } else {
+            resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await
+        };
 
         trace.point("executing_sanctions");
         crate::moderation::warn_member(

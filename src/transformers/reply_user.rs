@@ -54,7 +54,10 @@ impl Transformers {
                     }));
                 }
 
-                let infer_type = if is_log_message || matches!(reply.kind, MessageType::AutoModAction) {
+                let is_bot_reply = reply.author.id == ctx.cache.current_user().id;
+                let infer_type = if is_bot_reply || is_log_message {
+                    InferType::Bot
+                } else if matches!(reply.kind, MessageType::AutoModAction) {
                     InferType::SystemMessage
                 } else {
                     InferType::Message

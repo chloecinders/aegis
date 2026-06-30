@@ -1,9 +1,10 @@
 use crate::commands::CommandArgument;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InferType {
     Message,
     SystemMessage,
+    Bot,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -17,7 +17,7 @@ use crate::{
     transformers::Transformers,
     utils::{
         CommandMessageResponse, get_guild_info,
-        reference::{resolve_ref, save_ref},
+        reference::{RefData, resolve_ref, save_ref, try_resolve_discord_message_url},
         tinyid,
     },
 };
@@ -199,7 +199,6 @@ impl Command for Ban {
         }
 
         let db_id = tinyid().await;
-        let reason_is_default = reason == "No reason provided";
         let ref_url = params.get("ref").and_then(|(active, arg)| {
             if *active {
                 if let CommandArgument::String(s) = arg {
@@ -211,6 +210,23 @@ impl Command for Ban {
                 None
             }
         });
+        let pre_resolved_ref: Option<RefData> = if ref_url.is_none() {
+            let guild_id_u64 = msg.guild_id.map(|g| g.get()).unwrap_or(0);
+            if let Some(url) = crate::utils::reference::discord_url_from_reason(&reason) {
+                if let Some(rd) = try_resolve_discord_message_url(&ctx, guild_id_u64, &url).await {
+                    reason = String::from("No reason provided");
+                    Some(rd)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let reason_is_default = reason == "No reason provided";
         let db_id_for_ref = db_id.clone();
 
         let time_string = if !duration.is_zero() {
@@ -256,7 +272,11 @@ impl Command for Ban {
             .map(|g| g.name())
             .unwrap_or_else(|| String::from("UNKNOWN_GUILD"));
 
-        let ref_data = resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await;
+        let ref_data = if let Some(rd) = pre_resolved_ref {
+            rd
+        } else {
+            resolve_ref(&ctx, &msg, &db_id, ref_url.as_deref()).await
+        };
 
         let static_server_contents = (
             format!(
@@ -284,8 +304,13 @@ impl Command for Ban {
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
 
+        let target_member = guild_id.member(&ctx, user.id).await;
+
+        trace.point("waiting_for_dm");
+        cmd_response.wait_for_dm().await;
+
         trace.point("executing_sanctions");
-        if let Ok(target_member) = guild_id.member(&ctx, user.id).await {
+        if let Ok(target_member) = target_member {
             moderation::ban_member(
                 &ctx,
                 author_member,

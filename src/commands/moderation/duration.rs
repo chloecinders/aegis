@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration as StdDuration};
 
 use aegis_macros::command;
 use chrono::Utc;
@@ -287,7 +287,7 @@ impl Command for Duration {
         if db_id.is_some() {
             if let Some(res_msg) = res_msg {
                 tokio::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    tokio::time::sleep(StdDuration::from_secs(5)).await;
                     let _ = tokio::join!(msg.delete(&ctx), res_msg.delete(&ctx));
                 });
             }

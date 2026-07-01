@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use aegis_macros::command;
 use serenity::{
@@ -174,7 +174,7 @@ impl Command for Reason {
         if db_id.is_some() {
             if let Some(res_msg) = res_msg {
                 tokio::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    tokio::time::sleep(Duration::from_secs(5)).await;
                     let _ = tokio::join!(msg.delete(&ctx), res_msg.delete(&ctx));
                 });
             }

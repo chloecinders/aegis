@@ -129,10 +129,9 @@ impl Command for OcrDbg {
             output.push_str(&format!("**OCR Text:**\n{text_display}\n"));
 
             match &entry.matched {
-                Some((rule_name, rule_id, pattern, is_regex)) => {
-                    let pattern_type = if *is_regex { "regex" } else { "fuzzy" };
+                Some((rule_name, rule_id, pattern)) => {
                     output.push_str(&format!(
-                        "**Matched Rule:** `{rule_name}` (ID: `{rule_id}`)\n**Pattern ({pattern_type}):** `{pattern}`\n**Status:** Triggered automod\n"
+                        "**Matched Rule:** `{rule_name}` (ID: `{rule_id}`)\n**Pattern:** `{pattern}`\n**Status:** Triggered automod\n"
                     ));
                 }
                 None => {

@@ -39,3 +39,6 @@ pub use warn::Warn;
 
 mod edits;
 pub use edits::Edits;
+
+mod note;
+pub use note::Note;

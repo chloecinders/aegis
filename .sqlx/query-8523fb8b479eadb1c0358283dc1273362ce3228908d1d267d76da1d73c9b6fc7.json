@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, expires_at, last_reapplied_at, note) VALUES ($1, 'mute', $2, $3, $4, $5, $6, NOW(), $7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Timestamp",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8523fb8b479eadb1c0358283dc1273362ce3228908d1d267d76da1d73c9b6fc7"
+}

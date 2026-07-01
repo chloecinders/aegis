@@ -20,7 +20,7 @@ use crate::{
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog,
         DeleteRule, Duration as DurationCommand, EditRef, Edits, Encrypt, ExtractId, Jeprof, Kick,
-        Log, MsgDbg, Mute, OcrCheck, OcrDbg, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules,
+        Log, MsgDbg, Mute, Note, OcrCheck, OcrDbg, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules,
         Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update, Warn,
     },
     constants::BRAND_RED,
@@ -134,6 +134,7 @@ impl Handler {
             Arc::new(MsgDbg::new()),
             Arc::new(ColonThree::new()),
             Arc::new(Reason::new()),
+            Arc::new(Note::new()),
             Arc::new(Ref::new()),
             Arc::new(EditRef::new()),
             Arc::new(Update::new()),

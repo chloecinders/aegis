@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, note) VALUES ($1, 'warn', $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9806a072970301080849b7eab266864d7a2f232e2a401cd182dc7fcbfeed0101"
+}

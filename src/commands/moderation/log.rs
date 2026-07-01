@@ -35,6 +35,7 @@ struct LogRecord {
     updated_at: ::std::option::Option<sqlx::types::chrono::NaiveDateTime>,
     expires_at: ::std::option::Option<sqlx::types::chrono::NaiveDateTime>,
     reason: String,
+    note: ::std::option::Option<String>,
 }
 
 pub struct Log;
@@ -47,7 +48,7 @@ impl Log {
     async fn get_one_response(&self, guild_id: i64, log: String) -> Result<String, CommandError> {
         let res = query!(
             r#"
-                SELECT id, type as "type!: ActionType", moderator_id, user_id, created_at, updated_at, active, expires_at, reason FROM actions WHERE guild_id = $1 AND id = $2;
+                SELECT id, type as "type!: ActionType", moderator_id, user_id, created_at, updated_at, active, expires_at, reason, note FROM actions WHERE guild_id = $1 AND id = $2;
             "#,
             guild_id,
             log
@@ -80,12 +81,18 @@ impl Log {
             String::new()
         };
 
+        let note_str = data
+            .note
+            .as_deref()
+            .map(|n| format!("\n-# {n}"))
+            .unwrap_or_default();
+
         let response = if let Some(expiry) = data.expires_at {
             let now = Utc::now().naive_utc();
             let expire_tag = if expiry < now { "Expired" } else { "Expires" };
 
             format!(
-                "**{0}**\n-# Mod: <@{1}> | At: <t:{2}:d> <t:{2}:T>{7} | {3} <t:{4}:d> <t:{4}:T>\n`{5}`\n```\n{6}\n```\n\n",
+                "**{0}**\n-# Mod: <@{1}> | At: <t:{2}:d> <t:{2}:T>{7} | {3} <t:{4}:d> <t:{4}:T>\n`{5}`\n```\n{6}\n```{8}\n\n",
                 data.r#type.to_string().to_uppercase(),
                 data.moderator_id,
                 data.created_at.and_utc().timestamp(),
@@ -93,17 +100,19 @@ impl Log {
                 expiry.and_utc().timestamp(),
                 data.id,
                 data.reason.replace("```", "\\`\\`\\`"),
-                update_string
+                update_string,
+                note_str
             )
         } else {
             format!(
-                "**{0}**\n-# Mod: <@{1}> | At <t:{2}:d> <t:{2}:T>{5}\n`{3}`\n```\n{4}\n```\n\n",
+                "**{0}**\n-# Mod: <@{1}> | At <t:{2}:d> <t:{2}:T>{5}\n`{3}`\n```\n{4}\n```{6}\n\n",
                 data.r#type.to_string().to_uppercase(),
                 data.moderator_id,
                 data.created_at.and_utc().timestamp(),
                 data.id,
                 data.reason,
-                update_string
+                update_string,
+                note_str
             )
         };
 
@@ -145,7 +154,7 @@ impl Log {
                 if record.reason.chars().all(char::is_whitespace) || record.reason.is_empty() {
                     String::new()
                 } else {
-                    format!("```\n{}\n```\n", record.reason)
+                    format!("```\n{}\n```", record.reason)
                 };
 
             let update_string = if let Some(t) = record.updated_at {
@@ -157,32 +166,40 @@ impl Log {
                 )
             };
 
+            let note_str = record
+                .note
+                .as_deref()
+                .map(|n| format!("\n-# {n}"))
+                .unwrap_or_default();
+
             if let Some(expiry) = record.expires_at {
                 let now = Utc::now().naive_utc();
                 let expire_tag = if expiry < now { "Expired" } else { "Expires" };
 
                 response.push_str(
                     format!(
-                        "**{0}**\n-# Mod: <@{1}>{6} | {2}: <t:{3}:d> <t:{3}:T>\n`{4}`\n{5}\n",
+                        "**{0}**\n-# Mod: <@{1}>{6} | {2}: <t:{3}:d> <t:{3}:T>\n`{4}`\n{5}{7}\n\n",
                         record.r#type.to_string().to_uppercase(),
                         record.moderator_id,
                         expire_tag,
                         expiry.and_utc().timestamp(),
                         record.id,
                         reason,
-                        update_string
+                        update_string,
+                        note_str
                     )
                     .as_str(),
                 );
             } else {
                 response.push_str(
                     format!(
-                        "**{0}**\n-# Mod: <@{1}>{4}\n`{2}`\n```\n{3}\n```\n",
+                        "**{0}**\n-# Mod: <@{1}>{4}\n`{2}`\n{3}{5}\n\n",
                         record.r#type.to_string().to_uppercase(),
                         record.moderator_id,
                         record.id,
-                        record.reason,
-                        update_string
+                        reason,
+                        update_string,
+                        note_str
                     )
                     .as_str(),
                 );
@@ -265,7 +282,7 @@ impl Command for Log {
         let res = query_as!(
             LogRecord,
             r#"
-                SELECT id, type as "type!: ActionType", moderator_id, created_at, updated_at, expires_at, reason FROM actions WHERE user_id = $1 AND guild_id = $2;
+                SELECT id, type as "type!: ActionType", moderator_id, created_at, updated_at, expires_at, reason, note FROM actions WHERE user_id = $1 AND guild_id = $2;
             "#,
             user.id.get() as i64,
             msg.guild_id.map(|g| g.get()).unwrap_or(0) as i64

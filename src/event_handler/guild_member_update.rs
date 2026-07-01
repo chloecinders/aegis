@@ -184,6 +184,17 @@ async fn handle_timeout_change(
         return;
     }
 
+    if let Ok(Some(_)) = sqlx::query!(
+        "SELECT id FROM actions WHERE guild_id = $1 AND user_id = $2 AND type = 'mute' AND NOW() - last_reapplied_at <= INTERVAL '10 seconds'",
+        event.guild_id.get() as i64,
+        event.user.id.get() as i64
+    )
+    .fetch_optional(&*crate::SQL)
+    .await
+    {
+        return;
+    }
+
     if let Some(actor_id) = moderator_id {
         if actor_id == ctx.cache.current_user().id.get() {
             return;

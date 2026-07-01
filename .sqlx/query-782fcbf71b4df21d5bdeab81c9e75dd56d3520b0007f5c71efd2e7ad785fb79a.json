@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, type as \"type!: ActionType\", moderator_id, created_at, updated_at, expires_at, reason FROM actions WHERE user_id = $1 AND guild_id = $2;\n            ",
+  "query": "\n                SELECT id, type as \"type!: ActionType\", moderator_id, created_at, updated_at, expires_at, reason, note FROM actions WHERE user_id = $1 AND guild_id = $2;\n            ",
   "describe": {
     "columns": [
       {
@@ -54,6 +54,11 @@
         "ordinal": 6,
         "name": "reason",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "note",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -69,8 +74,9 @@
       false,
       true,
       true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "0e8253acd958ef4d198afcf6debe6dd916209521f8e914c3d62c3cd1d5727b9a"
+  "hash": "782fcbf71b4df21d5bdeab81c9e75dd56d3520b0007f5c71efd2e7ad785fb79a"
 }

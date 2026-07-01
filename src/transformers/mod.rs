@@ -14,4 +14,5 @@ mod reply_member;
 mod reply_user;
 mod some_string;
 mod string;
+mod string_consume;
 mod user;

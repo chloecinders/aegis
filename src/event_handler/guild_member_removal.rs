@@ -96,6 +96,17 @@ pub async fn guild_member_removal(
                 return;
             }
 
+            if let Ok(Some(_)) = sqlx::query!(
+                "SELECT id FROM actions WHERE guild_id = $1 AND user_id = $2 AND type = 'kick' AND NOW() - created_at <= INTERVAL '10 seconds'",
+                guild_id.get() as i64,
+                user.id.get() as i64
+            )
+            .fetch_optional(&*crate::SQL)
+            .await
+            {
+                return;
+            }
+
             guild_log(
                 &ctx,
                 LogType::MemberModeration,
@@ -120,6 +131,17 @@ pub async fn guild_member_removal(
         }
         LeaveType::Ban(actor, reason) => {
             if actor.get() == ctx.cache.current_user().id.get() {
+                return;
+            }
+
+            if let Ok(Some(_)) = sqlx::query!(
+                "SELECT id FROM actions WHERE guild_id = $1 AND user_id = $2 AND type = 'ban' AND NOW() - created_at <= INTERVAL '10 seconds'",
+                guild_id.get() as i64,
+                user.id.get() as i64
+            )
+            .fetch_optional(&*crate::SQL)
+            .await
+            {
                 return;
             }
 

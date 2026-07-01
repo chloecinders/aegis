@@ -7,6 +7,7 @@ pub mod logging;
 pub use logging::LogType;
 pub use logging::guild_log;
 pub use logging::snowflake_to_timestamp;
+pub use logging::update_guild_log;
 
 mod random;
 // pub use random::random;

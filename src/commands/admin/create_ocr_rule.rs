@@ -23,7 +23,7 @@ use crate::{
     transformers::Transformers,
     utils::{
         clamp_chars, consume_pgsql_error, consume_serenity_error,
-        rule_cache::{OcrPattern, Punishment, Rule},
+        rule_cache::{Punishment, Rule},
         tinyid,
     },
 };
@@ -287,7 +287,7 @@ impl Command for CreateOcrRule {
                                 CreateActionRow::InputText(
                                     CreateInputText::new(
                                         InputTextStyle::Short,
-                                        "Duration (seconds)",
+                                        "Duration (e.g. 10m, 1d)",
                                         "duration",
                                     )
                                     .required(false),
@@ -312,7 +312,7 @@ impl Command for CreateOcrRule {
                                 CreateActionRow::InputText(
                                     CreateInputText::new(
                                         InputTextStyle::Short,
-                                        "Duration (seconds)",
+                                        "Duration (e.g. 10m, 1d)",
                                         "duration",
                                     )
                                     .required(true),
@@ -455,23 +455,18 @@ impl Command for CreateOcrRule {
                         };
                     }
 
-                    let patterns_json = serde_json::json!([
-                        { "pattern": inner, "is_regex": is_regex }
-                    ]);
-
                     trace.point("updating_database");
                     if let Err(err) = sqlx::query(
                         "INSERT INTO automod_rules \
-                         (id, guild_id, name, type, rule, is_regex, patterns, reason, \
+                         (id, guild_id, name, type, rule, is_regex, reason, \
                           punishment_type, day_clear_amount, duration, silent, log_channel_id) \
-                         VALUES ($1, $2, $3, 'ocr', $4, $5, $6, $7, CAST($8 AS action_type), $9, $10, $11, $12)"
+                         VALUES ($1, $2, $3, 'ocr', $4, $5, $6, CAST($7 AS action_type), $8, $9, $10, $11)"
                     )
                     .bind(db_id.clone())
                     .bind(msg.guild_id.map(|id| id.get()).unwrap_or(1) as i64)
                     .bind(name.clone())
                     .bind(inner)
                     .bind(is_regex)
-                    .bind(sqlx::types::Json(patterns_json))
                     .bind(reason.clone())
                     .bind(selected.clone())
                     .bind(days as i16)
@@ -522,10 +517,8 @@ impl Command for CreateOcrRule {
                         lock.insert_ocr(Rule {
                             name: name.clone(),
                             id: db_id.clone(),
-                            patterns: vec![OcrPattern {
-                                pattern: inner.to_string(),
-                                is_regex,
-                            }],
+                            pattern: inner.to_string(),
+                            is_regex,
                             guild_id: msg.guild_id.map(|id| id.get()).unwrap_or(1),
                             punishment: punish,
                         })

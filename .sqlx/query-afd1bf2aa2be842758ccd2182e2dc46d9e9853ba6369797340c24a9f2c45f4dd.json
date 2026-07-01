@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM actions WHERE guild_id = $1 AND user_id = $2 AND type = 'ban' AND NOW() - created_at <= INTERVAL '10 seconds'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "afd1bf2aa2be842758ccd2182e2dc46d9e9853ba6369797340c24a9f2c45f4dd"
+}

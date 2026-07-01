@@ -22,6 +22,7 @@ pub async fn warn_member(
     guild_id: GuildId,
     db_id: String,
     mut reason: String,
+    note: Option<String>,
     ref_data: RefData,
 ) -> Result<(), CommandError> {
     let res = can_target(&ctx, &author, &member, Permissions::MODERATE_MEMBERS).await;
@@ -40,12 +41,13 @@ pub async fn warn_member(
     }
 
     let res = query!(
-        "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason) VALUES ($1, 'warn', $2, $3, $4, $5)",
+        "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, note) VALUES ($1, 'warn', $2, $3, $4, $5, $6)",
         db_id,
         guild_id.get() as i64,
         member.user.id.get() as i64,
         author.user.id.get() as i64,
-        reason.as_str()
+        reason.as_str(),
+        note.as_deref()
     ).execute(&*SQL).await;
 
     if let Err(err) = res {
@@ -57,9 +59,14 @@ pub async fn warn_member(
         });
     }
 
+    let note_suffix = note
+        .as_deref()
+        .map(|n| format!("\n-# {n}"))
+        .unwrap_or_default();
+
     let embed = CreateEmbed::new()
         .description(format!(
-            "**MEMBER WARNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```",
+            "**MEMBER WARNED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {}\n```\n{reason}\n```{note_suffix}",
             author.mention(),
             member.mention()
         ))

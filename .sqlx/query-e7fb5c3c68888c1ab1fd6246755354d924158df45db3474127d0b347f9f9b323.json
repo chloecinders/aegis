@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM actions WHERE guild_id = $1 AND user_id = $2 AND type = 'mute' AND NOW() - last_reapplied_at <= INTERVAL '10 seconds'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e7fb5c3c68888c1ab1fd6246755354d924158df45db3474127d0b347f9f9b323"
+}

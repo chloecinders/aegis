@@ -9,7 +9,7 @@ use tracing::warn;
 use crate::{
     commands::{CommandArgument, CommandParameter, TransformerError},
     constants::BRAND_BLUE,
-    lexer::lex,
+    lexer::{Token, lex},
     utils::{TraceContext, reference::RefData},
 };
 
@@ -22,6 +22,7 @@ pub struct CommandMessageResponse {
     dm_result: Arc<Mutex<Option<bool>>>,
     silent: bool,
     ref_raw: Option<RefData>,
+    note: Option<String>,
 }
 
 impl CommandMessageResponse {
@@ -35,6 +36,7 @@ impl CommandMessageResponse {
             dm_result: Arc::new(Mutex::new(None)),
             silent: false,
             ref_raw: None,
+            note: None,
         }
     }
 
@@ -59,6 +61,10 @@ impl CommandMessageResponse {
     }
     pub fn ref_data(mut self, ref_data: RefData) -> Self {
         self.ref_raw = Some(ref_data);
+        self
+    }
+    pub fn note(mut self, note: Option<String>) -> Self {
+        self.note = note;
         self
     }
 
@@ -136,8 +142,13 @@ impl CommandMessageResponse {
             }
         }
 
+        let mut description = (*self.server_content)(addition);
+        if let Some(note) = &self.note {
+            description.push_str(&format!("\n-# {note}"));
+        }
+
         let embed = CreateEmbed::new()
-            .description((*self.server_content)(addition))
+            .description(description)
             .color(BRAND_BLUE);
 
         let reply = CreateMessage::new()
@@ -203,6 +214,25 @@ impl CommandMessageResponse {
     }
 }
 
+fn token_span(token: &Token, contents: &str) -> (usize, usize) {
+    let mut start = token.position;
+    let mut end = token.position + token.length;
+
+    if token.quoted {
+        let bytes = contents.as_bytes();
+        if start > 0
+            && (bytes.get(start - 1) == Some(&b'"') || bytes.get(start - 1) == Some(&b'\''))
+        {
+            start -= 1;
+        }
+        if bytes.get(end) == Some(&b'"') || bytes.get(end) == Some(&b'\'') {
+            end += 1;
+        }
+    }
+
+    (start, end)
+}
+
 pub async fn extract_command_parameters<'a>(
     context: &Context,
     msg: &Message,
@@ -232,33 +262,20 @@ pub async fn extract_command_parameters<'a>(
                     .map(|t| t.contents.unwrap_or(CommandArgument::None))
                     .unwrap_or(CommandArgument::None);
 
-                if lex.len() == cloned.len() {
-                    to_remove.push((token.position, token.position + token.length));
-                    found_args.insert(param.name, (positive, contents_arg));
-                    continue;
-                }
-
-                let mut last_consumed = None;
-                let mut cloned_iter = cloned.rev().into_iter();
-                let pos_to_search = lex.peek().map(|t| t.position).unwrap_or(0);
-
-                while let Some(token) = cloned_iter.next() {
-                    let curr_pos = token.position;
-                    last_consumed = Some(token);
-
-                    if curr_pos == pos_to_search {
-                        last_consumed = Some(cloned_iter.next().or(last_consumed).unwrap());
-                        break;
-                    }
-                }
-
                 found_args.insert(param.name, (positive, contents_arg));
-                let last_position = last_consumed
-                    .clone()
-                    .map(|t| t.position)
-                    .unwrap_or(token.position);
-                let last_length = last_consumed.map(|t| t.length).unwrap_or(token.length);
-                to_remove.push((token.position, last_position + last_length));
+
+                if lex.len() == cloned.len() {
+                    to_remove.push(token_span(&token, &contents));
+                } else {
+                    let num_consumed = cloned.len() - lex.len();
+                    let last_consumed = cloned.clone().nth(num_consumed - 1);
+                    let start = token_span(&token, &contents).0;
+                    let end = last_consumed
+                        .as_ref()
+                        .map(|t| token_span(t, &contents).1)
+                        .unwrap_or_else(|| token_span(&token, &contents).1);
+                    to_remove.push((start, end));
+                }
             }
         }
     }

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use chrono::Utc;
 use aegis_macros::command;
+use chrono::Utc;
 use serenity::{
     all::{
-        Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EditMember, Mentionable,
-        Message, Permissions,
+        Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EditMember, Message,
+        Permissions,
     },
     async_trait,
 };
@@ -23,7 +23,7 @@ use crate::{
     event_handler::{CommandError, Handler},
     lexer::Token,
     transformers::Transformers,
-    utils::{LogType, guild_log},
+    utils::update_guild_log,
 };
 
 pub struct Duration;
@@ -89,7 +89,7 @@ impl Command for Duration {
             }
         }
 
-        let (id, duration_str) = if let Some(id) = db_id {
+        let (id, duration_str) = if let Some(id) = db_id.clone() {
             let mut d = String::new();
             if let Some(a1) = arg1 {
                 d.push_str(&a1);
@@ -274,28 +274,24 @@ impl Command for Duration {
             .reference_message(&msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
-        if let Err(err) = msg.channel_id.send_message(&ctx, reply).await {
-            warn!("Could not send message; err = {err:?}");
+        let res_msg = match msg.channel_id.send_message(&ctx, reply).await {
+            Ok(m) => Some(m),
+            Err(err) => {
+                warn!("Could not send message; err = {err:?}");
+                None
+            }
+        };
+
+        update_guild_log(&ctx, msg.guild_id.unwrap(), &id).await;
+
+        if db_id.is_some() {
+            if let Some(res_msg) = res_msg {
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    let _ = tokio::join!(msg.delete(&ctx), res_msg.delete(&ctx));
+                });
+            }
         }
-
-        trace.point("submitting_guild_log");
-
-        guild_log(
-            &ctx,
-            LogType::ActionUpdate,
-            msg.guild_id.unwrap(),
-            CreateMessage::new().add_embed(
-                CreateEmbed::new()
-                    .description(format!(
-                        "**ACTION UPDATED**\n-# Log ID: `{id}` | Actor: {} | New Expiry: {}",
-                        msg.author.mention(),
-                        new_expiry_date.format("%Y-%m-%d %H:%M:%S")
-                    ))
-                    .color(BRAND_BLUE),
-            ),
-            None,
-        )
-        .await;
 
         Ok(())
     }

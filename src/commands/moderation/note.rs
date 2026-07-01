@@ -21,32 +21,32 @@ use crate::{
     utils::update_guild_log,
 };
 
-pub struct Reason;
+pub struct Note;
 
-impl Reason {
+impl Note {
     pub fn new() -> Self {
         Self {}
     }
 }
 
 #[async_trait]
-impl Command for Reason {
+impl Command for Note {
     fn get_name(&self) -> &'static str {
-        "reason"
+        "note"
     }
 
     fn get_short(&self) -> &'static str {
-        "Modifies the reason of a moderation action"
+        "Modifies or clears the moderator note of a moderation action"
     }
 
     fn get_full(&self) -> &'static str {
-        "Modifies the reason of a moderation action. Run the log command for the id."
+        "Modifies the moderator note of a moderation action. Run the log command for the id, or reply to a log message."
     }
 
     fn get_syntax(&self) -> Vec<CommandSyntax> {
         vec![
             CommandSyntax::String("id", false),
-            CommandSyntax::Consume("reason"),
+            CommandSyntax::Consume("note"),
         ]
     }
 
@@ -81,7 +81,7 @@ impl Command for Reason {
             }
         }
 
-        let (id, mut reason) = if let Some(id) = db_id.clone() {
+        let (id, mut note_text) = if let Some(id) = db_id.clone() {
             let mut r = String::new();
             if let Some(a1) = arg1 {
                 r.push_str(&a1);
@@ -103,22 +103,24 @@ impl Command for Reason {
             (id, arg2.unwrap_or_default())
         };
 
-        if reason.is_empty() || reason.chars().all(char::is_whitespace) {
-            reason = String::from("No reason provided");
-        }
-
-        if reason.len() > 500 {
-            reason.truncate(500);
-            reason.push_str("...");
-        }
+        let note_val =
+            if note_text.trim().is_empty() || note_text.trim().eq_ignore_ascii_case("clear") {
+                None
+            } else {
+                if note_text.len() > 128 {
+                    note_text.truncate(125);
+                    note_text.push_str("...");
+                }
+                Some(note_text.trim().to_string())
+            };
 
         trace.point("updating_database");
 
         let res = query!(
             r#"
-                UPDATE actions SET reason = $1, updated_at = NOW() WHERE guild_id = $2 AND id = $3 RETURNING id, reason, note;
+                UPDATE actions SET note = $1, updated_at = NOW() WHERE guild_id = $2 AND id = $3 RETURNING id, note;
             "#,
-            reason,
+            note_val.as_deref(),
             msg.guild_id.map(|g| g.get()).unwrap_or(0) as i64,
             id
         ).fetch_optional(&*SQL).await;
@@ -143,21 +145,14 @@ impl Command for Reason {
             });
         };
 
-        let note_suffix = data
-            .note
-            .as_deref()
-            .map(|n| format!("\n-# \u{1F4DD} Note: {n}"))
-            .unwrap_or_default();
+        let desc = if let Some(n) = &data.note {
+            format!("**`{id}` NOTE UPDATED**\n-# {n}")
+        } else {
+            format!("**`{id}` NOTE CLEARED**")
+        };
 
         let reply = CreateMessage::new()
-            .add_embed(
-                CreateEmbed::new()
-                    .description(format!(
-                        "**`{id}` UPDATED**```\n{}\n```{note_suffix}",
-                        data.reason
-                    ))
-                    .color(BRAND_BLUE),
-            )
+            .add_embed(CreateEmbed::new().description(desc).color(BRAND_BLUE))
             .reference_message(&msg)
             .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 

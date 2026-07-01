@@ -107,14 +107,9 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
             {
                 let debug_entry = OcrDebugEntry {
                     text: image_str.clone(),
-                    matched: result.as_ref().map(|(rule, pat)| {
-                        (
-                            rule.name.clone(),
-                            rule.id.clone(),
-                            pat.pattern.clone(),
-                            pat.is_regex,
-                        )
-                    }),
+                    matched: result
+                        .as_ref()
+                        .map(|rule| (rule.name.clone(), rule.id.clone(), rule.pattern.clone())),
                 };
 
                 let mut ocr_cache = ocr_result_cache.lock().await;
@@ -129,22 +124,15 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                 cache.image_hash_cache.insert(
                     guild_id_u64,
                     image_hash.clone(),
-                    result.as_ref().map(|(rule, _)| rule.id.clone()),
+                    result.as_ref().map(|rule| rule.id.clone()),
                 );
             }
 
-            if let Some((ref rule, ref pat)) = result {
-                db_record_image_hash(
-                    guild_id_u64,
-                    &image_hash,
-                    &rule.id,
-                    pat.is_regex,
-                    &pat.pattern,
-                )
-                .await;
+            if let Some(ref rule) = result {
+                db_record_image_hash(guild_id_u64, &image_hash, &rule.id).await;
             }
 
-            result.map(|(rule, _pat)| rule)
+            result
         }));
     }
 
@@ -171,18 +159,17 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
             };
             let db_id = tinyid().await;
 
-            let formatted_reason = format!(
-                "Rule {} violation | {}",
-                rule.id,
-                match &rule.punishment {
-                    Punishment::Warn { reason, .. }
-                    | Punishment::Softban { reason, .. }
-                    | Punishment::Kick { reason, .. }
-                    | Punishment::Ban { reason, .. }
-                    | Punishment::Mute { reason, .. }
-                    | Punishment::Log { reason, .. } => reason,
-                }
-            );
+            let raw_reason = match &rule.punishment {
+                Punishment::Warn { reason, .. }
+                | Punishment::Softban { reason, .. }
+                | Punishment::Kick { reason, .. }
+                | Punishment::Ban { reason, .. }
+                | Punishment::Mute { reason, .. }
+                | Punishment::Log { reason, .. } => reason.clone(),
+            };
+
+            let rule_note = format!("Rule `{}` Violation | {}", rule.id, rule.pattern);
+            let formatted_reason = raw_reason;
 
             let guild_name = {
                 match guild_id.to_partial_guild(&ctx).await {
@@ -259,7 +246,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         member,
                         guild_id,
                         db_id,
-                        formatted_reason,
+                        formatted_reason.clone(),
+                        Some(rule_note.clone()),
                         RefData::default(),
                     )
                     .await;
@@ -276,7 +264,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         member,
                         guild_id,
                         db_id,
-                        formatted_reason,
+                        formatted_reason.clone(),
+                        Some(rule_note.clone()),
                         day_clear_amount,
                         RefData::default(),
                     )
@@ -290,7 +279,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         member,
                         guild_id,
                         db_id,
-                        formatted_reason,
+                        formatted_reason.clone(),
+                        Some(rule_note.clone()),
                         RefData::default(),
                     )
                     .await;
@@ -308,7 +298,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         member,
                         guild_id,
                         db_id,
-                        formatted_reason,
+                        formatted_reason.clone(),
+                        Some(rule_note.clone()),
                         day_clear_amount,
                         chrono::TimeDelta::try_seconds(duration as i64).unwrap_or_default(),
                         RefData::default(),
@@ -327,7 +318,8 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         member,
                         guild_id,
                         db_id,
-                        formatted_reason,
+                        formatted_reason.clone(),
+                        Some(rule_note.clone()),
                         chrono::TimeDelta::try_seconds(duration as i64).unwrap_or_default(),
                         RefData::default(),
                     )
@@ -344,12 +336,13 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
                         .add_embed(
                             CreateEmbed::new()
                                 .description(format!(
-                                    "**OCR RULE TRIGGERED**\n-# Log ID: `{}` | Actor: {} | Target: {} | Rule: {}\n```\n{}\n```",
+                                    "**OCR RULE TRIGGERED**\n-# Log ID: `{}` | Actor: {} | Target: {} | Rule: {}\n```\n{}\n```\n-# {}",
                                     db_id,
                                     author.mention(),
                                     member.mention(),
                                     rule.name.to_uppercase(),
-                                    formatted_reason
+                                    formatted_reason,
+                                    rule_note
                                 ))
                                 .color(crate::constants::BRAND_BLUE),
                         )

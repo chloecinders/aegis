@@ -83,6 +83,12 @@ impl Command for Ban {
                 transformer: &Transformers::some_string,
                 desc: "A reference link (Discord message URL or image URL)",
             },
+            &CommandParameter {
+                name: "note",
+                short: "n",
+                transformer: &Transformers::string_consume,
+                desc: "A private moderator note (max 128 chars)",
+            },
         ]
     }
 
@@ -199,6 +205,26 @@ impl Command for Ban {
         }
 
         let db_id = tinyid().await;
+        let note = params.get("note").and_then(|(active, arg)| {
+            if *active {
+                if let CommandArgument::String(s) = arg {
+                    let mut trimmed = s.trim().to_string();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        if trimmed.len() > 128 {
+                            trimmed.truncate(125);
+                            trimmed.push_str("...");
+                        }
+                        Some(trimmed)
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
         let ref_url = params.get("ref").and_then(|(active, arg)| {
             if *active {
                 if let CommandArgument::String(s) = arg {
@@ -299,7 +325,8 @@ impl Command for Ban {
             }))
             .automatically_delete(inferred)
             .mark_silent(params.contains_key("silent"))
-            .ref_data(ref_data.clone());
+            .ref_data(ref_data.clone())
+            .note(note.clone());
 
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
@@ -318,6 +345,7 @@ impl Command for Ban {
                 msg.guild_id.unwrap_or_default(),
                 db_id.clone(),
                 reason.clone(),
+                note.clone(),
                 days,
                 duration,
                 ref_data.clone(),
@@ -331,6 +359,7 @@ impl Command for Ban {
                 msg.guild_id.unwrap_or_default(),
                 db_id.clone(),
                 reason.clone(),
+                note,
                 days,
                 duration,
                 ref_data.clone(),

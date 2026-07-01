@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, note) VALUES ($1, 'softban', $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8ad9e781a4e994950c3e5d5de044ca50415e888b0e9c12fb6a740f572bb4c1eb"
+}

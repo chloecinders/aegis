@@ -33,7 +33,6 @@ struct LogRecord {
     r#type: String,
     rule: String,
     is_regex: bool,
-    patterns: Option<serde_json::Value>,
     created_at: sqlx::types::chrono::NaiveDateTime,
     reason: String,
     punishment_type: ActionType,
@@ -53,7 +52,7 @@ impl Rules {
         let res = sqlx::query_as!(
             LogRecord,
             r#"
-                SELECT id, guild_id, name, type, rule, is_regex, patterns, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1 AND id = $2;
+                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1 AND id = $2;
             "#,
             guild_id,
             log
@@ -111,20 +110,7 @@ impl Rules {
         chunk.iter().for_each(|data| {
             let record = data.clone();
 
-            let rule = if let Some(serde_json::Value::Array(arr)) = &record.patterns {
-                let mut lines = Vec::new();
-                for v in arr {
-                    if let Some(pat) = v.get("pattern").and_then(|p| p.as_str()) {
-                        let is_re = v.get("is_regex").and_then(|b| b.as_bool()).unwrap_or(false);
-                        if is_re {
-                            lines.push(format!("/{}/ [regex]", pat));
-                        } else {
-                            lines.push(format!("{} [plain]", pat));
-                        }
-                    }
-                }
-                lines.join("\n")
-            } else {
+            let rule = {
                 let r = if record.rule.len() > 100 && compact {
                     format!("{}...", &record.rule[..97])
                 } else {
@@ -244,7 +230,7 @@ impl Command for Rules {
         let res = sqlx::query_as!(
             LogRecord,
             r#"
-                SELECT id, guild_id, name, type, rule, is_regex, patterns, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1;
+                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as "punishment_type!: ActionType", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1;
             "#,
             msg.guild_id.map(|g| g.get()).unwrap_or(0) as i64
         )

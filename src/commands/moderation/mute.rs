@@ -71,6 +71,12 @@ impl Command for Mute {
                 transformer: &Transformers::some_string,
                 desc: "A reference link (Discord message URL or image URL)",
             },
+            &CommandParameter {
+                name: "note",
+                short: "n",
+                transformer: &Transformers::string_consume,
+                desc: "A private moderator note (max 128 chars)",
+            },
         ]
     }
 
@@ -124,6 +130,26 @@ impl Command for Mute {
         }
 
         let db_id = tinyid().await;
+        let note = params.get("note").and_then(|(active, arg)| {
+            if *active {
+                if let CommandArgument::String(s) = arg {
+                    let mut trimmed = s.trim().to_string();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        if trimmed.len() > 128 {
+                            trimmed.truncate(125);
+                            trimmed.push_str("...");
+                        }
+                        Some(trimmed)
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
         let ref_url = params.get("ref").and_then(|(active, arg)| {
             if *active {
                 if let CommandArgument::String(s) = arg {
@@ -221,7 +247,8 @@ impl Command for Mute {
             }))
             .automatically_delete(inferred)
             .mark_silent(params.contains_key("silent"))
-            .ref_data(ref_data.clone());
+            .ref_data(ref_data.clone())
+            .note(note.clone());
 
         trace.point("sending_dm");
         cmd_response.send_dm(&ctx).await;
@@ -237,6 +264,7 @@ impl Command for Mute {
             msg.guild_id.unwrap_or_default(),
             db_id.clone(),
             reason.clone(),
+            note.clone(),
             duration,
             ref_data.clone(),
         )

@@ -265,6 +265,7 @@ pub use moderation::Edits;
 pub use moderation::Kick;
 pub use moderation::Log;
 pub use moderation::Mute;
+pub use moderation::Note;
 pub use moderation::Purge;
 pub use moderation::Reason;
 pub use moderation::Ref;

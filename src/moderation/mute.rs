@@ -23,6 +23,7 @@ pub async fn mute_member(
     guild_id: GuildId,
     db_id: String,
     mut reason: String,
+    note: Option<String>,
     duration: Duration,
     ref_data: RefData,
 ) -> Result<(), CommandError> {
@@ -76,13 +77,14 @@ pub async fn mute_member(
     };
 
     let res = query!(
-        "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, expires_at, last_reapplied_at) VALUES ($1, 'mute', $2, $3, $4, $5, $6, NOW())",
+        "INSERT INTO actions (id, type, guild_id, user_id, moderator_id, reason, expires_at, last_reapplied_at, note) VALUES ($1, 'mute', $2, $3, $4, $5, $6, NOW(), $7)",
         db_id,
         guild_id.get() as i64,
         member.user.id.get() as i64,
         author.user.id.get() as i64,
         reason.as_str(),
         expires_at.map(|d| d.naive_utc()),
+        note.as_deref()
     ).execute(&*SQL).await;
 
     if let Err(err) = res {
@@ -130,9 +132,14 @@ pub async fn mute_member(
         });
     }
 
+    let note_suffix = note
+        .as_deref()
+        .map(|n| format!("\n-# {n}"))
+        .unwrap_or_default();
+
     let embed = CreateEmbed::new()
         .description(format!(
-            "**MEMBER MUTED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {} | Duration: {time_string}\n```\n{reason}\n```",
+            "**MEMBER MUTED**\n-# Log ID: `{db_id}` | Actor: {} | Target: {} | Duration: {time_string}\n```\n{reason}\n```{note_suffix}",
             author.mention(),
             member.mention()
         ))

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, guild_id, name, type, rule, is_regex, patterns, created_at, reason, punishment_type as \"punishment_type!: ActionType\", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1 AND id = $2;\n            ",
+  "query": "\n                SELECT id, guild_id, name, type, rule, is_regex, created_at, reason, punishment_type as \"punishment_type!: ActionType\", duration, day_clear_amount, silent FROM automod_rules WHERE guild_id = $1;\n            ",
   "describe": {
     "columns": [
       {
@@ -35,21 +35,16 @@
       },
       {
         "ordinal": 6,
-        "name": "patterns",
-        "type_info": "Jsonb"
-      },
-      {
-        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "reason",
         "type_info": "Text"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "punishment_type!: ActionType",
         "type_info": {
           "Custom": {
@@ -71,25 +66,24 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "duration",
         "type_info": "Int8"
       },
       {
-        "ordinal": 11,
+        "ordinal": 10,
         "name": "day_clear_amount",
         "type_info": "Int2"
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "silent",
         "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Text"
+        "Int8"
       ]
     },
     "nullable": [
@@ -99,7 +93,6 @@
       false,
       false,
       false,
-      true,
       false,
       false,
       false,
@@ -108,5 +101,5 @@
       true
     ]
   },
-  "hash": "c4f3b439e57b390240b5ccaf55abc77a27982a18f7d5b72dfaa828364a795bd9"
+  "hash": "5a135407b697bdacdf17eeb0902507b1fcf74581330a78b2b7ed9443d63acf68"
 }

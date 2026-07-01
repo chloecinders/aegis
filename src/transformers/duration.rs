@@ -28,12 +28,17 @@ impl Transformers {
             if s == "0" {
                 input.contents = Some(CommandArgument::Duration(Duration::default()));
                 return Ok(input);
+            } else if s.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(numbers) = s.parse::<i64>() {
+                    input.contents = Some(CommandArgument::Duration(Duration::seconds(numbers)));
+                    return Ok(input);
+                }
             } else if s.chars().count() < 2 {
                 return Err(TransformerError::CommandError(CommandError {
                     arg: Some(input),
                     title: String::from("Could not turn input to a <Duration>"),
                     hint: Some(String::from(
-                        "provide a valid number and a unit (s, m, h, d, w, M, y), i.e. 1h (1 hour) or 25d (25 days)",
+                        "provide a valid number and a unit (s, m, h, d, w, M, y), i.e. 1h (1 hour) or 25d (25 days), or duration in seconds",
                     )),
                 }));
             }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                UPDATE actions SET reason = $1, updated_at = NOW() WHERE guild_id = $2 AND id = $3 RETURNING id, reason, note;\n            ",
+  "query": "\n                UPDATE actions SET reason = $1, updated_at = NOW() WHERE guild_id = $2 AND id = $3 RETURNING id, reason;\n            ",
   "describe": {
     "columns": [
       {
@@ -12,11 +12,6 @@
         "ordinal": 1,
         "name": "reason",
         "type_info": "Text"
-      },
-      {
-        "ordinal": 2,
-        "name": "note",
-        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -28,9 +23,8 @@
     },
     "nullable": [
       false,
-      false,
-      true
+      false
     ]
   },
-  "hash": "eeca280273a959949661c77b3fd8f54eb1ce40c96fb6f27a69bb02ba61d40695"
+  "hash": "61dde721843ab2dc717531f8686e21983e993d854c3677a737234d20cfd65c9d"
 }

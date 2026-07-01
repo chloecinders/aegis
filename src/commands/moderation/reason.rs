@@ -116,7 +116,7 @@ impl Command for Reason {
 
         let res = query!(
             r#"
-                UPDATE actions SET reason = $1, updated_at = NOW() WHERE guild_id = $2 AND id = $3 RETURNING id, reason, note;
+                UPDATE actions SET reason = $1, updated_at = NOW() WHERE guild_id = $2 AND id = $3 RETURNING id, reason;
             "#,
             reason,
             msg.guild_id.map(|g| g.get()).unwrap_or(0) as i64,
@@ -143,19 +143,10 @@ impl Command for Reason {
             });
         };
 
-        let note_suffix = data
-            .note
-            .as_deref()
-            .map(|n| format!("\n-# \u{1F4DD} Note: {n}"))
-            .unwrap_or_default();
-
         let reply = CreateMessage::new()
             .add_embed(
                 CreateEmbed::new()
-                    .description(format!(
-                        "**`{id}` UPDATED**```\n{}\n```{note_suffix}",
-                        data.reason
-                    ))
+                    .description(format!("**`{id}` UPDATED**```\n{}\n```", data.reason))
                     .color(BRAND_BLUE),
             )
             .reference_message(&msg)

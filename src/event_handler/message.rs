@@ -77,21 +77,53 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
             {
                 let cache = rule_cache.lock().await;
                 if let Some(cached) = cache.image_hash_cache.get(guild_id_u64, &image_hash) {
-                    return match cached {
+                    let rule = match cached {
                         Some(rule_id) => cache.get_by_id(rule_id).cloned(),
                         None => None,
                     };
+                    {
+                        let debug_entry = OcrDebugEntry {
+                            text: String::from("*(matched via image hash cache)*"),
+                            matched: rule
+                                .as_ref()
+                                .map(|r| (r.name.clone(), r.id.clone(), r.pattern.clone())),
+                        };
+
+                        let mut ocr_cache = ocr_result_cache.lock().await;
+                        let existing = ocr_cache.get(msg_id).cloned().unwrap_or_default();
+                        let mut updated = existing;
+                        updated.push(debug_entry);
+                        ocr_cache.insert(msg_id, updated);
+                    }
+                    return rule;
                 }
             }
 
             if let Some(rule_id) = db_check_image_hash(guild_id_u64, &image_hash).await {
-                let mut cache = rule_cache.lock().await;
-                cache.image_hash_cache.insert(
-                    guild_id_u64,
-                    image_hash.clone(),
-                    Some(rule_id.clone()),
-                );
-                return cache.get_by_id(&rule_id).cloned();
+                let rule = {
+                    let mut cache = rule_cache.lock().await;
+                    cache.image_hash_cache.insert(
+                        guild_id_u64,
+                        image_hash.clone(),
+                        Some(rule_id.clone()),
+                    );
+                    cache.get_by_id(&rule_id).cloned()
+                };
+                {
+                    let debug_entry = OcrDebugEntry {
+                        text: String::from("*(matched via database image hash)*"),
+                        matched: rule
+                            .as_ref()
+                            .map(|r| (r.name.clone(), r.id.clone(), r.pattern.clone())),
+                    };
+
+                    let mut ocr_cache = ocr_result_cache.lock().await;
+                    let existing = ocr_cache.get(msg_id).cloned().unwrap_or_default();
+                    let mut updated = existing;
+                    updated.push(debug_entry);
+                    ocr_cache.insert(msg_id, updated);
+                }
+                return rule;
             }
 
             let image_str = match extract_text_from_bytes(&bytes).await {
@@ -138,7 +170,11 @@ async fn ocr_attachments(ctx: &Context, msg: &Message, handler: &Handler) {
 
     let mut futures: FuturesUnordered<_> = handles.into_iter().collect();
 
-    while let Some(Ok(Some(rule))) = futures.next().await {
+    while let Some(res) = futures.next().await {
+        let Some(rule) = res.ok().flatten() else {
+            continue;
+        };
+
         let _ = msg.delete(ctx).await;
 
         let should_punish = {

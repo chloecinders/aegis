@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use serenity::{
-    all::{Context, CreateAttachment, CreateEmbed, CreateMessage, Message},
+    all::{Context, CreateAllowedMentions, CreateAttachment, CreateEmbed, CreateMessage, Message},
     async_trait,
 };
 
@@ -11,6 +13,7 @@ use crate::{
     constants::BRAND_BLUE,
     event_handler::{CommandError, Handler},
     lexer::Token,
+    transformers::Transformers,
     utils::is_developer,
 };
 use aegis_macros::command;
@@ -34,11 +37,11 @@ impl Command for OcrDbg {
     }
 
     fn get_full(&self) -> &'static str {
-        "Reply to a message that has an image attachment. Shows the OCR text extracted from each attachment and whether it matched any automod OCR rule. Only works for messages processed after the bot last started."
+        "Pass a message ID or reply to a message that had an image attachment. Shows the OCR text extracted from each attachment and whether it matched any automod OCR rule. Works even if the message has been deleted, as long as it was processed after the bot last started."
     }
 
     fn get_syntax(&self) -> Vec<CommandSyntax> {
-        vec![]
+        vec![CommandSyntax::String("message_id", true)]
     }
 
     fn get_category(&self) -> CommandCategory {
@@ -54,6 +57,7 @@ impl Command for OcrDbg {
         &self,
         ctx: Context,
         msg: Message,
+        #[transformers::string] message_id_arg: Option<String>,
         handler: &Handler,
         trace: &mut TraceContext,
     ) -> Result<(), CommandError> {
@@ -61,17 +65,23 @@ impl Command for OcrDbg {
             return Ok(());
         }
 
-        let Some(reply) = msg.referenced_message.as_ref() else {
+        let reply_id = if let Some(id) = message_id_arg {
+            id.parse::<u64>().map_err(|_| CommandError {
+                title: String::from("Invalid Message ID"),
+                hint: Some(String::from("it must be a numeric ID")),
+                arg: None,
+            })?
+        } else if let Some(reply) = msg.referenced_message.as_ref() {
+            reply.id.get()
+        } else {
             return Err(CommandError {
-                title: String::from("You must reply to a message with image attachments."),
+                title: String::from("You must provide a Message ID or reply to a message."),
                 hint: Some(String::from(
                     "Only messages processed after the last bot restart have stored OCR data.",
                 )),
                 arg: None,
             });
         };
-
-        let reply_id = reply.id.get();
 
         trace.point("fetching_ocr_cache");
 
@@ -98,11 +108,16 @@ impl Command for OcrDbg {
             });
         }
 
-        let mut output = String::new();
+        let mut output = format!(
+            "**OCR DEBUG**\n-# Message ID: `{reply_id}` | Attachments: {}\n",
+            entries.len()
+        );
 
         for (i, entry) in entries.iter().enumerate() {
             if entries.len() > 1 {
-                output.push_str(&format!("**Attachment {}**\n", i + 1));
+                output.push_str(&format!("\n**Attachment {}**\n", i + 1));
+            } else {
+                output.push('\n');
             }
 
             let text_display = if entry.text.is_empty() {
@@ -117,25 +132,22 @@ impl Command for OcrDbg {
                 Some((rule_name, rule_id, pattern, is_regex)) => {
                     let pattern_type = if *is_regex { "regex" } else { "fuzzy" };
                     output.push_str(&format!(
-                        "**Matched Rule:** `{rule_name}` (ID: `{rule_id}`)\n**Pattern ({pattern_type}):** `{pattern}`\n✅ **Would have triggered automod**\n"
+                        "**Matched Rule:** `{rule_name}` (ID: `{rule_id}`)\n**Pattern ({pattern_type}):** `{pattern}`\n**Status:** Triggered automod\n"
                     ));
                 }
                 None => {
                     output.push_str(
-                        "**Matched Rule:** *(none)*\n❌ **Did not match any OCR rule**\n",
+                        "**Matched Rule:** *(none)*\n**Status:** Did not match any OCR rule\n",
                     );
                 }
-            }
-
-            if i + 1 < entries.len() {
-                output.push('\n');
             }
         }
 
         if output.len() > 3500 {
             let r = CreateMessage::new()
                 .add_file(CreateAttachment::bytes(output.into_bytes(), "ocrdbg.txt"))
-                .reference_message(&msg);
+                .reference_message(&msg)
+                .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
             if let Err(e) = msg.channel_id.send_message(&ctx, r).await {
                 crate::utils::consume_serenity_error(String::from("OCRDBG RUN"), e);
@@ -143,7 +155,8 @@ impl Command for OcrDbg {
         } else {
             let r = CreateMessage::new()
                 .add_embed(CreateEmbed::new().color(BRAND_BLUE).description(output))
-                .reference_message(&msg);
+                .reference_message(&msg)
+                .allowed_mentions(CreateAllowedMentions::new().replied_user(false));
 
             if let Err(e) = msg.channel_id.send_message(&ctx, r).await {
                 crate::utils::consume_serenity_error(String::from("OCRDBG RUN"), e);

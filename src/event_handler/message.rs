@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use serenity::{
-    all::{Context, Message},
+    all::{ChannelId, Context, Message, MessageId},
     futures::{StreamExt, stream::FuturesUnordered},
 };
 use sha2::{Digest, Sha256};
@@ -17,6 +19,70 @@ use crate::{
 };
 
 pub async fn message(handler: &Handler, ctx: Context, msg: Message) {
+    if !msg.author.bot && msg.guild_id.is_some() {
+        let channel_id = msg.channel_id.get();
+        let should_spawn = {
+            let mut lock = handler.sticky_cache.lock().await;
+            if lock.contains_channel(channel_id) {
+                if !lock.is_timer_pending(channel_id) {
+                    lock.set_timer_pending(channel_id);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        if should_spawn {
+            let sticky_cache = handler.sticky_cache.clone();
+            let ctx_clone = ctx.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+
+                let sticky = {
+                    let mut lock = sticky_cache.lock().await;
+                    lock.clear_timer_pending(channel_id);
+                    lock.get(channel_id)
+                };
+
+                if let Some(sticky_msg) = sticky {
+                    if let Some(old_id) = sticky_msg.last_message_id {
+                        let _ = ChannelId::new(channel_id)
+                            .delete_message(&ctx_clone, MessageId::new(old_id))
+                            .await;
+                    }
+
+                    match ChannelId::new(channel_id)
+                        .send_message(&ctx_clone, sticky_msg.build_message())
+                        .await
+                    {
+                        Ok(sent) => {
+                            let sent_id = sent.id.get();
+                            let _ = sqlx::query(
+                                "UPDATE sticky_messages SET last_message_id = $1 WHERE channel_id = $2",
+                            )
+                            .bind(sent_id as i64)
+                            .bind(channel_id as i64)
+                            .execute(&*crate::SQL)
+                            .await;
+
+                            let mut lock = sticky_cache.lock().await;
+                            lock.update_last_message_id(channel_id, Some(sent_id));
+                        }
+                        Err(e) => {
+                            crate::utils::consume_serenity_error(
+                                format!("Sticky message resend in {channel_id}"),
+                                e,
+                            );
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     ocr_attachments(&ctx, &msg, handler).await;
 
     if msg.content.starts_with(handler.prefix.as_str()) && msg.guild_id.is_some() {

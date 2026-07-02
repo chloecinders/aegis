@@ -20,8 +20,8 @@ use crate::{
     commands::{
         About, Ban, Cache, CacheSize, ColonThree, Command, ContextCmd, CreateOcrRule, DefineLog,
         DeleteRule, Duration as DurationCommand, EditRef, Edits, Encrypt, ExtractId, Jeprof, Kick,
-        Log, MsgDbg, Mute, Note, OcrCheck, OcrDbg, PermDbg, Ping, Purge, Reason, Ref, Restart, Rules,
-        Say, ScheduleDowntime, Softban, Stats, Trace, Unban, Unmute, Update, Warn,
+        Log, MsgDbg, Mute, Note, OcrCheck, OcrDbg, PermDbg, Ping, Purge, Reason, Ref, Restart,
+        Rules, Say, ScheduleDowntime, Softban, Stats, Sticky, Trace, Unban, Unmute, Update, Warn,
     },
     constants::BRAND_RED,
     lexer::Token,
@@ -30,6 +30,7 @@ use crate::{
         consume_serenity_error,
         reference::{self, embeds_for_ref},
         rule_cache::{OcrResultCache, RuleCache},
+        sticky_cache::StickyCache,
     },
 };
 #[derive(Debug)]
@@ -50,7 +51,7 @@ impl CommandError {
         }
     }
 
-    pub fn new(title: &str) -> Self {
+    pub fn new<T: Into<String>>(title: T) -> Self {
         Self {
             title: title.into(),
             hint: None,
@@ -115,6 +116,7 @@ pub struct Handler {
     pub permission_cache: Arc<Mutex<PermissionCache>>,
     pub rule_cache: Arc<Mutex<RuleCache>>,
     pub ocr_result_cache: Arc<Mutex<OcrResultCache>>,
+    pub sticky_cache: Arc<Mutex<StickyCache>>,
 }
 
 impl Handler {
@@ -159,6 +161,7 @@ impl Handler {
             Arc::new(OcrDbg::new()),
             Arc::new(Restart::new()),
             Arc::new(Encrypt::new()),
+            Arc::new(Sticky::new()),
         ];
 
         let cache = Arc::new(Mutex::new(MessageCache::new()));
@@ -179,6 +182,13 @@ impl Handler {
             lock.populate_from_db().await;
         });
 
+        let sticky_cache = Arc::new(Mutex::new(StickyCache::new()));
+        let populate_sticky = sticky_cache.clone();
+        tokio::spawn(async move {
+            let mut lock = populate_sticky.lock().await;
+            lock.populate_from_db().await;
+        });
+
         Self {
             prefix,
             commands,
@@ -186,6 +196,7 @@ impl Handler {
             permission_cache: Arc::new(Mutex::new(PermissionCache::new())),
             rule_cache: rule_cache,
             ocr_result_cache: Arc::new(Mutex::new(OcrResultCache::new())),
+            sticky_cache,
         }
     }
 }

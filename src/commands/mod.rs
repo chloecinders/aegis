@@ -237,6 +237,7 @@ pub use admin::DeleteRule;
 pub use admin::Encrypt;
 pub use admin::OcrCheck;
 pub use admin::Rules;
+pub use admin::Sticky;
 
 mod developer;
 pub use developer::CacheSize;

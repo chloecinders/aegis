@@ -1,6 +1,6 @@
 use serenity::all::{
     Context, CreateEmbed, CreateEmbedAuthor, CreateMessage, GuildId, GuildMemberUpdateEvent,
-    Member, MemberAction, Mentionable,
+    Member, MemberAction, Mentionable, Timestamp,
     audit_log::{Action, Change},
 };
 
@@ -175,12 +175,20 @@ fn format_name_change(old_nick: Option<Option<String>>, new_nick: Option<String>
 async fn handle_timeout_change(
     ctx: &Context,
     event: &GuildMemberUpdateEvent,
-    old_timeout: Option<serenity::all::Timestamp>,
-    new_timeout: Option<serenity::all::Timestamp>,
+    old_timeout: Option<Timestamp>,
+    new_timeout: Option<Timestamp>,
     moderator_id: Option<u64>,
     reason: &Option<String>,
 ) {
+    let now = Timestamp::now().unix_timestamp();
+    let was_muted = old_timeout.is_some_and(|ts| ts.unix_timestamp() > now);
+    let is_muted = new_timeout.is_some_and(|ts| ts.unix_timestamp() > now);
+
     if old_timeout == new_timeout {
+        return;
+    }
+
+    if !was_muted && !is_muted {
         return;
     }
 
@@ -196,31 +204,26 @@ async fn handle_timeout_change(
     }
 
     if let Some(actor_id) = moderator_id {
-        if actor_id == ctx.cache.current_user().id.get() {
+        if actor_id == ctx.cache.current_user().id.get() || actor_id == event.user.id.get() {
             return;
         }
 
-        let (action_title, duration_str) = if let Some(until) = new_timeout {
-            let now = serenity::all::Timestamp::now().unix_timestamp();
-            let until_ts = until.unix_timestamp();
-            if until_ts > now {
-                let duration = until_ts - now;
-                let time_string = if duration >= 86400 * 27 {
-                    String::from("28 days")
-                } else if duration >= 86400 {
-                    format!("{} days", (duration as f64 / 86400.0).round())
-                } else if duration >= 3600 {
-                    format!("{} hours", (duration as f64 / 3600.0).round())
-                } else if duration >= 60 {
-                    format!("{} minutes", (duration as f64 / 60.0).round())
-                } else {
-                    format!("{} seconds", duration)
-                };
-                ("MEMBER MUTED", time_string)
+        let (action_title, duration_str) = if is_muted {
+            let until_ts = new_timeout.unwrap().unix_timestamp();
+            let duration = until_ts - now;
+            let time_string = if duration >= 86400 * 27 {
+                String::from("28 days")
+            } else if duration >= 86400 {
+                format!("{} days", (duration as f64 / 86400.0).round())
+            } else if duration >= 3600 {
+                format!("{} hours", (duration as f64 / 3600.0).round())
+            } else if duration >= 60 {
+                format!("{} minutes", (duration as f64 / 60.0).round())
             } else {
-                ("MEMBER UNMUTED", String::new())
-            }
-        } else if old_timeout.is_some() {
+                format!("{} seconds", duration)
+            };
+            ("MEMBER MUTED", time_string)
+        } else if was_muted {
             ("MEMBER UNMUTED", String::new())
         } else {
             ("", String::new())

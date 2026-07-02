@@ -18,3 +18,6 @@ pub use delete_rule::DeleteRule;
 
 mod encrypt;
 pub use encrypt::Encrypt;
+
+mod sticky;
+pub use sticky::Sticky;

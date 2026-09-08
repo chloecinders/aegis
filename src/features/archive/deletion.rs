@@ -13,32 +13,11 @@ use crate::platform::discord::dispatch::BulkDeletionCx;
 #[cfg(feature = "web")]
 use crate::platform::discord::fetch;
 use crate::platform::discord::partial::PartialMessage;
-use crate::platform::text::truncate;
-use crate::platform::ui::embed::{Embed, channel_mention, code, mention};
+use crate::platform::ui::embed::{Embed, channel_mention, mention};
 use crate::platform::ui::tone::Tone;
-
-pub fn parent_line(parent: &PartialMessage, jumpable: bool) -> String {
-    let preview = truncate::clamp(&parent.content, 100);
-    let body = format!(
-        "Replying to {}: {preview}",
-        mention(parent.author.id, Some(&parent.author.name))
-    );
-
-    if !jumpable {
-        return body;
-    }
-
-    format!(
-        "{body} [jump](https://discord.com/channels/{}/{}/{})",
-        parent.guild_id.unwrap_or_default(),
-        parent.channel_id,
-        parent.id
-    )
-}
 
 pub fn entry(
     message: &PartialMessage,
-    parent: Option<&PartialMessage>,
     actor: Attribution,
     actor_name: Option<&str>,
     bot: Snowflake,
@@ -52,7 +31,6 @@ pub fn entry(
         .subtitle(format!("Channel: <#{}>", message.channel_id))
         .maybe_subtitle(actor.line(bot, actor_name))
         .maybe_lead(reply_line(message))
-        .maybe_footnote(parent.map(|parent| parent_line(parent, true)))
         .tone(Tone::Danger);
 
     match message.content.is_empty() {
@@ -71,7 +49,7 @@ pub fn bulk_entry(
 ) -> Embed {
     Embed::new("MESSAGES DELETED")
         .subtitle(format!("Channel: {}", channel_mention(channel)))
-        .subtitle(format!("Removed: {}", code(&removed.to_string())))
+        .subtitle(format!("Removed: {removed}"))
         .maybe_subtitle(actor.line(bot, actor_name))
         .maybe_footnote(transcript.map(|link| format!("[View transcript]({link})")))
         .tone(Tone::Danger)
@@ -98,10 +76,6 @@ pub async fn record(
 
     let bot = ctx.cache.current_user().id.get();
     let guild = guild.get() as Snowflake;
-    let parent = cached
-        .referenced_message_id
-        .and_then(|parent| app.recent.peek(channel.get(), parent));
-
     let known = match app.pending.claim_deletion(channel.get(), message.get()) {
         true => Attribution::Bot(bot),
         false => Attribution::Unknown,
@@ -114,7 +88,7 @@ pub async fn record(
         ctx,
         guild,
         LogType::MessageUpdate,
-        &entry(&cached, parent.as_deref(), known, actor.as_deref(), bot),
+        &entry(&cached, known, actor.as_deref(), bot),
         guildlog::Subject {
             target: cached.author.id,
             moderator: known.actor(),
@@ -133,7 +107,7 @@ pub async fn record(
         app.awaiting.expect(
             key,
             at,
-            &entry(&cached, parent.as_deref(), known, actor.as_deref(), bot),
+            &entry(&cached, known, actor.as_deref(), bot),
             known,
         );
 
@@ -144,12 +118,7 @@ pub async fn record(
 
     app.awaiting.forget(&key);
     guildlog::store::attribute(&app.pool, at.message.get(), resolved.actor()).await?;
-    guildlog::rewrite(
-        ctx,
-        at,
-        &entry(&cached, parent.as_deref(), resolved, actor.as_deref(), bot),
-    )
-    .await
+    guildlog::rewrite(ctx, at, &entry(&cached, resolved, actor.as_deref(), bot)).await
 }
 
 pub async fn bulk(cx: &BulkDeletionCx, guild: GuildId) -> Result<()> {

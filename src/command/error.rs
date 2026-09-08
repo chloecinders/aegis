@@ -218,12 +218,31 @@ impl Error {
 
     pub fn detail(&self) -> Option<String> {
         match &self.0.cause {
-            Some(Cause::Discord { op, source }) => Some(format!("{op}: {source}")),
+            Some(Cause::Discord { op, source }) => {
+                Some(format!("{op}: {}", chain(source.as_ref())))
+            }
             Some(Cause::Store { op, source }) => Some(format!("{op}: {source}")),
             Some(Cause::Internal { context }) => Some(String::from(*context)),
             None => None,
         }
     }
+}
+
+fn chain(source: &dyn std::error::Error) -> String {
+    let mut trail = vec![source.to_string()];
+    let mut next = source.source();
+
+    while let Some(inner) = next {
+        let text = inner.to_string();
+
+        if trail.last() != Some(&text) {
+            trail.push(text);
+        }
+
+        next = inner.source();
+    }
+
+    trail.join(": ")
 }
 
 impl Display for Error {

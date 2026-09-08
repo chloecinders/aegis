@@ -1,6 +1,6 @@
 use crate::domain::punishment::Punishment;
 use crate::platform::text::duration;
-use crate::platform::ui::embed::{Embed, code, mention};
+use crate::platform::ui::embed::{Embed, mention};
 use crate::platform::ui::marks::Marks;
 use crate::platform::ui::tone::Tone;
 
@@ -10,14 +10,19 @@ fn qualifiers(punishment: &Punishment) -> Vec<String> {
     if punishment.verb.has_duration() {
         parts.push(format!(
             "Duration: {}",
-            code(&duration::phrase(punishment.duration))
+            duration::phrase(punishment.duration)
         ));
     }
 
     if punishment.clear_days != 0 {
+        let unit = match punishment.clear_days {
+            1 => "day",
+            _ => "days",
+        };
+
         parts.push(format!(
-            "Cleared: {} days of messages",
-            code(&punishment.clear_days.to_string())
+            "Cleared {} {unit} of messages",
+            punishment.clear_days
         ));
     }
 

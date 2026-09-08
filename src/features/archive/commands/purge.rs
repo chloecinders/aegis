@@ -102,7 +102,7 @@ impl Command for Purge {
 
         let entry = Embed::new("MESSAGES PURGED")
             .subtitle(format!("Channel: {}", channel_mention(channel.get())))
-            .subtitle(format!("Removed: {}", code(&doomed.len().to_string())))
+            .subtitle(format!("Removed: {}", doomed.len()))
             .subtitle(format!(
                 "Actor: {}",
                 mention(actor, Some(&cx.msg.author.name))

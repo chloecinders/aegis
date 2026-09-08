@@ -110,7 +110,12 @@ pub fn record(action: &Action, reference: Option<&Captured>) -> Embed {
     }
 
     if action.clear_days != 0 {
-        embed = embed.subtitle(format!("Cleared: {} days of messages", action.clear_days));
+        let unit = match action.clear_days {
+            1 => "day",
+            _ => "days",
+        };
+
+        embed = embed.subtitle(format!("Cleared {} {unit} of messages", action.clear_days));
     }
 
     let marks = Marks {

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serenity::all::{
-    ActivityData, AuditLogEntry, ChannelId, Client, Context, EventHandler, GatewayIntents, GuildId,
-    Interaction, Member, Message, MessageId, MessageUpdateEvent, OnlineStatus, Ready, Settings,
-    User,
+    ActivityData, AuditLogEntry, ChannelId, Client, ClientBuilder, Context, EventHandler,
+    GatewayIntents, GuildId, HttpBuilder, Interaction, Member, Message, MessageId,
+    MessageUpdateEvent, OnlineStatus, Ready, Settings, User,
 };
 use serenity::async_trait;
 use tracing::info;
@@ -257,8 +257,12 @@ pub async fn build(
 
     cache.max_messages = 0;
 
-    Client::builder(
-        token,
+    let http = HttpBuilder::new(token)
+        .client(crate::platform::http::discord())
+        .build();
+
+    ClientBuilder::new_with_http(
+        http,
         GatewayIntents::non_privileged()
             .union(GatewayIntents::GUILD_MEMBERS)
             .union(GatewayIntents::MESSAGE_CONTENT),

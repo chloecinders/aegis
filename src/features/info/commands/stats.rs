@@ -4,7 +4,7 @@ use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use crate::command::cx::Cx;
 use crate::command::error::Result;
 use crate::command::{Command, Meta, Response};
-use crate::platform::text::duration::phrase;
+use crate::platform::text::duration::precise;
 use crate::platform::ui::embed::Embed;
 use aegis_macros::{command, meta};
 
@@ -42,7 +42,7 @@ impl Command for Stats {
 
         Ok(Response::embed(Embed::new("STATS").body(format!(
             "Servers: `{guilds}`\nUptime: `{}`\nMemory: `{} MiB`",
-            phrase(uptime),
+            precise(uptime),
             resident_mib()
         ))))
     }

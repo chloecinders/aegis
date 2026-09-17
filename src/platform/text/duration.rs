@@ -25,6 +25,39 @@ pub fn phrase(duration: Duration) -> String {
     format!("{amount} {unit}s")
 }
 
+pub fn precise(duration: Duration) -> String {
+    let units = [
+        (duration.num_days(), "day"),
+        (duration.num_hours() % 24, "hour"),
+        (duration.num_minutes() % 60, "minute"),
+        (duration.num_seconds() % 60, "second"),
+    ];
+
+    let mut out = String::new();
+
+    for (amount, unit) in units {
+        if amount == 0 {
+            continue;
+        }
+
+        if !out.is_empty() {
+            out.push_str(", ");
+        }
+
+        out.push_str(&format!("{amount} {unit}"));
+
+        if amount != 1 {
+            out.push('s');
+        }
+    }
+
+    if out.is_empty() {
+        return String::from("0 seconds");
+    }
+
+    out
+}
+
 pub fn compact(duration: Duration) -> String {
     let seconds = duration.num_seconds();
 

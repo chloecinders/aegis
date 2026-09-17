@@ -25,11 +25,6 @@ impl Default for Http {
     }
 }
 
-// Discord drops idle keep-alive connections well before reqwest retires them after its
-// default ninety seconds, and a request written onto one that has already gone away
-// fails as a bare transport error with nothing to retry it. Log entries arrive in bursts
-// separated by long quiet stretches, which is exactly the shape that keeps landing on a
-// dead connection, so retire pooled connections early and cap a request that stalls.
 pub fn discord() -> Client {
     Client::builder()
         .use_rustls_tls()

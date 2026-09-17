@@ -100,6 +100,7 @@ pub const CALLBACK: &str = "/auth/callback";
 
 pub fn router(state: Shared) -> Router {
     Router::new()
+        .route("/", get(site::root))
         .route("/transcript/:guild/:id", get(routes::page))
         .route("/api/transcript/:guild/:id", get(routes::meta))
         .route("/api/transcript/:guild/:id/messages", get(routes::messages))
@@ -161,7 +162,6 @@ pub fn router(state: Shared) -> Router {
         .route("/assets/:app/:file", get(assets::chunk))
         .with_state(state)
         .fallback(site::page)
-        .layer(axum::middleware::from_fn(middleware::opened_in_discord))
         .layer(axum::middleware::from_fn(middleware::framing))
 }
 

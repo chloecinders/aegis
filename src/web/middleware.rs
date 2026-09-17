@@ -13,23 +13,3 @@ pub async fn framing(request: Request, next: Next) -> Response {
 
     answer
 }
-
-fn framed(query: Option<&str>) -> bool {
-    query.is_some_and(|query| {
-        query
-            .split('&')
-            .any(|pair| pair.split('=').next() == Some("frame_id"))
-    })
-}
-
-pub async fn opened_in_discord(mut request: Request, next: Next) -> Response {
-    if request.uri().path() == "/" && framed(request.uri().query()) {
-        let wanted = format!("/dashboard?{}", request.uri().query().unwrap_or_default());
-
-        if let Ok(rewritten) = wanted.parse() {
-            *request.uri_mut() = rewritten;
-        }
-    }
-
-    next.run(request).await
-}

@@ -1,5 +1,8 @@
+use axum::extract::State;
 use axum::http::{StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
+
+use crate::web::{Shared, assets};
 
 include!(concat!(env!("OUT_DIR"), "/site.rs"));
 
@@ -55,6 +58,19 @@ fn mime(name: &str) -> &'static str {
         "woff2" => "font/woff2",
         "txt" => "text/plain; charset=utf-8",
         _ => "application/octet-stream",
+    }
+}
+
+pub async fn root(State(web): State<Shared>, uri: Uri) -> Response {
+    let framed = uri.query().is_some_and(|query| {
+        query
+            .split('&')
+            .any(|pair| pair.split('=').next() == Some("frame_id"))
+    });
+
+    match framed {
+        true => assets::dashboard(State(web)).await.into_response(),
+        false => page(uri).await,
     }
 }
 

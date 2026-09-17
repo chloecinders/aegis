@@ -36,6 +36,15 @@ impl<K: Eq + Hash + Clone, V> Lru<K, V> {
         self.slots[slot].as_ref().map(|entry| &entry.value)
     }
 
+    pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+        let slot = *self.index.get(key)?;
+
+        self.detach(slot);
+        self.attach(slot);
+
+        self.slots[slot].as_mut().map(|entry| &mut entry.value)
+    }
+
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         if let Some(&slot) = self.index.get(&key) {
             let entry = self.slots[slot].as_mut()?;

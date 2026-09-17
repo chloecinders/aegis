@@ -12,6 +12,11 @@ use tracing_subscriber::EnvFilter;
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
+#[cfg(not(target_env = "msvc"))]
+#[unsafe(export_name = "_rjem_malloc_conf")]
+static JEMALLOC_CONF: &[u8; 73] =
+    b"background_thread:true,narenas:4,dirty_decay_ms:5000,muzzy_decay_ms:5000\0";
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::fmt()

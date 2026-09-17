@@ -3,7 +3,7 @@ import { For, Show } from "solid-js";
 import { parse } from "../parse.ts";
 import { useEditor } from "../state/editor.tsx";
 
-export function KeptList() {
+export function AuthoredList() {
     const { session, focus, editing, rules } = useEditor();
 
     return (

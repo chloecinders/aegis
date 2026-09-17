@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 #[cfg(feature = "web")]
 use chrono::{Duration, Utc};
-use serenity::all::{EditMember, Member, Message, Permissions, User, UserId};
+use serenity::all::{EditMember, Member, Message, MessageType, Permissions, User, UserId};
 
 use crate::command::Response;
 use crate::command::cx::Cx;
@@ -51,8 +51,8 @@ impl Subject {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reply {
-    Kept,
-    Swept,
+    Permanent,
+    Temporary,
     None,
 }
 
@@ -74,6 +74,7 @@ pub async fn apply(
     subject: Subject,
     reply: Reply,
     reference: Option<Reference>,
+    keep_offending: bool,
 ) -> Result<Response> {
     if let Some(member) = subject.member() {
         if punishment.actor != cx.bot_id().get()
@@ -96,6 +97,29 @@ pub async fn apply(
     cx.note_action(punishment.id.clone());
     cx.trace("persist_action");
 
+    let offending = cx
+        .msg
+        .referenced_message
+        .as_deref()
+        .filter(|replied| {
+            reply == Reply::Temporary
+                && replied.author.id.get() == punishment.target
+                && replied.kind != MessageType::AutoModAction
+                && !matches!(
+                    punishment.verb,
+                    PunishmentType::Unban | PunishmentType::Unmute
+                )
+        })
+        .map(|replied| (replied.channel_id, replied.id));
+
+    let reference = reference.or_else(|| {
+        offending.map(|(channel, message)| Reference {
+            guild: punishment.guild,
+            channel: channel.get(),
+            message: message.get(),
+        })
+    });
+
     let captured = references::capture(cx, reference).await;
 
     if let Some(captured) = &captured
@@ -112,7 +136,7 @@ pub async fn apply(
     let mut delivery = Delivery::new(subject.id(), punishment.verb.dm_timing())
         .notice(ui::notice(&punishment, &guild_name))
         .silent(punishment.silent)
-        .auto_delete(reply == Reply::Swept)
+        .auto_delete(reply == Reply::Temporary)
         .witness(Arc::new(move |notice: &Message| {
             app.notices.remember_notice(invocation, notice.into());
         }));
@@ -124,6 +148,17 @@ pub async fn apply(
         store::withdraw(cx.pool(), &punishment.id).await?;
 
         return Err(failure);
+    }
+
+    if !keep_offending
+        && let Some((channel, message)) = offending
+        && let Err(failure) = channel
+            .delete_message(&cx.ctx, message)
+            .await
+            .ctx("delete the referenced message")
+        && !failure.not_found()
+    {
+        cx.report(&failure);
     }
 
     let expiry = punishment.expires_at();

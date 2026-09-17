@@ -17,7 +17,7 @@ interface Stored {
     description: string;
 }
 
-export interface Kept extends Stored {
+export interface Rule extends Stored {
     saved: Stored;
 }
 
@@ -29,8 +29,8 @@ interface Written {
 }
 
 export interface Rules {
-    list: Kept[];
-    open: Accessor<Kept | undefined>;
+    list: Rule[];
+    open: Accessor<Rule | undefined>;
     dirty: Accessor<boolean>;
     rename: (name: string) => void;
     enable: (mode: string) => void;
@@ -53,10 +53,10 @@ const stored = (rule: Saved): Stored => ({
     description: rule.description || "",
 });
 
-export const adopt = (rule: Saved): Kept => Object.assign(stored(rule), { saved: stored(rule) });
+export const adopt = (rule: Saved): Rule => Object.assign(stored(rule), { saved: stored(rule) });
 
 export function createRules(session: Session, focus: Focus, editing: Editing): Rules {
-    const [list, setList] = createStore<Kept[]>([]);
+    const [list, setList] = createStore<Rule[]>([]);
 
     const open = () => list.find((rule) => rule.id === focus.rule());
     const index = () => list.findIndex((rule) => rule.id === focus.rule());

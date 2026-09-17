@@ -57,14 +57,14 @@ struct Handoff {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Kept {
+struct StoredMembership {
     id: String,
     name: String,
     icon: Option<String>,
     permissions: String,
 }
 
-impl Kept {
+impl StoredMembership {
     fn of(membership: &Membership) -> Self {
         Self {
             id: membership.id.to_string(),
@@ -113,7 +113,11 @@ impl Sessions {
     }
 
     async fn keep(&self, token: &str, session: &Session) {
-        let guilds = session.guilds.iter().map(Kept::of).collect::<Vec<_>>();
+        let guilds = session
+            .guilds
+            .iter()
+            .map(StoredMembership::of)
+            .collect::<Vec<_>>();
 
         let Ok(guilds) = serde_json::to_value(guilds) else {
             return warn!("a session's guilds would not serialise; it will not survive a restart");
@@ -194,7 +198,7 @@ impl Sessions {
             }
         };
 
-        let Ok(guilds) = serde_json::from_value::<Vec<Kept>>(row.guilds) else {
+        let Ok(guilds) = serde_json::from_value::<Vec<StoredMembership>>(row.guilds) else {
             warn!("a stored session's guilds would not parse; treating it as signed out");
 
             return None;
@@ -205,7 +209,10 @@ impl Sessions {
             name: row.name,
             display: row.display,
             avatar: row.avatar,
-            guilds: guilds.into_iter().filter_map(Kept::back).collect(),
+            guilds: guilds
+                .into_iter()
+                .filter_map(StoredMembership::back)
+                .collect(),
             expires: row.expires,
         })
     }

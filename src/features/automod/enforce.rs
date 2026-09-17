@@ -68,8 +68,15 @@ pub async fn enforce(cx: &MessageCx, enabled: &[Rule], hits: &[Hit], enforced: &
 
             let mut invocation = Cx::new(Arc::clone(&cx.app), cx.ctx.clone(), Arc::clone(&cx.msg));
 
-            if let Err(failure) =
-                executor::apply(&mut invocation, punishment, subject, Reply::None, None).await
+            if let Err(failure) = executor::apply(
+                &mut invocation,
+                punishment,
+                subject,
+                Reply::None,
+                None,
+                false,
+            )
+            .await
             {
                 cx.app.reporter.note(
                     "automod could not punish",

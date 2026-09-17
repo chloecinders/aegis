@@ -29,6 +29,11 @@ pub struct Mute {
         desc = "Saves a message link or image as evidence"
     )]
     reference: Option<Reference>,
+    #[flag(
+        short = 'k',
+        desc = "Keeps the replied to message instead of deleting it"
+    )]
+    keep: bool,
 }
 
 impl Command for Mute {
@@ -48,8 +53,8 @@ impl Command for Mute {
 
     async fn run(self, cx: &mut Cx) -> Result<Response> {
         let reply = match self.target.was_inferred() {
-            true => Reply::Swept,
-            false => Reply::Kept,
+            true => Reply::Temporary,
+            false => Reply::Permanent,
         };
         let member = self.target.into_value();
         let punishment = Punishment::new(
@@ -69,6 +74,7 @@ impl Command for Mute {
             Subject::Present(Box::new(member)),
             reply,
             self.reference,
+            self.keep,
         )
         .await
     }

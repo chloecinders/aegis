@@ -42,8 +42,8 @@ impl Command for Unmute {
 
     async fn run(self, cx: &mut Cx) -> Result<Response> {
         let reply = match self.target.was_inferred() {
-            true => Reply::Swept,
-            false => Reply::Kept,
+            true => Reply::Temporary,
+            false => Reply::Permanent,
         };
         let member = self.target.into_value();
         let punishment = Punishment::new(
@@ -62,6 +62,7 @@ impl Command for Unmute {
             Subject::Present(Box::new(member)),
             reply,
             self.reference,
+            false,
         )
         .await
     }

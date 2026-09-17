@@ -87,7 +87,7 @@ pub async fn page(
 
 #[derive(Debug, Deserialize)]
 pub struct Paging {
-    pub after: Option<Snowflake>,
+    pub before: Option<Snowflake>,
     pub limit: Option<i64>,
 }
 
@@ -107,6 +107,8 @@ pub struct Rendered {
         skip_serializing_if = "Option::is_none"
     )]
     pub reply_to: Option<Snowflake>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub reply_collected: bool,
     pub content: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<String>,
@@ -115,6 +117,14 @@ pub struct Rendered {
     pub removed: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub system: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub edits: Vec<Revision>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Revision {
+    pub content: String,
+    pub at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,7 +198,7 @@ pub async fn messages(
     let allowed = visible(&web, &headers, guild, &id).await?;
 
     let limit = transcript::limit(paging.limit);
-    let page = store::page(&web.pool, &id, paging.after, limit, &allowed)
+    let page = store::page(&web.pool, &id, paging.before, limit, &allowed)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -209,11 +219,20 @@ pub async fn messages(
             display: stored.author_display_name,
             avatar: stored.author_avatar_url,
             reply_to: stored.referenced,
+            reply_collected: stored.referenced_collected,
             content: open(key.as_ref(), stored.content.as_deref()),
             files: stored.attachments.map(links).unwrap_or_default(),
             at: stored.created_at,
             removed: stored.removed,
             system: stored.system,
+            edits: stored
+                .edits
+                .into_iter()
+                .map(|edit| Revision {
+                    content: open(key.as_ref(), edit.content.as_deref()),
+                    at: edit.at,
+                })
+                .collect(),
         })
         .collect();
 

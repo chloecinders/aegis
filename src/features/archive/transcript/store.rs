@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 
@@ -117,6 +119,11 @@ pub async fn meta(
     }))
 }
 
+pub struct Edit {
+    pub content: Option<Vec<u8>>,
+    pub at: DateTime<Utc>,
+}
+
 pub struct Stored {
     pub message: Snowflake,
     pub channel: Snowflake,
@@ -125,11 +132,13 @@ pub struct Stored {
     pub author_display_name: Option<String>,
     pub author_avatar_url: Option<String>,
     pub referenced: Option<Snowflake>,
+    pub referenced_collected: bool,
     pub content: Option<Vec<u8>>,
     pub attachments: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
     pub removed: bool,
     pub system: bool,
+    pub edits: Vec<Edit>,
 }
 
 pub async fn channels(pool: &PgPool, guild: Snowflake, id: &str) -> Result<Vec<Snowflake>> {
@@ -157,7 +166,7 @@ pub async fn channels(pool: &PgPool, guild: Snowflake, id: &str) -> Result<Vec<S
 pub async fn page(
     pool: &PgPool,
     id: &str,
-    after: Option<Snowflake>,
+    before: Option<Snowflake>,
     limit: i64,
     visible: &[Snowflake],
 ) -> Result<Page<Stored>> {
@@ -167,15 +176,20 @@ pub async fn page(
         "SELECT m.message_id, m.channel_id, m.author_id, m.author_name,
             m.author_display_name, m.author_avatar_url, m.referenced_message_id,
             m.content, m.attachment_urls, m.created_at, m.system,
-            (d.message_id IS NOT NULL) AS \"removed!\"
+            (d.message_id IS NOT NULL) AS \"removed!\",
+            (r.message_id IS NOT NULL) AS \"referenced_collected!\"
         FROM transcript_messages t
         JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at
         LEFT JOIN message_deletions d ON d.message_id = m.message_id
+        LEFT JOIN transcript_messages p ON p.transcript_id = t.transcript_id
+            AND p.message_id = m.referenced_message_id
+        LEFT JOIN messages r ON r.message_id = p.message_id AND r.created_at = p.created_at
+            AND r.channel_id = ANY ($4)
         WHERE t.transcript_id = $1 AND m.channel_id = ANY ($4)
-            AND ($2::bigint IS NULL OR m.message_id > $2)
-        ORDER BY m.message_id LIMIT $3",
+            AND ($2::bigint IS NULL OR m.message_id < $2)
+        ORDER BY m.message_id DESC LIMIT $3",
         id,
-        after.map(|id| id as i64),
+        before.map(|id| id as i64),
         limit,
         &visible
     )
@@ -183,8 +197,15 @@ pub async fn page(
     .await
     .ctx("read transcript page")?;
 
+    let mut edits = revisions(
+        pool,
+        &rows.iter().map(|row| row.message_id).collect::<Vec<_>>(),
+    )
+    .await?;
+
     let messages: Vec<Stored> = rows
         .into_iter()
+        .rev()
         .map(|row| Stored {
             message: row.message_id as Snowflake,
             channel: row.channel_id as Snowflake,
@@ -193,13 +214,38 @@ pub async fn page(
             author_display_name: row.author_display_name,
             author_avatar_url: row.author_avatar_url,
             referenced: row.referenced_message_id.map(|id| id as Snowflake),
+            referenced_collected: row.referenced_collected,
             content: row.content,
             attachments: row.attachment_urls,
             created_at: row.created_at,
             removed: row.removed,
             system: row.system,
+            edits: edits.remove(&row.message_id).unwrap_or_default(),
         })
         .collect();
 
     Ok(Page::of(messages, |message| message.message, limit))
+}
+
+async fn revisions(pool: &PgPool, messages: &[i64]) -> Result<HashMap<i64, Vec<Edit>>> {
+    let rows = sqlx::query!(
+        "SELECT message_id, content, created_at FROM message_edits
+        WHERE message_id = ANY ($1)
+        ORDER BY message_id, created_at",
+        messages
+    )
+    .fetch_all(pool)
+    .await
+    .ctx("read transcript edits")?;
+
+    let mut edits: HashMap<i64, Vec<Edit>> = HashMap::new();
+
+    for row in rows {
+        edits.entry(row.message_id).or_default().push(Edit {
+            content: row.content,
+            at: row.created_at,
+        });
+    }
+
+    Ok(edits)
 }

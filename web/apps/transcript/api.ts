@@ -13,6 +13,11 @@ export interface Viewer {
     avatar: string | null;
 }
 
+export interface Revision {
+    content: string;
+    at: string;
+}
+
 export interface Rendered {
     id: string;
     channel: string;
@@ -21,11 +26,13 @@ export interface Rendered {
     display: string | null;
     avatar: string | null;
     reply_to?: string | null;
+    reply_collected?: boolean;
     content: string;
     files?: string[];
     at: string;
     removed?: boolean;
     system?: boolean;
+    edits?: Revision[];
 }
 
 export type Scope = "channel" | "user" | "cleared" | "selection";
@@ -78,5 +85,5 @@ async function read<T>(url: string): Promise<T> {
 export const meta = () => read<Header>(BASE);
 export const viewer = () => read<Viewer>("/api/dash/identity");
 
-export const messages = (after?: string | null) =>
-    read<Answer>(BASE + "/messages" + (after ? `?after=${encodeURIComponent(after)}` : ""));
+export const messages = (before?: string | null) =>
+    read<Answer>(BASE + "/messages" + (before ? `?before=${encodeURIComponent(before)}` : ""));

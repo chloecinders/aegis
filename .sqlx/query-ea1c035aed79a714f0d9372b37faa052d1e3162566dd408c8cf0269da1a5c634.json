@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT m.message_id, m.channel_id, m.author_id, m.author_name,\n            m.author_display_name, m.author_avatar_url, m.referenced_message_id,\n            m.content, m.attachment_urls, m.created_at, m.system,\n            (d.message_id IS NOT NULL) AS \"removed!\"\n        FROM transcript_messages t\n        JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at\n        LEFT JOIN message_deletions d ON d.message_id = m.message_id\n        WHERE t.transcript_id = $1 AND m.channel_id = ANY ($4)\n            AND ($2::bigint IS NULL OR m.message_id > $2)\n        ORDER BY m.message_id LIMIT $3",
+  "query": "SELECT m.message_id, m.channel_id, m.author_id, m.author_name,\n            m.author_display_name, m.author_avatar_url, m.referenced_message_id,\n            m.content, m.attachment_urls, m.created_at, m.system,\n            (d.message_id IS NOT NULL) AS \"removed!\",\n            (r.message_id IS NOT NULL) AS \"referenced_collected!\"\n        FROM transcript_messages t\n        JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at\n        LEFT JOIN message_deletions d ON d.message_id = m.message_id\n        LEFT JOIN transcript_messages p ON p.transcript_id = t.transcript_id\n            AND p.message_id = m.referenced_message_id\n        LEFT JOIN messages r ON r.message_id = p.message_id AND r.created_at = p.created_at\n            AND r.channel_id = ANY ($4)\n        WHERE t.transcript_id = $1 AND m.channel_id = ANY ($4)\n            AND ($2::bigint IS NULL OR m.message_id < $2)\n        ORDER BY m.message_id DESC LIMIT $3",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,11 @@
         "ordinal": 11,
         "name": "removed!",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "referenced_collected!",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -84,8 +89,9 @@
       true,
       false,
       false,
+      null,
       null
     ]
   },
-  "hash": "0b5998659e5fae9823d950f7673787104d2d717b485ba4e55f8faabc9423b9dd"
+  "hash": "ea1c035aed79a714f0d9372b37faa052d1e3162566dd408c8cf0269da1a5c634"
 }

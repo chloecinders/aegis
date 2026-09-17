@@ -98,9 +98,18 @@ main {
     padding: 7px 12px;
     margin: 0 -12px;
     border-bottom: 1px solid transparent;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 50px;
+    scroll-margin-top: 130px;
 
     &:hover {
         background: var(--panel);
+    }
+
+    &:target {
+        background: #04d9b214;
+        border-left: 2px solid var(--teal);
+        padding-left: 10px;
     }
 
     &.message--gone {
@@ -169,6 +178,8 @@ main {
 }
 
 .message__reply {
+    display: block;
+    width: fit-content;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 1.2px;
@@ -177,6 +188,26 @@ main {
     border-left: 2px solid var(--rule);
     padding-left: 8px;
     margin-bottom: 3px;
+
+    &.message__reply--open:hover {
+        color: var(--teal);
+        border-color: var(--teal);
+    }
+}
+
+.message__edit {
+    border-left: 2px solid var(--rule);
+    padding-left: 8px;
+    margin-top: 4px;
+}
+
+.message__edited {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--dim);
 }
 
 .message__tag {
@@ -289,7 +320,7 @@ main {
 }
 
 .status {
-    padding: 16px 0 0;
+    padding: 0 0 16px;
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 1.6px;

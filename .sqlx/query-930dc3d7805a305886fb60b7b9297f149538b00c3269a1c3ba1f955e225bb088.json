@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT message_id, content, created_at FROM message_edits\n        WHERE message_id = ANY ($1)\n        ORDER BY message_id, created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "content",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "930dc3d7805a305886fb60b7b9297f149538b00c3269a1c3ba1f955e225bb088"
+}

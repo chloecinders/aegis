@@ -182,7 +182,7 @@ pub struct Page<T> {
 impl<T> Page<T> {
     pub fn of(messages: Vec<T>, cursor: impl Fn(&T) -> Snowflake, limit: i64) -> Self {
         let next = match messages.len() as i64 >= limit {
-            true => messages.last().map(&cursor),
+            true => messages.first().map(&cursor),
             false => None,
         };
 

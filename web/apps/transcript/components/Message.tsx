@@ -34,17 +34,25 @@ function Attachment(props: { url: string }) {
     );
 }
 
-export function Message(props: { message: Rendered; grouped?: boolean; jumpable?: boolean }) {
+function clock(at: string) {
+    return new Date(at).toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    });
+}
+
+export function Message(props: {
+    message: Rendered;
+    grouped?: boolean;
+    jumpable?: boolean;
+    reveal: (id: string) => Promise<void>;
+}) {
     const message = () => props.message;
     const gone = () => message().removed;
 
     const files = () => message().files || [];
-    const stamp = () =>
-        new Date(message().at).toLocaleTimeString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-        });
+    const edits = () => message().edits || [];
     const jump = () => `https://discord.com/channels/${GUILD}/${message().channel}/${message().id}`;
     const [copied, setCopied] = createSignal(false);
 
@@ -63,9 +71,19 @@ export function Message(props: { message: Rendered; grouped?: boolean; jumpable?
         setTimeout(() => setCopied(false), 1400);
     };
 
+    const reveal = async (event: MouseEvent) => {
+        const target = String(message().reply_to);
+
+        if (document.getElementById(`m${target}`)) return;
+
+        event.preventDefault();
+
+        await props.reveal(target);
+    };
+
     return (
         <div class={gone() ? "message message--gone" : "message"} id={`m${message().id}`}>
-            <Show when={!props.grouped} fallback={<span class="message__stamp">{stamp()}</span>}>
+            <Show when={!props.grouped} fallback={<span class="message__stamp">{clock(message().at)}</span>}>
                 <Show when={message().avatar} fallback={<div class="message__avatar" />}>
                     <img class="message__avatar" loading="lazy" src={message().avatar ?? undefined} alt="" />
                 </Show>
@@ -84,10 +102,30 @@ export function Message(props: { message: Rendered; grouped?: boolean; jumpable?
                 </Show>
 
                 <Show when={message().reply_to}>
-                    <div class="message__reply">replied</div>
+                    <Show
+                        when={message().reply_collected}
+                        fallback={<span class="message__reply">replied</span>}
+                    >
+                        <a
+                            class="message__reply message__reply--open"
+                            href={`#m${message().reply_to}`}
+                            onClick={reveal}
+                        >
+                            replied
+                        </a>
+                    </Show>
                 </Show>
 
                 <div class="message__text">{message().content}</div>
+
+                <For each={edits()}>
+                    {(edit) => (
+                        <div class="message__edit">
+                            <span class="message__edited">edited {clock(edit.at)}</span>
+                            <div class="message__text">{edit.content}</div>
+                        </div>
+                    )}
+                </For>
 
                 <Show when={files().length > 0}>
                     <div class="message__files">

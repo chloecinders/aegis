@@ -1,5 +1,4 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
-import { createStore } from "solid-js/store";
 import { render } from "solid-js/web";
 
 import { Account, Footer, Top } from "../../shared/chrome.tsx";
@@ -14,13 +13,8 @@ interface Note {
 }
 
 interface Line {
-    message: Rendered;
     grouped: boolean;
-}
-
-interface Block {
-    at: number;
-    lines: Line[];
+    opens: boolean;
 }
 
 function refusal(status: number): Note {
@@ -102,33 +96,8 @@ function Split(props: { name: string }) {
     );
 }
 
-function Run(props: {
-    block: Block;
-    before?: Rendered;
-    names: Map<string, string>;
-    spansChannels?: boolean;
-    jumpable?: boolean;
-    measured: (node: HTMLDivElement | null) => void;
-}) {
-    let node: HTMLDivElement | undefined;
-
-    onMount(() => props.measured(node ?? null));
-    onCleanup(() => props.measured(null));
-
-    const before = (at: number) => (at === 0 ? props.before : props.block.lines[at - 1].message);
-
-    return (
-        <div ref={node}>
-            <For each={props.block.lines}>
-                {(line, at) => [
-                    <Show when={!!props.spansChannels && before(at())?.channel !== line.message.channel}>
-                        <Split name={props.names.get(line.message.channel) || line.message.channel} />
-                    </Show>,
-                    <Message message={line.message} grouped={line.grouped} jumpable={props.jumpable} />,
-                ]}
-            </For>
-        </div>
-    );
+function bottom() {
+    scrollTo(0, document.documentElement.scrollHeight);
 }
 
 function Transcript() {
@@ -136,48 +105,22 @@ function Transcript() {
     const [account, setAccount] = createSignal<Viewer | null>(null);
     const [note, setNote] = createSignal<Note | null>(null);
     const [fetched, setFetched] = createSignal(false);
-    const [blocks, setBlocks] = createSignal<Block[]>([]);
+    const [feed, setFeed] = createSignal<Rendered[]>([]);
     const [ended, setEnded] = createSignal(false);
     const [loading, setLoading] = createSignal(false);
-    const [heights, setHeights] = createStore<number[]>([]);
 
-    const nodes: (HTMLDivElement | null)[] = [];
-    let after: string | null = null;
-    let anchor: Rendered | null = null;
+    let before: string | null = null;
+    let fetching: Promise<void> | null = null;
 
     const names = createMemo(() => new Map((head()?.channels || []).map((channel) => [channel.id, channel.name])));
 
-    const from = () => Math.max(0, blocks().length - 4);
-    const live = () => blocks().slice(from());
-    const spacer = () => heights.slice(0, from()).reduce((total, height) => total + (height || 0), 0);
+    const lines = createMemo(() => {
+        const placed = new Map<string, Line>();
 
-    function measure() {
-        for (const [at, node] of nodes.entries()) if (node) setHeights(at, node.offsetHeight);
-    }
+        let anchor: Rendered | null = null;
+        let channel: string | null = null;
 
-    async function more() {
-        if (loading() || ended()) return;
-
-        setLoading(true);
-
-        let page: Answer;
-
-        try {
-            page = await messages(after);
-        } catch {
-            setNote({ title: "Load failed" });
-            setEnded(true);
-            setLoading(false);
-
-            return;
-        }
-
-        measure();
-
-        const next = [...blocks()];
-        const lines: Line[] = [];
-
-        for (const message of page.messages) {
+        for (const message of feed()) {
             const grouped =
                 anchor !== null &&
                 !message.system &&
@@ -187,20 +130,57 @@ function Transcript() {
 
             if (!grouped) anchor = message;
 
-            lines.push({ message, grouped });
+            placed.set(message.id, { grouped, opens: message.channel !== channel });
+
+            channel = message.channel;
         }
 
-        for (let at = 0; at < lines.length; at += 100)
-            next.push({ at: next.length, lines: lines.slice(at, at + 100) });
+        return placed;
+    });
 
-        setBlocks(next);
+    async function load() {
+        setLoading(true);
 
-        after = page.next;
+        while (!ended()) {
+            let page: Answer;
 
-        setEnded(page.next === null || page.next === undefined);
+            try {
+                page = await messages(before);
+            } catch {
+                setNote({ title: "Load failed" });
+                setEnded(true);
+
+                break;
+            }
+
+            const height = document.documentElement.scrollHeight;
+
+            setFeed((current) => [...page.messages, ...current]);
+
+            before = page.next;
+
+            setEnded(page.next === null || page.next === undefined);
+
+            scrollTo(0, scrollY + document.documentElement.scrollHeight - height);
+
+            if (document.body.scrollHeight > innerHeight) break;
+        }
+
         setLoading(false);
+    }
 
-        if (!ended() && document.body.scrollHeight <= innerHeight) more();
+    function more(): Promise<void> {
+        if (ended()) return Promise.resolve();
+
+        if (!fetching) fetching = load().finally(() => (fetching = null));
+
+        return fetching;
+    }
+
+    async function reveal(id: string) {
+        while (!document.getElementById(`m${id}`) && !ended()) await more();
+
+        location.hash = `m${id}`;
     }
 
     onMount(async () => {
@@ -222,11 +202,14 @@ function Transcript() {
         setHead(found);
         setFetched(true);
 
-        more();
+        await more();
+
+        bottom();
+        requestAnimationFrame(bottom);
     });
 
     const scrolled = () => {
-        if (innerHeight + scrollY >= document.body.offsetHeight - 800) more();
+        if (scrollY <= 800) more();
     };
 
     addEventListener("scroll", scrolled, { passive: true });
@@ -245,28 +228,27 @@ function Transcript() {
             <Head meta={head()} viewer={account()} fetched={fetched()} />
 
             <main class="page">
-                <div aria-hidden="true" style={{ height: `${spacer()}px` }} />
-
-                <div class="transcript__blocks">
-                    <For each={live()}>
-                        {(block) => (
-                            <Run
-                                block={block}
-                                before={blocks()[block.at - 1]?.lines.at(-1)?.message}
-                                names={names()}
-                                spansChannels={head()?.spans_channels}
-                                jumpable={head()?.jumpable}
-                                measured={(node) => (nodes[block.at] = node)}
-                            />
-                        )}
-                    </For>
-                </div>
-
                 <Show when={loading()}>
                     <div class="status">Loading</div>
                 </Show>
 
                 <Show when={note()}>{(said) => <Said note={said()} />}</Show>
+
+                <div class="transcript__feed">
+                    <For each={feed()}>
+                        {(message) => [
+                            <Show when={head()?.spans_channels && lines().get(message.id)?.opens}>
+                                <Split name={names().get(message.channel) || message.channel} />
+                            </Show>,
+                            <Message
+                                message={message}
+                                grouped={lines().get(message.id)?.grouped}
+                                jumpable={head()?.jumpable}
+                                reveal={reveal}
+                            />,
+                        ]}
+                    </For>
+                </div>
             </main>
 
             <Footer class="page transcript__footer" />

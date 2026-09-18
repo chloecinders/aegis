@@ -85,13 +85,24 @@ pub fn reading_order(mut blocks: Vec<Block>) -> String {
 mod backend {
     use std::sync::LazyLock;
 
-    use kreuzberg::plugins::OcrBackend;
-    use kreuzberg::{OcrConfig, OcrElementConfig, PaddleOcrBackend, PaddleOcrConfig};
+    use xberg::plugins::OcrBackend;
+    use xberg::{OcrBoundingGeometry, OcrConfig, OcrElementConfig, PaddleOcrBackend, PaddleOcrConfig};
 
     use super::Block;
 
-    static ENGINE: LazyLock<Result<PaddleOcrBackend, String>> =
-        LazyLock::new(|| PaddleOcrBackend::new().map_err(|failure| failure.to_string()));
+    static ENGINE: LazyLock<Result<PaddleOcrBackend, String>> = LazyLock::new(|| {
+        use ort::ep::CPU;
+
+        let committed = ort::init()
+            .with_execution_providers([CPU::default().with_arena_allocator(false).build()])
+            .commit();
+
+        if !committed {
+            tracing::warn!("onnx runtime has already been configured");
+        }
+
+        PaddleOcrBackend::new().map_err(|failure| failure.to_string())
+    });
 
     static CONFIG: LazyLock<OcrConfig> = LazyLock::new(|| OcrConfig {
         auto_rotate: false,
@@ -122,7 +133,18 @@ mod backend {
         let blocks: Vec<Block> = elements
             .iter()
             .map(|element| {
-                let (left, top, _, height) = element.geometry.to_aabb();
+                let (left, top, height) = match &element.geometry {
+                    OcrBoundingGeometry::Rectangle {
+                        left, top, height, ..
+                    } => (*left, *top, *height),
+                    OcrBoundingGeometry::Quadrilateral { points } => {
+                        let left = points.iter().map(|point| point.x).min().unwrap_or(0);
+                        let top = points.iter().map(|point| point.y).min().unwrap_or(0);
+                        let bottom = points.iter().map(|point| point.y).max().unwrap_or(0);
+
+                        (left, top, bottom.saturating_sub(top))
+                    }
+                };
 
                 Block {
                     text: element.text.clone(),

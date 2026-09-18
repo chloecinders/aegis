@@ -7,7 +7,7 @@ edition = "2024"
 default = ["self-update", "web", "ocr", "s3"]
 self-update = ["dep:zip"]
 web = ["dep:axum"]
-ocr = ["dep:kreuzberg"]
+ocr = ["dep:ort", "dep:xberg"]
 s3 = ["dep:rust-s3"]
 
 [dependencies]
@@ -33,8 +33,9 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 axum = { version = "0.7", optional = true }
-kreuzberg = { version = "4.9.7", features = ["paddle-ocr"], optional = true }
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std"], optional = true }
 rust-s3 = { version = "0.37.1", optional = true }
+xberg = { version = "1.2.3", features = ["paddle-ocr"], optional = true }
 zip = { version = "2.4.2", optional = true }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

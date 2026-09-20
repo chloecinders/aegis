@@ -11,6 +11,7 @@ pub enum Source {
     #[default]
     Content,
     Filename,
+    Mimetype,
     Embed,
     Username,
     Join,
@@ -22,6 +23,7 @@ impl Source {
             Source::Image => "image",
             Source::Content => "content",
             Source::Filename => "filename",
+            Source::Mimetype => "mimetype",
             Source::Embed => "embed",
             Source::Username => "username",
             Source::Join => "join",
@@ -33,6 +35,7 @@ impl Source {
             "image" => Some(Source::Image),
             "content" => Some(Source::Content),
             "filename" => Some(Source::Filename),
+            "mimetype" => Some(Source::Mimetype),
             "embed" => Some(Source::Embed),
             "username" => Some(Source::Username),
             "join" => Some(Source::Join),

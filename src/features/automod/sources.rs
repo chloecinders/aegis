@@ -26,6 +26,13 @@ pub fn text(msg: &Message, source: Source) -> Option<Cow<'_, str>> {
                 .collect::<Vec<&str>>()
                 .join("\n"),
         ),
+        Source::Mimetype => Cow::Owned(
+            msg.attachments
+                .iter()
+                .filter_map(|attachment| attachment.content_type.as_deref())
+                .collect::<Vec<&str>>()
+                .join("\n"),
+        ),
         Source::Embed => Cow::Owned(
             msg.embeds
                 .iter()

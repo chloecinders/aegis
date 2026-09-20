@@ -9,12 +9,13 @@ pub struct Clause {
 pub const CLAUSES: [Clause; 12] = [
     Clause {
         keyword: "on",
-        short: "image | content | filename | embed | username | join",
+        short: "image | content | filename | mimetype | embed | username | join",
         full: "Which source the rule reads from.",
         params: &[
             ("content", "message content"),
             ("image", "image text content"),
             ("filename", "attached file names"),
+            ("mimetype", "attached file MIME types"),
             ("embed", "text inside of embeds"),
             ("username", "member usernames"),
             ("join", "member join, can not be used with match"),

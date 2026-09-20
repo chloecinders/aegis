@@ -86,7 +86,9 @@ mod backend {
     use std::sync::LazyLock;
 
     use xberg::plugins::OcrBackend;
-    use xberg::{OcrBoundingGeometry, OcrConfig, OcrElementConfig, PaddleOcrBackend, PaddleOcrConfig};
+    use xberg::{
+        OcrBoundingGeometry, OcrConfig, OcrElementConfig, PaddleOcrBackend, PaddleOcrConfig,
+    };
 
     use super::Block;
 

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serenity::all::{
-    ActionRowComponent, ChannelId, ComponentInteraction, ComponentInteractionDataKind, Context,
-    CreateInteractionResponse, CreateInteractionResponseMessage, CreateModal, GuildId, Member,
-    MessageId, ModalInteraction, ModalInteractionData, Permissions, User,
+    ComponentInteraction, ComponentInteractionDataKind, Context, CreateInteractionResponse,
+    CreateInteractionResponseMessage, CreateModal, GenericChannelId, GuildId, LabelComponent,
+    Member, MessageId, ModalComponent, ModalInteraction, ModalInteractionData, Permissions, User,
 };
 
 use crate::app::App;
@@ -69,7 +69,7 @@ pub struct Interacted {
     pub user: User,
     pub permissions: Permissions,
     pub guild: Option<GuildId>,
-    pub channel: ChannelId,
+    pub channel: GenericChannelId,
     pub message: Option<MessageId>,
 }
 
@@ -127,7 +127,7 @@ pub enum Reaction {
     Replace(Box<Rewrite>),
     Aside(Box<Rewrite>),
     Private(Box<Embed>),
-    Open(Box<CreateModal>),
+    Open(Box<CreateModal<'static>>),
     Dismiss,
     Nothing,
 }
@@ -230,11 +230,14 @@ async fn reaction(click: &Click, control: &Control) -> Reaction {
 fn filled(data: &ModalInteractionData) -> Vec<String> {
     data.components
         .iter()
-        .flat_map(|row| &row.components)
         .filter_map(|component| match component {
-            ActionRowComponent::InputText(input) => input.value.clone(),
+            ModalComponent::Label(label) => match &label.component {
+                LabelComponent::InputText(input) => Some(&input.value),
+                _ => None,
+            },
             _ => None,
         })
+        .map(ToString::to_string)
         .collect()
 }
 
@@ -260,7 +263,7 @@ pub async fn dispatch(app: Arc<App>, ctx: Context, interaction: ComponentInterac
         ctx: ctx.clone(),
         interaction: Interacted {
             user: interaction.user.clone(),
-            permissions: wielded(interaction.member.as_ref()),
+            permissions: wielded(interaction.member.as_deref()),
             guild: interaction.guild_id,
             channel: interaction.channel_id,
             message: Some(interaction.message.id),
@@ -269,7 +272,7 @@ pub async fn dispatch(app: Arc<App>, ctx: Context, interaction: ComponentInterac
         aside: control.strangers == Strangers::Fork && owner != interaction.user.id.get(),
         parts,
         supplied: match &interaction.data.kind {
-            ComponentInteractionDataKind::StringSelect { values } => values.clone(),
+            ComponentInteractionDataKind::StringSelect { values } => values.to_vec(),
             _ => Vec::new(),
         },
     };
@@ -299,7 +302,7 @@ pub async fn submitted(app: Arc<App>, ctx: Context, interaction: ModalInteractio
         ctx: ctx.clone(),
         interaction: Interacted {
             user: interaction.user.clone(),
-            permissions: wielded(interaction.member.as_ref()),
+            permissions: wielded(interaction.member.as_deref()),
             guild: interaction.guild_id,
             channel: interaction.channel_id,
             message: interaction.message.as_ref().map(|message| message.id),
@@ -319,22 +322,36 @@ pub async fn submitted(app: Arc<App>, ctx: Context, interaction: ModalInteractio
     answer_submission(&ctx, &interaction, answered).await;
 }
 
-fn answer(reaction: Reaction) -> CreateInteractionResponse {
+fn answer(reaction: Reaction) -> CreateInteractionResponse<'static> {
     match reaction {
         Reaction::Replace(rewrite) => CreateInteractionResponse::UpdateMessage(
             CreateInteractionResponseMessage::new()
-                .embed(rewrite.embed.build())
-                .components(rewrite.buttons.chunks(5).take(5).map(reply::row).collect()),
+                .embed(rewrite.embed.build().into_owned())
+                .components(
+                    rewrite
+                        .buttons
+                        .chunks(5)
+                        .take(5)
+                        .map(reply::row)
+                        .collect::<Vec<_>>(),
+                ),
         ),
         Reaction::Aside(rewrite) => CreateInteractionResponse::Message(
             CreateInteractionResponseMessage::new()
-                .embed(rewrite.embed.build())
-                .components(rewrite.buttons.chunks(5).take(5).map(reply::row).collect())
+                .embed(rewrite.embed.build().into_owned())
+                .components(
+                    rewrite
+                        .buttons
+                        .chunks(5)
+                        .take(5)
+                        .map(reply::row)
+                        .collect::<Vec<_>>(),
+                )
                 .ephemeral(true),
         ),
         Reaction::Private(embed) => CreateInteractionResponse::Message(
             CreateInteractionResponseMessage::new()
-                .embed(embed.build())
+                .embed(embed.build().into_owned())
                 .ephemeral(true),
         ),
         Reaction::Open(form) => CreateInteractionResponse::Modal(*form),
@@ -366,11 +383,11 @@ async fn sweep(ctx: &Context, interaction: &ComponentInteraction) {
     {
         let _ = interaction
             .channel_id
-            .delete_message(&ctx.http, asked)
+            .delete_message(&ctx.http, asked, None)
             .await;
     }
 
-    let _ = interaction.message.delete(&ctx.http).await;
+    let _ = interaction.message.delete(&ctx.http, None).await;
 }
 
 async fn answer_submission(ctx: &Context, interaction: &ModalInteraction, reaction: Reaction) {

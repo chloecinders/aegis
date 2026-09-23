@@ -43,10 +43,10 @@ fn display_name(message: &Message) -> String {
         .or(message.author.global_name.as_ref());
 
     match preferred {
-        Some(name) if name != &message.author.name => {
+        Some(name) if name.as_str() != message.author.name.as_str() => {
             format!("{name} ({})", message.author.name)
         }
-        _ => message.author.name.clone(),
+        _ => message.author.name.to_string(),
     }
 }
 
@@ -67,10 +67,10 @@ impl From<&Message> for PartialMessage {
                 .as_ref()
                 .and_then(|reference| reference.message_id)
                 .map(|id| id.get()),
-            content: message.content.clone(),
+            content: message.content.to_string(),
             author: PartialUser {
                 id: message.author.id.get(),
-                name: message.author.name.clone(),
+                name: message.author.name.to_string(),
                 display_name: Some(display_name),
                 avatar_url,
             },
@@ -78,10 +78,10 @@ impl From<&Message> for PartialMessage {
                 .attachments
                 .iter()
                 .map(|attachment| PartialAttachment {
-                    name: attachment.filename.clone(),
-                    url: attachment.url.clone(),
+                    name: attachment.filename.to_string(),
+                    url: attachment.url.to_string(),
                     size: attachment.size,
-                    content_type: attachment.content_type.clone(),
+                    content_type: attachment.content_type.as_ref().map(ToString::to_string),
                 })
                 .collect(),
             created_at: *message.timestamp,

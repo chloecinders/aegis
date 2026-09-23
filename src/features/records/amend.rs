@@ -1,6 +1,6 @@
 use chrono::{Duration, Utc};
 use serde_json::Value;
-use serenity::all::{Context, EditMember, EditMessage, GuildId, MessageId};
+use serenity::all::{Context, EditMember, EditMessage, GuildId, MessageId, UserId};
 
 use crate::app::App;
 use crate::command::cx::Cx;
@@ -29,10 +29,10 @@ async fn retime(app: &App, ctx: &Context, action: &Action, window: Duration) -> 
     GuildId::new(action.guild)
         .edit_member(
             &ctx.http,
-            action.target,
+            UserId::new(action.target),
             EditMember::new()
-                .audit_log_reason(&action.to_punishment().duration(window).audit_marker())
-                .disable_communication_until_datetime(until.into()),
+                .audit_log_reason(action.to_punishment().duration(window).audit_marker())
+                .disable_communication_until(until.into()),
         )
         .await
         .map(|_| ())
@@ -178,7 +178,7 @@ async fn renotify(cx: &Cx, action: &Action) -> Result<()> {
 
     at.channel
         .edit_message(
-            &cx.ctx,
+            &cx.ctx.http,
             at.message,
             EditMessage::new().embeds(vec![notice.build()]),
         )
@@ -215,7 +215,7 @@ async fn reword(
 
     cx.channel_id()
         .edit_message(
-            &cx.ctx,
+            &cx.ctx.http,
             MessageId::new(response),
             EditMessage::new().embeds(vec![embed.build()]),
         )

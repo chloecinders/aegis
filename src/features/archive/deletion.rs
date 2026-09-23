@@ -1,4 +1,4 @@
-use serenity::all::{ChannelId, GuildId, MessageId};
+use serenity::all::{GenericChannelId, GuildId, MessageId};
 
 use crate::app::App;
 use crate::command::error::Result;
@@ -59,7 +59,7 @@ pub async fn record(
     app: &App,
     ctx: &serenity::all::Context,
     guild: GuildId,
-    channel: ChannelId,
+    channel: GenericChannelId,
     message: MessageId,
 ) -> Result<()> {
     let Some(cached) = app.recent.take(channel.get(), message.get()) else {

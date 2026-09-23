@@ -76,5 +76,5 @@ pub async fn username(http: impl CacheHttp, actor: Attribution, bot: Snowflake) 
     fetch::user(http, UserId::new(actor))
         .await
         .ok()
-        .map(|found| found.name)
+        .map(|found| found.name.to_string())
 }

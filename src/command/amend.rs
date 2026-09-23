@@ -123,7 +123,7 @@ async fn respond(cx: &Cx, response: Option<MessageId>, outcome: Result<Response>
     let edited = cx
         .channel_id()
         .edit_message(
-            &cx.ctx,
+            &cx.ctx.http,
             response,
             EditMessage::new()
                 .embeds(vec![embed.build()])

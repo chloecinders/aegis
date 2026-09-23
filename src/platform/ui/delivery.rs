@@ -132,7 +132,7 @@ impl Delivery {
         let embed = render(self.marks());
         let posted = original
             .channel_id
-            .send_message(ctx, reply::plain(&embed).reference_message(original))
+            .send_message(&ctx.http, reply::plain(&embed).reference_message(original))
             .await
             .ctx("send command response")?;
 
@@ -151,7 +151,10 @@ impl Delivery {
         tokio::spawn(async move {
             sleep(Duration::from_secs(5)).await;
 
-            let _ = tokio::join!(original.delete(&ctx), posted.delete(&ctx));
+            let _ = tokio::join!(
+                original.delete(&ctx.http, None),
+                posted.delete(&ctx.http, None)
+            );
         });
     }
 }

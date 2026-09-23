@@ -5,14 +5,14 @@ use serenity::all::{
 use serenity::http::Http;
 use tracing::warn;
 
-pub fn definition() -> CreateCommand {
+pub fn definition() -> CreateCommand<'static> {
     CreateCommand::new("configure")
         .kind(CommandType::ChatInput)
         .description("Open the Aegis dashboard for this server")
         .dm_permission(false)
 }
 
-pub fn launcher() -> CreateCommand {
+pub fn launcher() -> CreateCommand<'static> {
     CreateCommand::new("launch")
         .kind(CommandType::PrimaryEntryPoint)
         .handler(EntryPointHandlerType::DiscordLaunchActivity)
@@ -61,7 +61,7 @@ pub async fn install(http: &Http) {
     apply(http, slash_work(&existing), &definition(), "configure").await;
 }
 
-async fn apply(http: &Http, work: Work, wanted: &CreateCommand, name: &str) {
+async fn apply(http: &Http, work: Work, wanted: &CreateCommand<'_>, name: &str) {
     let outcome = match work {
         Work::None => return,
         Work::Create => http.create_global_command(wanted).await,

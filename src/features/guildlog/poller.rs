@@ -6,6 +6,7 @@ use std::cmp::Reverse;
 
 use chrono::{DateTime, Duration, Utc};
 use serenity::all::{CacheHttp, GuildId};
+use serenity::nonmax::NonMaxU8;
 
 use crate::domain::Snowflake;
 use crate::features::guildlog::attribution::Attribution;
@@ -180,7 +181,8 @@ async fn fetch(http: impl CacheHttp, guild: Snowflake) -> Page {
             Some(Action::Message(MessageAction::Delete)),
             None,
             None,
-            Some(25),
+            None,
+            NonMaxU8::new(25),
         )
         .await;
 
@@ -196,10 +198,10 @@ fn candidate(entry: &serenity::all::AuditLogEntry) -> Option<Candidate> {
 
     Some(Candidate {
         entry: entry.id.get(),
-        actor: entry.user_id.get(),
+        actor: entry.user_id?.get(),
         target: entry.target_id?.get(),
         channel: options.channel_id?.get(),
-        count: options.count.unwrap_or(1),
+        count: options.count.map_or(1, |count| count.get()),
         created: *entry.id.created_at(),
     })
 }

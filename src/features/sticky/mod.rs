@@ -17,7 +17,7 @@ use crate::platform::ui::reply;
 use crate::platform::ui::tone::Tone;
 use crate::register;
 
-pub fn render(sticky: &store::Sticky) -> CreateMessage {
+pub fn render(sticky: &store::Sticky) -> CreateMessage<'static> {
     if sticky.title.is_none() && sticky.color.is_none() {
         return CreateMessage::new()
             .content(sticky.content.clone())
@@ -68,11 +68,11 @@ impl Observer for Sticky {
 
         if let Some(previous) = sticky.last {
             let _ = channel
-                .delete_message(&cx.ctx, MessageId::new(previous))
+                .delete_message(&cx.ctx.http, MessageId::new(previous), None)
                 .await;
         }
 
-        let Ok(posted) = channel.send_message(&cx.ctx, render(&sticky)).await else {
+        let Ok(posted) = channel.send_message(&cx.ctx.http, render(&sticky)).await else {
             return;
         };
 

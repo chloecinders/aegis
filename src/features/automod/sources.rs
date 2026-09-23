@@ -37,22 +37,23 @@ pub fn text(msg: &Message, source: Source) -> Option<Cow<'_, str>> {
             msg.embeds
                 .iter()
                 .flat_map(|embed| {
-                    embed
-                        .title
-                        .iter()
-                        .chain(embed.description.iter())
-                        .chain(embed.url.iter())
-                        .chain(embed.footer.iter().map(|footer| &footer.text))
-                        .chain(embed.author.iter().map(|author| &author.name))
-                        .cloned()
-                        .chain(
-                            embed
-                                .fields
-                                .iter()
-                                .flat_map(|field| [field.name.clone(), field.value.clone()]),
-                        )
+                    [
+                        embed.title.as_deref(),
+                        embed.description.as_deref(),
+                        embed.url.as_deref(),
+                        embed.footer.as_ref().map(|footer| footer.text.as_str()),
+                        embed.author.as_ref().map(|author| author.name.as_str()),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .chain(
+                        embed
+                            .fields
+                            .iter()
+                            .flat_map(|field| [field.name.as_str(), field.value.as_str()]),
+                    )
                 })
-                .collect::<Vec<String>>()
+                .collect::<Vec<&str>>()
                 .join("\n"),
         ),
         Source::Username => Cow::Owned(
@@ -102,11 +103,11 @@ pub fn shrunk(attachment: &Attachment) -> Readable {
     let scaled = attachment
         .width
         .zip(attachment.height)
-        .and_then(|(width, height)| ocr::scale(width, height));
+        .and_then(|(width, height)| ocr::scale(width.get(), height.get()));
 
     let Some((width, height)) = scaled else {
         return Readable {
-            url: attachment.url.clone(),
+            url: attachment.url.to_string(),
             full: None,
         };
     };
@@ -121,7 +122,7 @@ pub fn shrunk(attachment: &Attachment) -> Readable {
             "{}{joined}width={width}&height={height}",
             attachment.proxy_url
         ),
-        full: Some(attachment.url.clone()),
+        full: Some(attachment.url.to_string()),
     }
 }
 
@@ -143,7 +144,7 @@ pub fn readable(msg: &Message) -> Vec<Readable> {
             && attachment
                 .width
                 .zip(attachment.height)
-                .is_none_or(|(width, height)| width >= 32 && height >= 32)
+                .is_none_or(|(width, height)| width.get() >= 32 && height.get() >= 32)
     });
 
     for attachment in worth_fetching {

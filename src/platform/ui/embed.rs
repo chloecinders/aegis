@@ -143,13 +143,13 @@ impl Embed {
         out
     }
 
-    pub fn build(&self) -> CreateEmbed {
+    pub fn build(&self) -> CreateEmbed<'_> {
         let built = CreateEmbed::new()
             .description(self.render())
             .color(self.color.unwrap_or_else(|| self.tone.color()));
 
         match &self.image {
-            Some(url) => built.image(url),
+            Some(url) => built.image(url, None),
             None => built,
         }
     }

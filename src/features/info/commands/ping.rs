@@ -38,7 +38,6 @@ impl Command for Ping {
         let gateway = cx
             .app
             .shard_latency(cx.ctx.shard_id)
-            .await
             .map(|round| format!("`{}ms`", round.as_millis()))
             .unwrap_or_else(|| String::from("`unknown`"));
 

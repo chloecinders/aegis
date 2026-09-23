@@ -153,7 +153,7 @@ pub async fn apply(
     if !keep_offending
         && let Some((channel, message)) = offending
         && let Err(failure) = channel
-            .delete_message(&cx.ctx, message)
+            .delete_message(&cx.ctx.http, message, None)
             .await
             .ctx("delete the referenced message")
         && !failure.not_found()
@@ -280,8 +280,8 @@ async fn preserve(cx: &Cx, punishment: &Punishment, subject: &Subject) -> Option
     }
 
     let name = match subject {
-        Subject::Present(member) => member.user.name.clone(),
-        Subject::Absent(user) => user.name.clone(),
+        Subject::Present(member) => member.user.name.to_string(),
+        Subject::Absent(user) => user.name.to_string(),
     };
 
     let asked = transcript::Request::cleared(
@@ -324,29 +324,29 @@ async fn perform(cx: &Cx, punishment: &Punishment, subject: &Subject) -> Result<
     match punishment.verb {
         PunishmentType::Warn => Ok(()),
         PunishmentType::Kick => guild
-            .kick_with_reason(http, target, &audit)
+            .kick(http, target, Some(&audit))
             .await
             .ctx("kick member"),
         PunishmentType::Ban => guild
-            .ban_with_reason(http, target, punishment.clear_days, &audit)
+            .ban(http, target, u32::from(punishment.clear_days), Some(&audit))
             .await
             .ctx("ban member"),
         PunishmentType::Softban => {
             guild
-                .ban_with_reason(http, target, punishment.clear_days, &audit)
+                .ban(http, target, u32::from(punishment.clear_days), Some(&audit))
                 .await
                 .ctx("softban member")?;
 
-            guild.unban(http, target).await.ctx("lift softban")
+            guild.unban(http, target, None).await.ctx("lift softban")
         }
-        PunishmentType::Unban => guild.unban(http, target).await.ctx("unban user"),
+        PunishmentType::Unban => guild.unban(http, target, None).await.ctx("unban user"),
         PunishmentType::Mute => guild
             .edit_member(
                 http,
                 target,
                 EditMember::new()
                     .audit_log_reason(&audit)
-                    .disable_communication_until_datetime(punishment.timeout_until().into()),
+                    .disable_communication_until(punishment.timeout_until().into()),
             )
             .await
             .map(|_| ())

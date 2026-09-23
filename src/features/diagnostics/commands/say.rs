@@ -31,13 +31,13 @@ impl Command for Say {
             posted = posted.reference_message(&**replied);
         }
 
-        let sent = cx.channel_id().send_message(&cx.ctx, posted).await;
+        let sent = cx.channel_id().send_message(&cx.ctx.http, posted).await;
 
         cx.app
             .pending
             .expect_deletion(cx.channel_id().get(), cx.msg.id.get());
 
-        let _ = cx.msg.delete(&cx.ctx).await;
+        let _ = cx.msg.delete(&cx.ctx.http, None).await;
 
         Ok(match sent {
             Ok(message) => Response::Sent(message.id),

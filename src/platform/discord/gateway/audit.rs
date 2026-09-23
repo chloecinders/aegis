@@ -15,6 +15,10 @@ use crate::platform::discord::fetch;
 pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: GuildId) {
     let bot = ctx.cache.current_user().id.get();
 
+    let Some(actor) = entry.user_id else {
+        return;
+    };
+
     match entry.action {
         Action::Message(MessageAction::Delete) => {
             let (Some(target), Some(channel)) = (
@@ -31,13 +35,13 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
                 app,
                 ctx,
                 (guild.get(), target.get(), channel.get()),
-                entry.user_id.get(),
+                actor.get(),
                 bot,
             )
             .await;
         }
         Action::Message(MessageAction::BulkDelete) => {
-            if entry.user_id.get() == bot {
+            if actor.get() == bot {
                 return;
             }
 
@@ -49,7 +53,7 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
                 app,
                 ctx,
                 (guild.get(), target.get()),
-                entry.user_id.get(),
+                actor.get(),
                 bot,
             )
             .await;
@@ -63,19 +67,10 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
                 cached
                     .channels
                     .get(&ChannelId::new(target.get()))
-                    .map(|channel| channel.name.to_string())
+                    .map(|channel| channel.base.name.to_string())
             });
 
-            archive::deletion::channel(
-                app,
-                ctx,
-                guild,
-                target.get(),
-                name,
-                entry.user_id.get(),
-                bot,
-            )
-            .await;
+            archive::deletion::channel(app, ctx, guild, target.get(), name, actor.get(), bot).await;
         }
         Action::Member(MemberAction::Update | MemberAction::RoleUpdate) => {
             let Some(target) = entry.target_id else {
@@ -84,8 +79,8 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
 
             let guild = guild.get();
             let target = target.get();
-            let actor = entry.user_id.get();
-            let changes = entry.changes.as_deref().unwrap_or_default();
+            let actor = actor.get();
+            let changes = &entry.changes;
             let parts = parts(changes);
             let reason = entry
                 .reason
@@ -140,7 +135,7 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
                 ctx,
                 external::Involved {
                     guild: guild.get(),
-                    actor: entry.user_id.get(),
+                    actor: actor.get(),
                     target: target.get(),
                     bot,
                 },
@@ -154,17 +149,14 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
             }
         }
         other => {
-            let actor = fetch::user(ctx, entry.user_id)
-                .await
-                .ok()
-                .map(|found| found.name);
+            let actor_name = fetch::user(ctx, actor).await.ok().map(|found| found.name);
             let seen = guildlog::audit::Event {
                 action: other,
                 target: entry.target_id.map(|target| target.get()),
-                actor: Attribution::Gateway(entry.user_id.get()),
-                actor_name: actor.as_deref(),
+                actor: Attribution::Gateway(actor.get()),
+                actor_name: actor_name.as_deref(),
                 bot,
-                changes: entry.changes.as_deref().unwrap_or_default(),
+                changes: &entry.changes,
                 status: entry
                     .options
                     .as_ref()
@@ -184,7 +176,7 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
                 &logged.embed,
                 guildlog::Subject {
                     target: seen.target.unwrap_or_default(),
-                    moderator: Some(entry.user_id.get()),
+                    moderator: Some(actor.get()),
                     action: None,
                 },
             )
@@ -210,7 +202,7 @@ fn parts(changes: &[Change]) -> Vec<Part> {
                     .flatten()
                     .map(|role| Part::Gained(role.id.get())),
             ),
-            Change::RolesRemove { old, new } => parts.extend(
+            Change::RolesRemoved { old, new } => parts.extend(
                 old.iter()
                     .chain(new)
                     .flatten()

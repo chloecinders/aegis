@@ -34,7 +34,7 @@ impl Command for MessageLog {
         let asked = transcript::Request::history(
             guild,
             target.id.get(),
-            target.name.clone(),
+            target.name.to_string(),
             cx.guild_name().await,
         );
 

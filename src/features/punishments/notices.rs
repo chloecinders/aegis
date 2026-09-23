@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serenity::all::{ChannelId, Message, MessageId};
+use serenity::all::{GenericChannelId, Message, MessageId};
 
 use crate::domain::Snowflake;
 use crate::platform::cache::Cache;
@@ -8,7 +8,7 @@ use crate::platform::ui::marks::Marks;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Location {
-    pub channel: ChannelId,
+    pub channel: GenericChannelId,
     pub message: MessageId,
 }
 

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serenity::all::{ChannelId, Context};
+use serenity::all::{Context, GenericChannelId};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
@@ -9,7 +9,7 @@ pub struct Typing {
 }
 
 impl Typing {
-    pub fn watch(ctx: &Context, channel: ChannelId) -> Self {
+    pub fn watch(ctx: &Context, channel: GenericChannelId) -> Self {
         let http = ctx.http.clone();
 
         Self {

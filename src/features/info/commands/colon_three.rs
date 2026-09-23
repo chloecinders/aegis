@@ -20,7 +20,7 @@ impl Command for ColonThree {
         let sent = cx
             .channel_id()
             .send_message(
-                &cx.ctx,
+                &cx.ctx.http,
                 serenity::all::CreateMessage::new()
                     .content(":3")
                     .reference_message(&*cx.msg)

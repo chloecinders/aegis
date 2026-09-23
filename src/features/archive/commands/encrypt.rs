@@ -49,7 +49,7 @@ impl Command for Encrypt {
         let posted = cx
             .channel_id()
             .send_message(
-                &cx.ctx,
+                &cx.ctx.http,
                 reply::plain(
                     &Embed::new("ENCRYPTION KEY")
                         .subtitle("Please do not delete this key. Doing so will wipe all encrypted data from the database.")
@@ -60,10 +60,16 @@ impl Command for Encrypt {
             .await
             .ctx("post encryption key")?;
 
-        let saved = store::enable(cx.pool(), guild, cx.channel_id(), posted.id).await;
+        let saved = store::enable(
+            cx.pool(),
+            guild,
+            cx.channel_id().expect_channel(),
+            posted.id,
+        )
+        .await;
 
         if let Err(failure) = saved {
-            let _ = posted.delete(&cx.ctx).await;
+            let _ = posted.delete(&cx.ctx.http, None).await;
 
             return Err(failure);
         }

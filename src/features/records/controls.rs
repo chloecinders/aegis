@@ -1,6 +1,7 @@
 use serde_json::Value;
 use serenity::all::{
-    ButtonStyle, CreateActionRow, CreateInputText, CreateModal, InputTextStyle, Permissions,
+    ButtonStyle, CreateInputText, CreateLabel, CreateModal, CreateModalComponent, InputTextStyle,
+    Permissions,
 };
 
 use crate::app::App;
@@ -258,13 +259,14 @@ fn ask_duration(click: &Click) -> Boxed<'_, Result<Reaction>> {
             return Ok(Reaction::private(stale()));
         };
 
-        let field = CreateInputText::new(InputTextStyle::Short, "duration", "duration")
+        let field = CreateInputText::new(InputTextStyle::Short, "duration")
             .value(duration::compact(action.duration()))
             .placeholder("15m");
 
         Ok(Reaction::Open(Box::new(
-            CreateModal::new(custom, "Set Duration")
-                .components(vec![CreateActionRow::InputText(field)]),
+            CreateModal::new(custom, "Set Duration").components(vec![CreateModalComponent::Label(
+                CreateLabel::input_text("duration", field),
+            )]),
         )))
     })
 }
@@ -332,13 +334,14 @@ fn ask_reason(click: &Click) -> Boxed<'_, Result<Reaction>> {
             return Ok(Reaction::private(stale()));
         };
 
-        let field = CreateInputText::new(InputTextStyle::Paragraph, "reason", "reason")
-            .value(action.reason.as_str())
+        let field = CreateInputText::new(InputTextStyle::Paragraph, "reason")
+            .value(action.reason.to_string())
             .max_length(500);
 
         Ok(Reaction::Open(Box::new(
-            CreateModal::new(custom, "Set Reason")
-                .components(vec![CreateActionRow::InputText(field)]),
+            CreateModal::new(custom, "Set Reason").components(vec![CreateModalComponent::Label(
+                CreateLabel::input_text("reason", field),
+            )]),
         )))
     })
 }

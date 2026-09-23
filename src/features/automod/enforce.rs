@@ -122,7 +122,7 @@ pub async fn enforce(cx: &MessageCx, enabled: &[Rule], hits: &[Hit], enforced: &
             cx.app.reporter.record(&failure, origin(cx));
         }
 
-        let _ = cx.msg.delete(&cx.ctx).await;
+        let _ = cx.msg.delete(&cx.ctx.http, None).await;
     }
 
     enforced.acted = Some(Acted {
@@ -145,7 +145,8 @@ async fn announce(
         Notify::Channel(channel) => {
             let channel = ChannelId::new(channel);
             let sent = channel
-                .send_message(&cx.ctx, reply::plain(entry))
+                .widen()
+                .send_message(&cx.ctx.http, reply::plain(entry))
                 .await
                 .ok()?;
 

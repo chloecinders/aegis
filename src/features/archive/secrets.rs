@@ -144,6 +144,7 @@ async fn fetch(http: impl CacheHttp, channel: Option<i64>, message: Option<i64>)
     };
 
     let read = ChannelId::new(channel as u64)
+        .widen()
         .message(http, MessageId::new(message as u64))
         .await;
 

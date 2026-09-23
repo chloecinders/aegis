@@ -38,7 +38,7 @@ fn blocked(alert: &Message, guild: Snowflake) -> Option<Blocked> {
 
     message.guild_id = Some(guild);
     message.channel_id = channel;
-    message.content = content;
+    message.content = content.to_string();
 
     Some(Blocked {
         message,

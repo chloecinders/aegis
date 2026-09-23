@@ -39,7 +39,7 @@ impl Command for MsgDbg {
         let sent = cx
             .channel_id()
             .send_message(
-                &cx.ctx,
+                &cx.ctx.http,
                 CreateMessage::new()
                     .add_file(attached)
                     .reference_message(&*cx.msg)

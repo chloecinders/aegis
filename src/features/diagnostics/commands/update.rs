@@ -174,7 +174,7 @@ impl Command for Update {
         let mut notice = cx
             .channel_id()
             .send_message(
-                &cx.ctx,
+                &cx.ctx.http,
                 CreateMessage::new()
                     .content("Updating!")
                     .allowed_mentions(CreateAllowedMentions::new().replied_user(false))
@@ -203,7 +203,8 @@ impl Command for Update {
 
             for (_, channel) in &routed {
                 let _ = channel
-                    .send_message(&cx.ctx, reply::plain(&announced))
+                    .widen()
+                    .send_message(&cx.ctx.http, reply::plain(&announced))
                     .await;
             }
         }

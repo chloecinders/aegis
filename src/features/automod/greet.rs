@@ -35,7 +35,7 @@ pub async fn greet(cx: &MemberCx) -> Result<()> {
         channel: 0,
         roles: &roles,
         permissions,
-        age: rule::account_age(*cx.user.created_at()),
+        age: rule::account_age(*cx.user.id.created_at()),
         record: record.as_ref(),
         ..Observed::default()
     };

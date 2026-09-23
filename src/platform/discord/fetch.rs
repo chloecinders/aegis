@@ -1,11 +1,18 @@
 use std::collections::HashMap;
 
 use serenity::all::{
-    CacheHttp, ChannelId, GuildChannel, GuildId, Member, Permissions, RoleId, User, UserId,
+    CacheHttp, ChannelId, ChannelType, GenericChannelId, GenericGuildChannelRef, GuildChannel,
+    GuildId, Member, PermissionOverwrite, Permissions, RoleId, User, UserId,
 };
+use serenity::small_fixed_array::FixedArray;
 
 use crate::command::error::{Ctx, Error, Result};
 use crate::platform::discord::permissions::{Role, Snapshot};
+
+pub struct Overwrites {
+    pub kind: ChannelType,
+    pub entries: FixedArray<PermissionOverwrite>,
+}
 
 pub async fn snapshot(discord: impl CacheHttp, guild: GuildId) -> Result<Snapshot> {
     if let Some(cached) = discord.cache().and_then(|cache| cache.guild(guild)) {
@@ -16,7 +23,7 @@ pub async fn snapshot(discord: impl CacheHttp, guild: GuildId) -> Result<Snapsho
                 cached
                     .roles
                     .iter()
-                    .map(|(id, role)| (*id, role.permissions, role.position)),
+                    .map(|role| (role.id, role.permissions, role.position)),
             ),
         });
     }
@@ -33,12 +40,12 @@ pub async fn snapshot(discord: impl CacheHttp, guild: GuildId) -> Result<Snapsho
             fetched
                 .roles
                 .iter()
-                .map(|(id, role)| (*id, role.permissions, role.position)),
+                .map(|role| (role.id, role.permissions, role.position)),
         ),
     })
 }
 
-fn roles(roles: impl Iterator<Item = (RoleId, Permissions, u16)>) -> HashMap<RoleId, Role> {
+fn roles(roles: impl Iterator<Item = (RoleId, Permissions, i16)>) -> HashMap<RoleId, Role> {
     roles
         .map(|(id, permissions, position)| {
             (
@@ -69,44 +76,80 @@ pub async fn channel(
     guild: GuildId,
     channel: ChannelId,
 ) -> Result<GuildChannel> {
-    if let Some(cached) = discord
-        .cache()
-        .and_then(|cache| cache.guild(guild))
-        .and_then(|guild| guild.channels.get(&channel).cloned())
-    {
-        return Ok(cached);
-    }
-
     let fetched = channel
-        .to_channel(&discord)
+        .to_guild_channel(&discord, Some(guild))
         .await
-        .ctx("fetch channel")?
-        .guild()
-        .ctx("channel is not a guild channel")?;
+        .ctx("fetch channel")?;
 
-    match fetched.guild_id == guild {
+    match fetched.base.guild_id == guild {
         true => Ok(fetched),
         false => Err(Error::bare().title("channel not in this server")),
     }
 }
 
-pub async fn user(discord: impl CacheHttp, user: UserId) -> Result<User> {
-    if let Some(cached) = discord.cache().and_then(|cache| cache.user(user)) {
-        return Ok(cached.clone());
+pub async fn overwrites(
+    discord: impl CacheHttp,
+    guild: GuildId,
+    channel: GenericChannelId,
+) -> Result<Overwrites> {
+    let cached = discord.cache().and_then(|cache| {
+        let cached = cache.guild(guild)?;
+
+        match cached.channel(channel)? {
+            GenericGuildChannelRef::Channel(found) => Some(Overwrites {
+                kind: found.base.kind,
+                entries: found.permission_overwrites.clone(),
+            }),
+            GenericGuildChannelRef::Thread(thread) => {
+                let parent = cached.channels.get(&thread.parent_id)?;
+
+                Some(Overwrites {
+                    kind: thread.base.kind,
+                    entries: parent.permission_overwrites.clone(),
+                })
+            }
+        }
+    });
+
+    if let Some(found) = cached {
+        return Ok(found);
     }
 
+    let (channel_id, thread_id) = channel.split();
+
+    if let Ok(found) = channel_id.to_guild_channel(&discord, Some(guild)).await {
+        return Ok(Overwrites {
+            kind: found.base.kind,
+            entries: found.permission_overwrites,
+        });
+    }
+
+    let thread = thread_id
+        .to_thread(&discord, Some(guild))
+        .await
+        .ctx("fetch thread")?;
+
+    let parent = self::channel(&discord, guild, thread.parent_id).await?;
+
+    Ok(Overwrites {
+        kind: thread.base.kind,
+        entries: parent.permission_overwrites,
+    })
+}
+
+pub async fn user(discord: impl CacheHttp, user: UserId) -> Result<User> {
     discord.http().get_user(user).await.ctx("fetch user")
 }
 
 pub async fn guild_name(discord: impl CacheHttp, guild: GuildId) -> String {
     if let Some(cached) = discord.cache().and_then(|cache| cache.guild(guild)) {
-        return cached.name.clone();
+        return cached.name.to_string();
     }
 
     guild
         .to_partial_guild(discord.http())
         .await
         .ctx("fetch guild name")
-        .map(|fetched| fetched.name)
+        .map(|fetched| fetched.name.to_string())
         .unwrap_or_else(|_| String::from("UNKNOWN_GUILD"))
 }

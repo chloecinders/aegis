@@ -7,7 +7,8 @@ pub mod updater;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use serenity::all::{ShardId, ShardManager};
+use dashmap::DashMap;
+use serenity::all::{ShardId, ShardRunnerMetadata};
 use sqlx::PgPool;
 
 use crate::app::config::Environment;
@@ -60,7 +61,7 @@ pub struct App {
     pub secrets: Arc<Keys>,
     pub stopping: shutdown::Requested,
     pub started_at: Instant,
-    pub shards: OnceLock<Arc<ShardManager>>,
+    pub shards: OnceLock<Arc<DashMap<ShardId, ShardRunnerMetadata>>>,
 }
 
 impl App {
@@ -104,11 +105,10 @@ impl App {
         }
     }
 
-    pub async fn shard_latency(&self, shard: ShardId) -> Option<Duration> {
-        let manager = self.shards.get()?;
-        let runners = manager.runners.lock().await;
+    pub fn shard_latency(&self, shard: ShardId) -> Option<Duration> {
+        let runner = self.shards.get()?.get(&shard)?;
 
-        runners.get(&shard)?.latency
+        runner.info.read().latency
     }
 
     pub fn prefix(&self) -> &str {

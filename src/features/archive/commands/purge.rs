@@ -89,7 +89,7 @@ impl Command for Purge {
         let ids: Vec<Snowflake> = doomed.iter().map(|id| id.get()).collect();
 
         channel
-            .delete_messages(&cx.ctx.http, &doomed)
+            .delete_messages(&cx.ctx.http, &doomed, None)
             .await
             .ctx("purge messages")?;
 
@@ -149,7 +149,12 @@ impl Command for Purge {
 
         cx.app.pending.silence(channel.get(), cx.msg.id.get());
 
-        if let Err(failure) = cx.msg.delete(&cx.ctx).await.ctx("clear purge command") {
+        if let Err(failure) = cx
+            .msg
+            .delete(&cx.ctx.http, None)
+            .await
+            .ctx("clear purge command")
+        {
             cx.report(&failure);
         }
 

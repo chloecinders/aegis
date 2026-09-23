@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 use serenity::all::{
-    ChannelId, Context, GuildId, Member, Message, MessageId, User, UserId, VoiceState,
+    Context, GenericChannelId, GuildId, Member, Message, MessageId, User, UserId, VoiceState,
 };
 use serenity::async_trait;
 
@@ -27,7 +27,7 @@ pub struct DeletionCx {
     pub app: Arc<App>,
     pub ctx: Context,
     pub guild: Option<GuildId>,
-    pub channel: ChannelId,
+    pub channel: GenericChannelId,
     pub message: MessageId,
 }
 
@@ -35,7 +35,7 @@ pub struct BulkDeletionCx {
     pub app: Arc<App>,
     pub ctx: Context,
     pub guild: Option<GuildId>,
-    pub channel: ChannelId,
+    pub channel: GenericChannelId,
     pub messages: Vec<MessageId>,
 }
 

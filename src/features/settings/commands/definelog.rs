@@ -30,7 +30,7 @@ impl Command for DefineLog {
         let guild = cx.guild_snowflake()?;
         let channel = self
             .channel
-            .map_or_else(|| cx.channel_id(), |chosen| chosen.id);
+            .map_or_else(|| cx.channel_id().expect_channel(), |chosen| chosen.id);
 
         open(cx, guild, channel).await
     }

@@ -20,7 +20,7 @@ impl Command for Restart {
     async fn run(self, cx: &mut Cx) -> Result<Response> {
         let sent = cx
             .channel_id()
-            .send_message(&cx.ctx, CreateMessage::new().content("Restarting!"))
+            .send_message(&cx.ctx.http, CreateMessage::new().content("Restarting!"))
             .await;
 
         cx.app.stopping.ask();

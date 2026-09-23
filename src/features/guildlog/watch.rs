@@ -13,7 +13,7 @@ pub struct Watch;
 
 pub fn snapshot(member: &Member) -> Snapshot {
     Snapshot {
-        nick: member.nick.clone(),
+        nick: member.nick.as_ref().map(ToString::to_string),
         roles: member.roles.iter().map(|role| role.get()).collect(),
         timeout: member.communication_disabled_until.map(|until| *until),
     }
@@ -149,7 +149,12 @@ async fn arrived(cx: &MemberCx) -> Result<()> {
         &cx.ctx,
         guild,
         LogType::MemberJoinLeave,
-        &member::joined(target, Some(&cx.user.name), *cx.user.created_at(), history),
+        &member::joined(
+            target,
+            Some(&cx.user.name),
+            *cx.user.id.created_at(),
+            history,
+        ),
         Subject {
             target,
             moderator: None,
@@ -218,8 +223,8 @@ async fn spoke(cx: &VoiceCx) -> Result<()> {
 fn presence(state: &VoiceState) -> voice::Presence {
     voice::Presence {
         channel: state.channel_id.map(|channel| channel.get()),
-        mute: state.mute,
-        deaf: state.deaf,
+        mute: state.mute(),
+        deaf: state.deaf(),
     }
 }
 
@@ -230,7 +235,7 @@ impl Observer for Watch {
     }
 
     async fn on_member_add(&self, cx: &MemberCx) {
-        if cx.user.bot {
+        if cx.user.bot() {
             return;
         }
 
@@ -242,7 +247,7 @@ impl Observer for Watch {
     }
 
     async fn on_member_remove(&self, cx: &MemberCx) {
-        if cx.user.bot {
+        if cx.user.bot() {
             return;
         }
 
@@ -266,7 +271,7 @@ impl Observer for Watch {
     }
 
     async fn on_member_update(&self, cx: &MemberCx) {
-        if cx.user.bot {
+        if cx.user.bot() {
             return;
         }
 

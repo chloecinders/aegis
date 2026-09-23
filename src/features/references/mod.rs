@@ -4,7 +4,7 @@ pub mod store;
 pub mod ui;
 
 use serenity::all::{
-    Attachment, CacheHttp, ChannelId, ChannelType, Message, MessageId, Permissions,
+    Attachment, CacheHttp, ChannelId, GenericChannelId, Message, MessageId, Permissions,
 };
 use sqlx::PgPool;
 
@@ -101,9 +101,9 @@ impl Captured {
             author: source.author.id.get(),
             content: match source.content.is_empty() {
                 true => None,
-                false => Some(source.content.clone()),
+                false => Some(source.content.to_string()),
             },
-            image_url: image(source).map(|attachment| attachment.url.clone()),
+            image_url: image(source).map(|attachment| attachment.url.to_string()),
         }
     }
 
@@ -114,7 +114,7 @@ impl Captured {
             message: source.id.get(),
             author: source.author.id.get(),
             content: None,
-            image_url: Some(image(source)?.url.clone()),
+            image_url: Some(image(source)?.url.to_string()),
         })
     }
 
@@ -133,20 +133,7 @@ async fn readable(cx: &Cx, channel: Snowflake) -> Result<bool> {
     }
 
     let guild = cx.guild_id()?;
-    let found = fetch::channel(&cx.ctx, guild, ChannelId::new(channel)).await?;
-    let threaded = matches!(
-        found.kind,
-        ChannelType::PublicThread | ChannelType::PrivateThread | ChannelType::NewsThread
-    );
-
-    let overwrites = match found.parent_id.filter(|_| threaded) {
-        Some(parent) => {
-            fetch::channel(&cx.ctx, guild, parent)
-                .await?
-                .permission_overwrites
-        }
-        None => found.permission_overwrites.clone(),
-    };
+    let overwrites = fetch::overwrites(&cx.ctx, guild, GenericChannelId::new(channel)).await?;
 
     let snapshot = cx.guild().await?;
     let actor = cx.actor().await?;
@@ -156,7 +143,7 @@ async fn readable(cx: &Cx, channel: Snowflake) -> Result<bool> {
             id: actor.user.id,
             roles: &actor.roles,
         },
-        &overwrites,
+        &overwrites.entries,
         Permissions::VIEW_CHANNEL | Permissions::READ_MESSAGE_HISTORY,
     ))
 }
@@ -263,6 +250,7 @@ pub async fn confirm(
     }
 
     let fetched = ChannelId::new(captured.channel)
+        .widen()
         .message(http, MessageId::new(captured.message))
         .await
         .ctx("fetch referenced message");

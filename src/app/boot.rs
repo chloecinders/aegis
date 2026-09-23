@@ -30,6 +30,8 @@ pub enum Failure {
 }
 
 pub async fn run() -> Result<(), Failure> {
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     let config = config::load()?;
     let pool = db::pool::connect(&config).await?;
 
@@ -55,7 +57,7 @@ pub async fn run() -> Result<(), Failure> {
     let token = app.config.token.clone();
     let mut client = gateway::build(Arc::clone(&app), dispatch, &token).await?;
 
-    let _ = app.shards.set(Arc::clone(&client.shard_manager));
+    let _ = app.shards.set(Arc::clone(&client.shard_manager.runners));
 
     #[cfg(feature = "web")]
     if let Some(port) = app.config.web_port {
@@ -120,6 +122,8 @@ pub async fn run() -> Result<(), Failure> {
         Arc::clone(&client.http),
     ));
 
+    let stop_shards = client.shard_manager.get_shutdown_trigger();
+
     tokio::select! {
         outcome = client.start() => {
             if let Err(err) = outcome {
@@ -127,7 +131,7 @@ pub async fn run() -> Result<(), Failure> {
             }
         },
         _ = shutdown::requested_or_signalled(&app.stopping) => {
-            client.shard_manager.shutdown_all().await;
+            stop_shards();
         },
     }
 

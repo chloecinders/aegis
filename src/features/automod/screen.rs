@@ -25,7 +25,7 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
         .as_ref()
         .map(|member| member.roles.iter().map(|role| role.get()).collect())
         .unwrap_or_default();
-    let age = rule::account_age(*cx.msg.author.created_at());
+    let age = rule::account_age(*cx.msg.author.id.created_at());
     let record = record_of(&cx.app, enabled.iter(), guild, cx.msg.author.id.get()).await?;
     let permissions = wielded(&cx.ctx, enabled.iter(), guild, cx.msg.author.id, &roles).await?;
     let wanted = cache::wanted(&enabled);

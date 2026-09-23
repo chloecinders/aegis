@@ -25,7 +25,12 @@ pub async fn answer(cx: &Cx, entry: Embed, replied: bool) -> Result<Response> {
         return Ok(Response::embed(entry));
     }
 
-    if let Err(failure) = cx.msg.delete(&cx.ctx).await.ctx("clear amendment command") {
+    if let Err(failure) = cx
+        .msg
+        .delete(&cx.ctx.http, None)
+        .await
+        .ctx("clear amendment command")
+    {
         cx.report(&failure);
     }
 
@@ -66,11 +71,12 @@ pub async fn refreshed(pool: &PgPool, http: impl CacheHttp, action: &Action) -> 
     };
 
     channel
+        .widen()
         .edit_message(
-            http,
+            http.http(),
             message,
             EditMessage::new()
-                .embeds(vec![entry.build()])
+                .embeds(vec![entry.build().into_owned()])
                 .components(rows),
         )
         .await

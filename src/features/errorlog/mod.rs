@@ -81,7 +81,10 @@ async fn posted(pool: &PgPool, http: impl CacheHttp, guild: Snowflake, fault: &F
         None => stated,
     };
 
-    let sent = channel.send_message(http, reply::plain(&entry)).await;
+    let sent = channel
+        .widen()
+        .send_message(http.http(), reply::plain(&entry))
+        .await;
 
     if let Err(failure) = sent {
         warn!("could not post an error to guild {guild}; err = {failure}");

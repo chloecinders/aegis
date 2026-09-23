@@ -48,7 +48,8 @@ impl Command for ScheduleDowntime {
 
         for (_, channel) in &routed {
             let _ = channel
-                .send_message(&cx.ctx, reply::plain(&announcement))
+                .widen()
+                .send_message(&cx.ctx.http, reply::plain(&announcement))
                 .await;
         }
 

@@ -30,8 +30,8 @@ async fn refresh(app: &App, http: &Http, due: &Due, action: &ActionId) -> Result
             http,
             UserId::new(record.target),
             EditMember::new()
-                .audit_log_reason(&format!("Aegis Managed: refreshing mute `{action}`"))
-                .disable_communication_until_datetime(until.into()),
+                .audit_log_reason(format!("Aegis Managed: refreshing mute `{action}`"))
+                .disable_communication_until(until.into()),
         )
         .await
         .map(|_| ())
@@ -60,7 +60,7 @@ async fn perform(app: &App, http: &Http, due: &Due) -> Result<()> {
     }
 
     match due.kind {
-        Kind::LiftBan => guild.unban(http, user).await.ctx("lift ban"),
+        Kind::LiftBan => guild.unban(http, user, None).await.ctx("lift ban"),
         Kind::LiftMute => guild
             .edit_member(
                 http,

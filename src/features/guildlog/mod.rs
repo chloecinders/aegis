@@ -77,7 +77,7 @@ pub async fn attaching(
     kind: LogType,
     embed: &Embed,
     subject: Subject,
-    file: Option<CreateAttachment>,
+    file: Option<CreateAttachment<'static>>,
     controls: &[Button],
 ) -> Result<Option<Posted>> {
     let pool = &app.pool;
@@ -85,15 +85,21 @@ pub async fn attaching(
         return Ok(None);
     };
 
-    let mut entry =
-        reply::plain(embed).components(controls.chunks(5).take(5).map(reply::row).collect());
+    let mut entry = reply::plain(embed).components(
+        controls
+            .chunks(5)
+            .take(5)
+            .map(reply::row)
+            .collect::<Vec<_>>(),
+    );
 
     if let Some(file) = file {
         entry = entry.add_file(file);
     }
 
     let posted = channel
-        .send_message(http, entry)
+        .widen()
+        .send_message(http.http(), entry)
         .await
         .ctx("send log entry")?;
 
@@ -118,8 +124,9 @@ pub async fn attaching(
 
 pub async fn rewrite(http: impl CacheHttp, at: Posted, embed: &Embed) -> Result<()> {
     at.channel
+        .widen()
         .edit_message(
-            http,
+            http.http(),
             at.message,
             EditMessage::new().embeds(vec![embed.build()]),
         )
@@ -131,7 +138,8 @@ pub async fn rewrite(http: impl CacheHttp, at: Posted, embed: &Embed) -> Result<
 
 pub async fn retract(app: &App, http: impl CacheHttp, at: Posted) -> Result<()> {
     at.channel
-        .delete_message(http.http(), at.message)
+        .widen()
+        .delete_message(http.http(), at.message, None)
         .await
         .ctx("retract log entry")?;
 

@@ -40,8 +40,9 @@ pub async fn attach(pool: &PgPool, http: impl CacheHttp, action: &Action) -> Res
     }
 
     channel
+        .widen()
         .edit_message(
-            http,
+            http.http(),
             message,
             EditMessage::new().components(vec![reply::row(&controls)]),
         )

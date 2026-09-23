@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use serenity::all::{
-    ChannelId, Context, CreateActionRow, EditMessage, GuildChannel, GuildId, Member, Message,
-    MessageId, User, UserId,
+    Context, CreateComponent, EditMessage, GenericChannelId, GuildId, Member, Message, MessageId,
+    User, UserId,
 };
 use tokio::sync::OnceCell;
 
@@ -11,7 +11,7 @@ use crate::app::App;
 use crate::command::error::{Ctx as _, Error, Result};
 use crate::domain::Snowflake;
 use crate::domain::ids::ActionId;
-use crate::platform::discord::fetch;
+use crate::platform::discord::fetch::{self, Overwrites};
 use crate::platform::discord::permissions::{Actor, Snapshot};
 use crate::platform::observe::report::Origin;
 use crate::platform::observe::trace::Trace;
@@ -37,7 +37,7 @@ pub struct Cx {
     guild: OnceCell<Snapshot>,
     actor: OnceCell<Member>,
     bot: OnceCell<Member>,
-    channel: OnceCell<GuildChannel>,
+    overwrites: OnceCell<Overwrites>,
 }
 
 impl Cx {
@@ -61,7 +61,7 @@ impl Cx {
             guild: OnceCell::new(),
             actor: OnceCell::new(),
             bot: OnceCell::new(),
-            channel: OnceCell::new(),
+            overwrites: OnceCell::new(),
         }
     }
 
@@ -84,7 +84,7 @@ impl Cx {
             .ok_or_else(|| Error::new(self.input()).title("command only works in servers"))
     }
 
-    pub fn channel_id(&self) -> ChannelId {
+    pub fn channel_id(&self) -> GenericChannelId {
         self.msg.channel_id
     }
 
@@ -99,14 +99,14 @@ impl Cx {
     pub async fn present(
         &self,
         embed: &Embed,
-        rows: Vec<CreateActionRow>,
+        rows: Vec<CreateComponent<'static>>,
         op: &'static str,
     ) -> Result<MessageId> {
         let Some(response) = self.revising else {
             let sent = self
                 .channel_id()
                 .send_message(
-                    &self.ctx,
+                    &self.ctx.http,
                     reply::plain(embed)
                         .components(rows)
                         .reference_message(&*self.msg),
@@ -119,10 +119,10 @@ impl Cx {
 
         self.channel_id()
             .edit_message(
-                &self.ctx,
+                &self.ctx.http,
                 response,
                 EditMessage::new()
-                    .embeds(vec![embed.build()])
+                    .embeds(vec![embed.build().into_owned()])
                     .components(rows),
             )
             .await
@@ -157,12 +157,12 @@ impl Cx {
             .await
     }
 
-    pub async fn channel(&self) -> Result<&GuildChannel> {
+    pub async fn overwrites(&self) -> Result<&Overwrites> {
         let guild = self.guild_id()?;
         let channel = self.channel_id();
 
-        self.channel
-            .get_or_try_init(|| fetch::channel(&self.ctx, guild, channel))
+        self.overwrites
+            .get_or_try_init(|| fetch::overwrites(&self.ctx, guild, channel))
             .await
     }
 
@@ -201,14 +201,14 @@ impl Cx {
     pub async fn has(&self, wanted: serenity::all::Permissions) -> Result<bool> {
         let guild = self.guild().await?;
         let actor = self.actor().await?;
-        let channel = self.channel().await?;
+        let overwrites = self.overwrites().await?;
 
         Ok(guild.allows(
             Actor {
                 id: actor.user.id,
                 roles: &actor.roles,
             },
-            &channel.permission_overwrites,
+            &overwrites.entries,
             wanted,
         ))
     }

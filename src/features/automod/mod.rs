@@ -35,7 +35,7 @@ impl Observer for Automod {
     }
 
     async fn on_message(&self, cx: &MessageCx) {
-        if cx.msg.author.bot || cx.msg.guild_id.is_none() {
+        if cx.msg.author.bot() || cx.msg.guild_id.is_none() {
             return;
         }
 
@@ -45,7 +45,7 @@ impl Observer for Automod {
     }
 
     async fn on_member_add(&self, cx: &MemberCx) {
-        if cx.user.bot {
+        if cx.user.bot() {
             return;
         }
 

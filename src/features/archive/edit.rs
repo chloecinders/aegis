@@ -107,7 +107,7 @@ pub async fn record(
 
     let mut revised = PartialMessage::clone(&before);
 
-    revised.content = after.content.clone();
+    revised.content = after.content.to_string();
 
     app.recent.remember(std::sync::Arc::new(revised));
 

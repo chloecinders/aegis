@@ -27,7 +27,7 @@ impl Default for Http {
 
 pub fn discord() -> Client {
     Client::builder()
-        .use_rustls_tls()
+        .tls_backend_rustls()
         .pool_idle_timeout(Duration::from_secs(15))
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(60))

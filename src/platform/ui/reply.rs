@@ -1,29 +1,29 @@
 use serenity::all::{
-    ButtonStyle, CreateActionRow, CreateAllowedMentions, CreateButton, CreateMessage,
-    CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption,
+    ButtonStyle, CreateActionRow, CreateAllowedMentions, CreateButton, CreateComponent,
+    CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption,
 };
 
 use crate::platform::text::truncate;
 use crate::platform::ui::embed::Embed;
 
-pub fn plain(embed: &Embed) -> CreateMessage {
+pub fn plain(embed: &Embed) -> CreateMessage<'static> {
     CreateMessage::new()
-        .add_embed(embed.build())
+        .add_embed(embed.build().into_owned())
         .allowed_mentions(CreateAllowedMentions::new().replied_user(false))
 }
 
-pub fn row(buttons: &[Button]) -> CreateActionRow {
-    CreateActionRow::Buttons(
+pub fn row(buttons: &[Button]) -> CreateComponent<'static> {
+    CreateComponent::ActionRow(CreateActionRow::Buttons(
         buttons
             .iter()
             .map(|button| {
-                CreateButton::new(&button.id)
-                    .label(&button.label)
+                CreateButton::new(button.id.clone())
+                    .label(button.label.clone())
                     .style(button.style)
                     .disabled(button.disabled)
             })
             .collect(),
-    )
+    ))
 }
 
 #[derive(Clone, Debug)]
@@ -87,7 +87,7 @@ impl Menu {
         }
     }
 
-    fn build(&self) -> CreateActionRow {
+    fn build(&self) -> CreateComponent<'static> {
         let options: Vec<CreateSelectMenuOption> = self
             .choices
             .iter()
@@ -102,12 +102,17 @@ impl Menu {
             .collect();
         let picked = options.len().max(1) as u8;
 
-        CreateActionRow::SelectMenu(
-            CreateSelectMenu::new(&self.id, CreateSelectMenuKind::String { options })
-                .placeholder(&self.placeholder)
-                .min_values(1)
-                .max_values(picked),
-        )
+        CreateComponent::ActionRow(CreateActionRow::SelectMenu(
+            CreateSelectMenu::new(
+                self.id.clone(),
+                CreateSelectMenuKind::String {
+                    options: options.into(),
+                },
+            )
+            .placeholder(self.placeholder.clone())
+            .min_values(1)
+            .max_values(picked),
+        ))
     }
 }
 
@@ -125,7 +130,7 @@ impl Panel {
         }
     }
 
-    pub fn rows(&self) -> Vec<CreateActionRow> {
+    pub fn rows(&self) -> Vec<CreateComponent<'static>> {
         let Some(menu) = &self.menu else {
             return self.buttons.chunks(5).take(5).map(row).collect();
         };

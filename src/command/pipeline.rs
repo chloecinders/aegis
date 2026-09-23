@@ -17,7 +17,7 @@ use crate::platform::ui::embed::Embed;
 use crate::platform::ui::{error as render, reply};
 
 fn invocable(app: &App, msg: &Message) -> bool {
-    if msg.author.bot || !msg.content.starts_with(app.prefix()) {
+    if msg.author.bot() || !msg.content.starts_with(app.prefix()) {
         return false;
     }
 
@@ -49,7 +49,7 @@ pub async fn guarded(app: Arc<App>, ctx: Context, msg: Arc<Message>) {
 
     let _ = msg
         .channel_id
-        .send_message(&ctx, reply::plain(&embed).reference_message(&*msg))
+        .send_message(&ctx.http, reply::plain(&embed).reference_message(&*msg))
         .await;
 }
 

@@ -42,8 +42,8 @@ async fn reapply(cx: &MemberCx) -> Result<()> {
             &cx.ctx.http,
             UserId::new(muted.target),
             EditMember::new()
-                .audit_log_reason(&punishment.audit_marker())
-                .disable_communication_until_datetime(until.into()),
+                .audit_log_reason(punishment.audit_marker())
+                .disable_communication_until(until.into()),
         )
         .await
         .map(|_| ())

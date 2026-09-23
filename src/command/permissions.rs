@@ -12,8 +12,7 @@ pub async fn statics(cx: &Cx, meta: &Meta) -> Result<()> {
     }
 
     let guild = cx.guild().await?;
-    let channel = cx.channel().await?;
-    let overwrites = &channel.permission_overwrites;
+    let overwrites = &cx.overwrites().await?.entries;
 
     let bot = cx.bot_member().await?;
     let bot_permissions = guild.in_channel(
@@ -62,14 +61,14 @@ async fn entitled(cx: &Cx, meta: &Meta) -> Result<()> {
 
 async fn wields(cx: &Cx, meta: &Meta) -> Result<bool> {
     let guild = cx.guild().await?;
-    let channel = cx.channel().await?;
+    let overwrites = cx.overwrites().await?;
     let actor = cx.actor().await?;
     let permissions = guild.in_channel(
         Actor {
             id: actor.user.id,
             roles: &actor.roles,
         },
-        &channel.permission_overwrites,
+        &overwrites.entries,
     );
 
     if permissions.contains(Permissions::ADMINISTRATOR) {

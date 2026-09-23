@@ -15,14 +15,16 @@ aegis_macros = { path = "./aegis_macros" }
 aes-gcm = "0.10"
 base64 = "0.22"
 chrono = "0.4.41"
+dashmap = "6.1.0"
 futures = { version = "0.3.31", default-features = false, features = ["std", "async-await"] }
 image = { version = "0.25.6", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
 rand = { version = "0.9", default-features = false, features = ["std", "std_rng", "thread_rng"] }
 regex = "1.12.2"
-reqwest = { version = "0.12.23", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", features = ["form", "json", "rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.149"
-serenity = { version = "0.12.5", features = ["chrono", "collector"] }
+serenity = { git = "https://github.com/serenity-rs/serenity", rev = "86866e9a20dc441faac7b38c68a3cf78721ded1c", features = ["chrono", "collector"] }
 sha2 = "0.11.0"
 sqlx = { version = "0.8.6", features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio", "tls-native-tls"] }
 sysinfo = { version = "0.37.0", default-features = false, features = ["system"] }

@@ -1,4 +1,5 @@
 use serenity::all::{Color, GuildChannel, Member, MessageType, RoleId, User, UserId};
+use serenity::nonmax::NonMaxU16;
 
 use crate::command::args::{ArgKind, Inferred};
 use crate::command::cx::Cx;
@@ -75,7 +76,7 @@ impl FromArgs for Member {
 
         let guild = cx.guild_id()?;
         let found = guild
-            .search_members(&cx.ctx.http, &token.raw, Some(1))
+            .search_members(&cx.ctx.http, &token.raw, NonMaxU16::new(1))
             .await
             .unwrap_or_default();
 
@@ -129,12 +130,18 @@ impl FromArgs for User {
             return cx.user(UserId::new(id)).await.map_err(|_| missing());
         }
 
+        let guild = cx.guild_id()?;
+
         cx.ctx
             .cache
-            .users()
-            .iter()
-            .find(|user| user.name == token.raw)
-            .map(|user| user.clone())
+            .guild(guild)
+            .and_then(|cached| {
+                cached
+                    .members
+                    .iter()
+                    .find(|member| member.user.name == token.raw)
+                    .map(|member| member.user.clone())
+            })
             .ok_or_else(missing)
     }
 }
@@ -199,8 +206,8 @@ impl FromArgs for GuildChannel {
             .and_then(|cached| {
                 cached
                     .channels
-                    .values()
-                    .find(|channel| channel.name == wanted)
+                    .iter()
+                    .find(|channel| channel.base.name == wanted)
                     .cloned()
             })
             .ok_or_else(missing)
@@ -236,7 +243,7 @@ impl FromArgs for RoleId {
             .and_then(|cached| {
                 cached
                     .roles
-                    .values()
+                    .iter()
                     .find(|role| role.name == wanted)
                     .map(|role| role.id)
             })

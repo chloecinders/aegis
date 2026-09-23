@@ -154,7 +154,7 @@ fn sticker(seen: &Event, what: StickerAction) -> Option<Logged> {
 
 fn voice(seen: &Event, what: VoiceChannelStatusAction) -> Option<Logged> {
     let title = match what {
-        VoiceChannelStatusAction::StatusUpdate => "VOICE STATUS SET",
+        VoiceChannelStatusAction::StatusCreate => "VOICE STATUS SET",
         VoiceChannelStatusAction::StatusDelete => "VOICE STATUS CLEARED",
         _ => return None,
     };
@@ -167,7 +167,7 @@ fn voice(seen: &Event, what: VoiceChannelStatusAction) -> Option<Logged> {
         .maybe_subtitle(seen.actor.line(seen.bot, seen.actor_name));
 
     let embed = match what {
-        VoiceChannelStatusAction::StatusUpdate => stated.lead(format!(
+        VoiceChannelStatusAction::StatusCreate => stated.lead(format!(
             "Status: {}",
             match seen.status {
                 Some(status) => code(status),
@@ -187,7 +187,7 @@ fn voice(seen: &Event, what: VoiceChannelStatusAction) -> Option<Logged> {
 
 fn name_of(changes: &[Change]) -> Option<String> {
     changes.iter().find_map(|change| match change {
-        Change::Name { old, new } => new.clone().or_else(|| old.clone()),
+        Change::Name { old, new } => new.as_ref().or(old.as_ref()).map(ToString::to_string),
         _ => None,
     })
 }
@@ -213,6 +213,10 @@ pub enum Shape {
     Deleted,
 }
 
+fn spelled<T: ToString>(value: &Option<T>) -> Option<String> {
+    value.as_ref().map(ToString::to_string)
+}
+
 fn field(shape: Shape, label: &str, old: Option<String>, new: Option<String>) -> Option<String> {
     let old = old.filter(|value| !value.is_empty());
     let new = new.filter(|value| !value.is_empty());
@@ -236,8 +240,8 @@ fn channel_changes(shape: Shape, changes: &[Change]) -> Vec<String> {
     changes
         .iter()
         .filter_map(|change| match change {
-            Change::Name { old, new } => field(shape, "Name", old.clone(), new.clone()),
-            Change::Topic { old, new } => field(shape, "Topic", old.clone(), new.clone()),
+            Change::Name { old, new } => field(shape, "Name", spelled(old), spelled(new)),
+            Change::Topic { old, new } => field(shape, "Topic", spelled(old), spelled(new)),
             Change::Nsfw { old, new } => field(
                 shape,
                 "NSFW",
@@ -277,7 +281,7 @@ fn role_changes(shape: Shape, changes: &[Change]) -> Vec<String> {
     changes
         .iter()
         .filter_map(|change| match change {
-            Change::Name { old, new } => field(shape, "Name", old.clone(), new.clone()),
+            Change::Name { old, new } => field(shape, "Name", spelled(old), spelled(new)),
             Change::Color { old, new } => field(
                 shape,
                 "Color",
@@ -347,11 +351,11 @@ fn expression_changes(shape: Shape, changes: &[Change]) -> Vec<String> {
     changes
         .iter()
         .filter_map(|change| match change {
-            Change::Name { old, new } => field(shape, "Name", old.clone(), new.clone()),
+            Change::Name { old, new } => field(shape, "Name", spelled(old), spelled(new)),
             Change::Description { old, new } => {
-                field(shape, "Description", old.clone(), new.clone())
+                field(shape, "Description", spelled(old), spelled(new))
             }
-            Change::Tags { old, new } => field(shape, "Tags", old.clone(), new.clone()),
+            Change::Tags { old, new } => field(shape, "Tags", spelled(old), spelled(new)),
             Change::Available { old, new } => field(
                 shape,
                 "Available",

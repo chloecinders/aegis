@@ -15,6 +15,8 @@ export interface Preview {
     setAge: Setter<string>;
     atts: Accessor<string>;
     setAtts: Setter<string>;
+    animated: Accessor<string>;
+    setAnimated: Setter<string>;
     role: Accessor<string>;
     setRole: Setter<string>;
     permission: Accessor<string>;
@@ -31,6 +33,7 @@ export function createPreview(session: Session): Preview {
     const [source, setSource] = createSignal("content");
     const [age, setAge] = createSignal("30d");
     const [atts, setAtts] = createSignal("0");
+    const [animated, setAnimated] = createSignal("0");
     const [role, setRole] = createSignal("none");
     const [permission, setPermission] = createSignal("none");
     const [picked, setChannel] = createSignal<string | null>(null);
@@ -61,6 +64,7 @@ export function createPreview(session: Session): Preview {
             links: count(text, LINKS),
             invites: count(text, INVITES),
             attachments: joining ? 0 : Number(atts() || 0),
+            animated: joining ? 0 : Number(animated() || 0),
             record: filed(),
         };
     });
@@ -74,6 +78,8 @@ export function createPreview(session: Session): Preview {
         setAge,
         atts,
         setAtts,
+        animated,
+        setAnimated,
         role,
         setRole,
         permission,

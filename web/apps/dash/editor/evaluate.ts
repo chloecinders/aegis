@@ -20,6 +20,7 @@ export interface Seen {
     links: number;
     invites: number;
     attachments: number;
+    animated: number;
     record: Record<string, string>;
 }
 
@@ -117,6 +118,7 @@ const measured = (seen: Seen, when: When) =>
         links: seen.links,
         invites: seen.invites,
         attachments: seen.attachments,
+        animated: seen.animated,
     } as Record<string, number>)[when.measure] ?? 0;
 
 export function evaluate(rule: Body, seen: Seen): Count {

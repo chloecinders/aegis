@@ -17,6 +17,7 @@ function Derived() {
             ["links", observed.links],
             ["invites", observed.invites],
             ["attachments", observed.attachments],
+            ["animated", observed.animated],
             ["age", showDuration(observed.age)],
             ["punishments", punishmentCount(observed.record, "punishments")],
         ];
@@ -155,6 +156,19 @@ export function Preview() {
                                 max="10"
                                 value={preview.atts()}
                                 onInput={(e) => preview.setAtts(e.currentTarget.value)}
+                            />
+                        </div>
+
+                        <div class="fields__field">
+                            <label class="fields__label" for="animated">animated</label>
+                            <input
+                                class="fields__input"
+                                id="animated"
+                                type="number"
+                                min="0"
+                                max="10"
+                                value={preview.animated()}
+                                onInput={(e) => preview.setAnimated(e.currentTarget.value)}
                             />
                         </div>
 

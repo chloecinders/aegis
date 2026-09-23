@@ -16,7 +16,7 @@ export const MAX_PATTERNS = 64;
 export const FUZZ = 0.95;
 
 export const SOURCES = ["content", "image", "filename", "mimetype", "embed", "username", "join"];
-export const MEASURES = ["mentions", "links", "invites", "attachments"];
+export const MEASURES = ["mentions", "links", "invites", "attachments", "animated"];
 export const RECORD = ["warns", "mutes", "kicks", "bans", "punishments"];
 
 export const PERMISSIONS = [
@@ -129,13 +129,14 @@ export const CLAUSES: Clause[] = [
     },
     {
         keyword: "when",
-        takes: "mentions | links | invites | attachments > n | warns > n in 30d | account younger than 7d",
+        takes: "mentions | links | invites | attachments | animated > n | warns > n in 30d | account younger than 7d",
         about: "A condition on the source. Allows for checking specific things about the source before matching.",
         values: [
             ["mentions", "how many people the message pings"],
             ["links", "how many links the message contains"],
             ["invites", "how many Discord invites the message contains"],
             ["attachments", "how many files are attached"],
+            ["animated", "how many attached files are animated"],
             ["account", "the age of an account (written as 'younger than' or 'older than')"],
             ["warns", "warnings on their log"],
             ["mutes", "mutes on their log"],

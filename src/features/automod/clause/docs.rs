@@ -56,13 +56,14 @@ pub const CLAUSES: [Clause; 12] = [
     },
     Clause {
         keyword: "when",
-        short: "mentions | links | invites | attachments > n | warns > n in 30d | account younger than 7d",
+        short: "mentions | links | invites | attachments | animated > n | warns > n in 30d | account younger than 7d",
         full: "A condition on the source. Allows for checking specific things about the source before matching.",
         params: &[
             ("mentions", "how many people the message pings"),
             ("links", "how many links the message contains"),
             ("invites", "how many Discord invites the message contains"),
             ("attachments", "how many files are attached"),
+            ("animated", "how many attached files are animated"),
             (
                 "account",
                 "the age of an account (written as 'younger than' or 'older than')",

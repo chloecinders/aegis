@@ -32,6 +32,7 @@ impl<'a> Fixed<'a> {
             links: self.counts.links,
             invites: self.counts.invites,
             attachments: self.counts.attachments,
+            animated: self.counts.animated,
             record: self.record,
         }
     }

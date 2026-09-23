@@ -42,6 +42,7 @@ pub struct Observed<'a> {
     pub links: i64,
     pub invites: i64,
     pub attachments: i64,
+    pub animated: i64,
     pub record: Option<&'a Record>,
 }
 
@@ -52,6 +53,7 @@ impl Observed<'_> {
             Measure::Links => self.links,
             Measure::Invites => self.invites,
             Measure::Attachments => self.attachments,
+            Measure::Animated => self.animated,
             Measure::AccountAge => self.age.num_seconds(),
             measure => self
                 .record

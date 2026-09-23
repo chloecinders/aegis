@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use regex::Regex;
-use serenity::all::{Attachment, Message};
+use serenity::all::{Attachment, AttachmentFlags, Message};
 
 use crate::features::automod::rule::{Measure, Rule, Source};
 use crate::platform::http::{Failure, Http};
@@ -164,6 +164,7 @@ pub struct Counts {
     pub links: i64,
     pub invites: i64,
     pub attachments: i64,
+    pub animated: i64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -202,5 +203,14 @@ pub fn counts(msg: &Message, needed: Required) -> Counts {
             false => 0,
         },
         attachments: msg.attachments.len() as i64,
+        animated: msg
+            .attachments
+            .iter()
+            .filter(|attachment| {
+                attachment
+                    .flags
+                    .is_some_and(|flags| flags.contains(AttachmentFlags::IS_ANIMATED))
+            })
+            .count() as i64,
     }
 }

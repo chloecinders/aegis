@@ -2,6 +2,7 @@ import { For, Show } from "solid-js";
 
 import { CLAUSES } from "../grammar.ts";
 import { useEditor } from "../state/editor.tsx";
+import { ClauseDetail } from "./ClauseDetail.tsx";
 
 export function Vocab() {
     const { editing } = useEditor();
@@ -33,41 +34,7 @@ export function Vocab() {
                     </>
                 }
             >
-                {(picked) => (
-                    <>
-                        <div class="colhead colhead--teal">
-                            <span>{picked().keyword}</span>
-                        </div>
-
-                        <div>
-                            <button class="back" onClick={editing.unpick}>
-                                all clauses
-                            </button>
-
-                            <div class="hint">{picked().about}</div>
-
-                            <Show
-                                when={picked().values.length}
-                                fallback={
-                                    <div class="hint" style="border-top:1px solid var(--rule)">
-                                        takes nothing
-                                    </div>
-                                }
-                            >
-                                <div class="vocab vocab--values">
-                                    <For each={picked().values}>
-                                        {([value, about]) => (
-                                            <button class="vocab__item">
-                                                <span class="vocab__key">{value}</span>
-                                                <span class="vocab__takes">{about}</span>
-                                            </button>
-                                        )}
-                                    </For>
-                                </div>
-                            </Show>
-                        </div>
-                    </>
-                )}
+                {(picked) => <ClauseDetail clause={picked()} back="all clauses" />}
             </Show>
         </div>
     );

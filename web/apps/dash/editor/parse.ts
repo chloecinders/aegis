@@ -102,8 +102,10 @@ export function parse(source: string, part: Part = "whole"): Parsed {
     if (patterns > MAX_PATTERNS) diags.push({ line: 0, level: "error", msg: "too many patterns" });
 
     const joining = body.sources.length > 0 && body.sources.every((source) => source === "join");
+    const textless =
+        body.sources.length > 0 && body.sources.every((source) => source === "join" || source === "message");
 
-    if (joining && body.match.length)
+    if (textless && body.match.length)
         diags.push({ line: 0, level: "error", msg: "source has no text" });
 
     const grounded = body.when.find((when) => when.measure !== "account" && !RECORD.includes(when.measure));

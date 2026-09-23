@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::command::error::Result;
 use crate::domain::Snowflake;
 use crate::features::automod::enforce::{Enforced, enforce};
@@ -41,7 +43,12 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
     };
 
     for source in wanted.iter().filter(|source| !source.is_expensive()) {
-        let Some(text) = sources::text(&cx.msg, *source) else {
+        let read = match source {
+            Source::Message => Some(Cow::Borrowed("")),
+            _ => sources::text(&cx.msg, *source),
+        };
+
+        let Some(text) = read else {
             continue;
         };
 

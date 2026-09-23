@@ -69,7 +69,7 @@ pub fn text(msg: &Message, source: Source) -> Option<Cow<'_, str>> {
             .collect::<Vec<&str>>()
             .join("\n"),
         ),
-        Source::Image | Source::Join => Cow::Borrowed(""),
+        Source::Image | Source::Join | Source::Message => Cow::Borrowed(""),
     };
 
     match extracted.trim().is_empty() {

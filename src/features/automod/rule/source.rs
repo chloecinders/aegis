@@ -15,6 +15,7 @@ pub enum Source {
     Embed,
     Username,
     Join,
+    Message,
 }
 
 impl Source {
@@ -27,6 +28,7 @@ impl Source {
             Source::Embed => "embed",
             Source::Username => "username",
             Source::Join => "join",
+            Source::Message => "message",
         }
     }
 
@@ -39,12 +41,13 @@ impl Source {
             "embed" => Some(Source::Embed),
             "username" => Some(Source::Username),
             "join" => Some(Source::Join),
+            "message" => Some(Source::Message),
             _ => None,
         }
     }
 
     pub fn yields_text(&self) -> bool {
-        !matches!(self, Source::Join)
+        !matches!(self, Source::Join | Source::Message)
     }
 
     pub fn is_expensive(&self) -> bool {

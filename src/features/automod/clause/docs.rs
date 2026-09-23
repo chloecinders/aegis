@@ -9,7 +9,7 @@ pub struct Clause {
 pub const CLAUSES: [Clause; 12] = [
     Clause {
         keyword: "on",
-        short: "image | content | filename | mimetype | embed | username | join",
+        short: "image | content | filename | mimetype | embed | username | join | message",
         full: "Which source the rule reads from.",
         params: &[
             ("content", "message content"),
@@ -19,6 +19,10 @@ pub const CLAUSES: [Clause; 12] = [
             ("embed", "text inside of embeds"),
             ("username", "member usernames"),
             ("join", "member join, can not be used with match"),
+            (
+                "message",
+                "every message, can not be used with match (for use with 'when', 'after', etc.)",
+            ),
         ],
         examples: &["on content", "on image username filename", "on join"],
     },

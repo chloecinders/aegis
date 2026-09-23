@@ -49,7 +49,8 @@ export function createPreview(session: Session): Preview {
     const observed = createMemo<Seen>(() => {
         const from = source();
         const joining = from === "join";
-        const text = joining ? "" : sample();
+        const written = joining ? "" : sample();
+        const text = joining || from === "message" ? "" : written;
         const chosen = role();
         const wields = permission();
 
@@ -60,9 +61,9 @@ export function createPreview(session: Session): Preview {
             roles: chosen && chosen !== "none" ? [chosen] : [],
             permissions: wields && wields !== "none" ? [wields] : [],
             age: parseDuration(age()) || 0,
-            mentions: count(text, MENTIONS),
-            links: count(text, LINKS),
-            invites: count(text, INVITES),
+            mentions: count(written, MENTIONS),
+            links: count(written, LINKS),
+            invites: count(written, INVITES),
             attachments: joining ? 0 : Number(atts() || 0),
             animated: joining ? 0 : Number(animated() || 0),
             record: filed(),

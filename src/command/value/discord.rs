@@ -1,4 +1,6 @@
-use serenity::all::{Color, GuildChannel, Member, MessageType, RoleId, User, UserId};
+use serenity::all::{
+    Color, GenericChannelId, GuildChannel, Member, MessageType, RoleId, User, UserId,
+};
 use serenity::nonmax::NonMaxU16;
 
 use crate::command::args::{ArgKind, Inferred};
@@ -217,6 +219,22 @@ impl FromArgs for GuildChannel {
 impl Snapshot for GuildChannel {
     fn snapshot(&self) -> serde_json::Value {
         serde_json::Value::from(self.id.get())
+    }
+}
+
+impl FromArgs for GenericChannelId {
+    const KIND: ArgKind = ArgKind::Channel;
+
+    async fn from_token(cx: &Cx, field: &'static str, token: &Token) -> Result<Self> {
+        snowflake(&token.raw)
+            .map(GenericChannelId::new)
+            .ok_or_else(|| Error::invalid(cx.input(), field, ArgKind::Channel, token.span))
+    }
+}
+
+impl Snapshot for GenericChannelId {
+    fn snapshot(&self) -> serde_json::Value {
+        serde_json::Value::from(self.get())
     }
 }
 

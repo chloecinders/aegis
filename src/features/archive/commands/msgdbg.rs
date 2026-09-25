@@ -1,13 +1,20 @@
-use serenity::all::{CreateAllowedMentions, CreateAttachment, CreateMessage};
+use serenity::all::{CreateAllowedMentions, CreateAttachment, CreateMessage, GenericChannelId};
 
+use crate::command::args::Arg;
 use crate::command::cx::Cx;
 use crate::command::error::{Error, Result};
 use crate::command::{Command, Meta, Response};
+use crate::domain::ids::MessageId;
 use crate::platform::text::lexer;
 use aegis_macros::{command, meta};
 
 #[command]
-pub struct MsgDbg {}
+pub struct MsgDbg {
+    #[arg]
+    channel: Option<GenericChannelId>,
+    #[arg(reply)]
+    message: Arg<MessageId>,
+}
 
 impl Command for MsgDbg {
     const META: Meta = meta! {
@@ -20,19 +27,35 @@ impl Command for MsgDbg {
     };
 
     async fn run(self, cx: &mut Cx) -> Result<Response> {
-        let Some(replied) = cx.msg.referenced_message.clone() else {
-            return Err(Error::new(cx.input())
-                .title("no message to read")
-                .with_all("reply to a message to use this"));
+        let target = match (
+            self.message.was_inferred(),
+            cx.msg.referenced_message.clone(),
+        ) {
+            (true, Some(replied)) => *replied,
+            _ => {
+                let channel = self.channel.unwrap_or_else(|| cx.channel_id());
+
+                channel
+                    .message(
+                        &cx.ctx,
+                        serenity::all::MessageId::new(self.message.into_value().get()),
+                    )
+                    .await
+                    .map_err(|_| {
+                        Error::new(cx.input())
+                            .title("no message found")
+                            .with_all("not found in this channel")
+                    })?
+            }
         };
 
-        let tokens: Vec<String> = lexer::lex(&replied.content)
+        let tokens: Vec<String> = lexer::lex(&target.content)
             .into_iter()
             .map(|token| token.raw)
             .collect();
 
         let attached = CreateAttachment::bytes(
-            format!("lexed: {tokens:?}\n\n{replied:#?}").into_bytes(),
+            format!("lexed: {tokens:?}\n\n{target:#?}").into_bytes(),
             "message.txt",
         );
 

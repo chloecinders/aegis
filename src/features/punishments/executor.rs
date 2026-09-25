@@ -313,6 +313,7 @@ async fn perform(cx: &Cx, punishment: &Punishment, subject: &Subject) -> Result<
     let http = &cx.ctx.http;
     let target = subject.id();
     let audit = punishment.audit_marker();
+    let clear_seconds = u32::from(punishment.clear_days) * 86_400;
 
     if matches!(
         punishment.verb,
@@ -328,12 +329,12 @@ async fn perform(cx: &Cx, punishment: &Punishment, subject: &Subject) -> Result<
             .await
             .ctx("kick member"),
         PunishmentType::Ban => guild
-            .ban(http, target, u32::from(punishment.clear_days), Some(&audit))
+            .ban(http, target, clear_seconds, Some(&audit))
             .await
             .ctx("ban member"),
         PunishmentType::Softban => {
             guild
-                .ban(http, target, u32::from(punishment.clear_days), Some(&audit))
+                .ban(http, target, clear_seconds, Some(&audit))
                 .await
                 .ctx("softban member")?;
 

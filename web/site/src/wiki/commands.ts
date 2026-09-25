@@ -4,6 +4,13 @@ export interface Flag {
     desc: string;
 }
 
+export interface SlashOption {
+    name: string;
+    kind: string;
+    desc: string;
+    required: boolean;
+}
+
 export interface Documented {
     name: string;
     aliases: string[];
@@ -12,11 +19,12 @@ export interface Documented {
     category: string;
     developer: boolean;
     hidden: boolean;
-    syntax: string;
-    example: string;
+    syntax: string | null;
+    example: string | null;
     user: string[];
     one_of: string[];
     flags: Flag[];
+    slash: SlashOption[] | null;
 }
 
 export interface Sheet {
@@ -63,7 +71,7 @@ function emit(out: Token[], kind: string, text: string) {
     else out.push({ kind, text });
 }
 
-const COMMAND = /^\+\S+/;
+const COMMAND = /^[+/]\S+/;
 
 export function highlightSyntax(line: string): Token[] {
     const out: Token[] = [];
@@ -130,6 +138,7 @@ export function grouped(sheet: Sheet): { commands: Documented[]; categories: Gro
             short: normalise(cmd.short),
             full: normalise(cmd.full),
             flags: cmd.flags.map((flag) => ({ ...flag, desc: normalise(flag.desc) })),
+            slash: cmd.slash?.map((option) => ({ ...option, desc: normalise(option.desc) })) ?? null,
         }));
 
     const stray = commands.filter((cmd) => !sheet.categories.includes(cmd.category));

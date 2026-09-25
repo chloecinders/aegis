@@ -1,4 +1,4 @@
-mod model;
+pub mod model;
 
 use quote::{ToTokens, quote};
 use syn::{Data, DeriveInput, Error, Fields, Ident};

@@ -62,7 +62,7 @@ impl Command for Perms {
             "priority" => rank(cx, guild, self.subject.as_deref(), self.target.as_deref()).await,
             "allow" => write(cx, guild, Effect::Allow, &self).await,
             "deny" => write(cx, guild, Effect::Deny, &self).await,
-            _ => Err(Error::bare().title("invalid action")),
+            _ => Err(Error::empty().title("invalid action")),
         }
     }
 }
@@ -85,10 +85,10 @@ async fn clear(cx: &Cx, guild: u64) -> Result<Response> {
 async fn remove(cx: &Cx, guild: u64, id: Option<&str>) -> Result<Response> {
     let id = id
         .and_then(|raw| raw.trim_start_matches('#').parse::<i64>().ok())
-        .ok_or_else(|| Error::bare().title("permission rule not found"))?;
+        .ok_or_else(|| Error::empty().title("permission rule not found"))?;
 
     if !store::remove(cx.pool(), guild, id).await? {
-        return Err(Error::bare().title("permission rule not found"));
+        return Err(Error::empty().title("permission rule not found"));
     }
 
     cx.app.permits.forget(guild);
@@ -100,7 +100,7 @@ async fn remove(cx: &Cx, guild: u64, id: Option<&str>) -> Result<Response> {
 
 async fn scoped(cx: &Cx, raw: Option<&str>) -> Result<(Scope, Snowflake)> {
     let raw = raw.ok_or_else(|| {
-        Error::bare()
+        Error::empty()
             .title("missing role, channel or member")
             .with_hint("id, role:<id>, channel:<id> or member:<id>")
     })?;
@@ -110,7 +110,7 @@ async fn scoped(cx: &Cx, raw: Option<&str>) -> Result<(Scope, Snowflake)> {
     }
 
     let id = raw.parse::<Snowflake>().map_err(|_| {
-        Error::bare()
+        Error::empty()
             .title("expected role, channel or member")
             .with_hint("id, role:<id>, channel:<id> or member:<id>")
     })?;
@@ -132,7 +132,7 @@ async fn scoped(cx: &Cx, raw: Option<&str>) -> Result<(Scope, Snowflake)> {
 }
 
 fn targeted(cx: &Cx, raw: Option<&str>) -> Result<Target> {
-    let raw = raw.ok_or_else(|| Error::bare().title("missing command, category or '*'"))?;
+    let raw = raw.ok_or_else(|| Error::empty().title("missing command, category or '*'"))?;
 
     if raw == "*" {
         return Ok(Target::Everything);
@@ -141,7 +141,7 @@ fn targeted(cx: &Cx, raw: Option<&str>) -> Result<Target> {
     if let Some(name) = raw.strip_prefix('@') {
         return rule::category(name)
             .map(Target::Category)
-            .ok_or_else(|| Error::bare().title("category not found"));
+            .ok_or_else(|| Error::empty().title("category not found"));
     }
 
     let developer = cx.app.is_developer(cx.author_id().get());
@@ -157,7 +157,7 @@ fn targeted(cx: &Cx, raw: Option<&str>) -> Result<Target> {
 
     rule::category(raw)
         .map(Target::Category)
-        .ok_or_else(|| Error::bare().title("command not found"))
+        .ok_or_else(|| Error::empty().title("command not found"))
 }
 
 async fn write(cx: &Cx, guild: u64, effect: Effect, args: &Perms) -> Result<Response> {
@@ -183,15 +183,15 @@ async fn write(cx: &Cx, guild: u64, effect: Effect, args: &Perms) -> Result<Resp
 async fn rank(cx: &Cx, guild: u64, id: Option<&str>, raw: Option<&str>) -> Result<Response> {
     let id = id
         .and_then(|raw| raw.trim_start_matches('#').parse::<i64>().ok())
-        .ok_or_else(|| Error::bare().title("permission rule not found"))?;
+        .ok_or_else(|| Error::empty().title("permission rule not found"))?;
 
     let priority = raw
         .and_then(|raw| raw.parse::<i32>().ok())
-        .ok_or_else(|| Error::bare().title("invalid priority"))?;
+        .ok_or_else(|| Error::empty().title("invalid priority"))?;
 
     let moved = store::set_priority(cx.pool(), guild, id, priority)
         .await?
-        .ok_or_else(|| Error::bare().title("permission rule not found"))?;
+        .ok_or_else(|| Error::empty().title("permission rule not found"))?;
 
     cx.app.permits.forget(guild);
 

@@ -136,12 +136,12 @@ pub fn permission(raw: &str) -> Option<Permissions> {
 pub fn channel(token: &Token) -> Parsed<Snowflake> {
     match mention(&token.raw) {
         Some((Mention::Channel, id)) => Ok(id),
-        Some((Mention::Role, _)) => Err(Error::bare()
+        Some((Mention::Role, _)) => Err(Error::empty()
             .title("invalid rule clause")
             .with_span(token.span, "found role, expected channel")
             .with_span_help(token.span, "provide a channel", "channel:<id>")),
         None => token.raw.parse().map_err(|_| {
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(token.span, "expected channel:<id>")
                 .with_span_help(token.span, "provide a channel", "channel:<id>")
@@ -151,7 +151,7 @@ pub fn channel(token: &Token) -> Parsed<Snowflake> {
 
 pub fn count(token: &Token) -> Parsed<i64> {
     token.raw.parse().map_err(|_| {
-        Error::bare()
+        Error::empty()
             .title("invalid rule clause")
             .with_span(token.span, "expected whole number")
             .with_span_help(token.span, "provide a whole number", "5")

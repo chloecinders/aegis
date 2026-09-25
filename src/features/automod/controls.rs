@@ -132,7 +132,7 @@ fn open(click: &Click) -> Boxed<'_, Result<Reaction>> {
         };
 
         let Some(rule) = store::by_id(&click.app.pool, id).await? else {
-            return Err(Error::bare().title("rule not found"));
+            return Err(Error::empty().title("rule not found"));
         };
 
         let back = click.part(1).and_then(|raw| raw.parse::<usize>().ok());
@@ -151,7 +151,7 @@ fn set_mode(click: &Click) -> Boxed<'_, Result<Reaction>> {
         };
 
         let Some(rule) = store::by_id(&click.app.pool, id).await? else {
-            return Err(Error::bare().title("rule not found"));
+            return Err(Error::empty().title("rule not found"));
         };
 
         store::set_mode(&click.app.pool, &rule.id, mode).await?;
@@ -174,7 +174,7 @@ fn delete_rule(click: &Click) -> Boxed<'_, Result<Reaction>> {
         };
 
         let Some(rule) = store::by_id(&click.app.pool, id).await? else {
-            return Err(Error::bare().title("rule not found"));
+            return Err(Error::empty().title("rule not found"));
         };
 
         store::delete(&click.app.pool, rule.guild, &rule.name).await?;

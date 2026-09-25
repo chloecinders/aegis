@@ -39,11 +39,11 @@ impl Command for MessageLog {
         );
 
         let Some(id) = transcript::store::build(cx.pool(), &asked).await? else {
-            return Err(Error::bare().title("no stored messages found"));
+            return Err(Error::empty().title("no stored messages found"));
         };
 
         let Some(link) = transcript::url(cx.app.config.web_url.as_deref(), guild, &id) else {
-            return Err(Error::bare().title("built without web features"));
+            return Err(Error::empty().title("built without web features"));
         };
 
         Ok(Response::embed(

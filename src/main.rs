@@ -30,10 +30,6 @@ async fn main() {
         return;
     }
 
-    if features::help::dump::intercept() {
-        return;
-    }
-
     if let Err(failure) = app::boot::run().await {
         tracing::error!("{failure}");
         std::process::exit(1);

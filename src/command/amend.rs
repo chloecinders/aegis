@@ -7,7 +7,7 @@ use crate::app::App;
 use crate::command::cx::Cx;
 use crate::command::edit::{Verdict, compare};
 use crate::command::error::{Ctx as _, Error, Result};
-use crate::command::registry::Entry;
+use crate::command::registry::{Entry, Text};
 use crate::command::stream::Stream;
 use crate::command::{EditMode, Response, permissions, pipeline};
 use crate::features::records::{amend, store};
@@ -40,6 +40,10 @@ pub async fn reconsider(app: Arc<App>, ctx: Context, msg: Arc<Message>) {
         return;
     };
 
+    let Some(text) = entry.text else {
+        return;
+    };
+
     if entry.meta.edit == EditMode::Fixed {
         return;
     }
@@ -58,7 +62,7 @@ pub async fn reconsider(app: Arc<App>, ctx: Context, msg: Arc<Message>) {
     }
 
     let mut cx = Cx::reading(Arc::clone(&app), ctx, Arc::clone(&msg), input).amending(response);
-    let outcome = amended(&mut cx, &entry, &record, &mut stream).await;
+    let outcome = amended(&mut cx, &entry, text, &record, &mut stream).await;
 
     respond(&cx, response, outcome).await;
 }
@@ -66,27 +70,28 @@ pub async fn reconsider(app: Arc<App>, ctx: Context, msg: Arc<Message>) {
 async fn amended(
     cx: &mut Cx,
     entry: &Entry,
+    text: Text,
     record: &store::Invocation,
     stream: &mut Stream,
 ) -> Result<Response> {
-    permissions::statics(cx, &entry.meta).await?;
+    permissions::check_invocation(cx, &entry.meta).await?;
 
-    let revised = (entry.rehearse)(cx, stream).await?;
+    let revised = (text.rehearse)(cx, stream).await?;
 
-    match compare(entry.fields, &record.args, &revised) {
+    match compare(text.fields, &record.args, &revised) {
         Verdict::Unchanged => Ok(Response::None),
         Verdict::Reject(why) => Err(Error::internal(why)),
         Verdict::Amend(changes) => {
             cx.remember(entry.meta.name, revised.clone());
 
             let Some(id) = record.action.as_ref() else {
-                return Err(Error::bare().title("log not found"));
+                return Err(Error::empty().title("log not found"));
             };
 
             let guild = cx.guild_snowflake()?;
 
             let Some(action) = store::load(cx.pool(), guild, id).await? else {
-                return Err(Error::bare().title("log not found"));
+                return Err(Error::empty().title("log not found"));
             };
 
             amend::inline(cx, &action, &changes, record.response).await?;

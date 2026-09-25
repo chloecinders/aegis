@@ -25,7 +25,7 @@ impl Command for OcrCheck {
 
     async fn run(self, cx: &mut Cx) -> Result<Response> {
         if !ocr::available() {
-            return Err(Error::bare().title("instance built without ocr features"));
+            return Err(Error::empty().title("instance built without ocr features"));
         }
 
         let source = cx
@@ -61,10 +61,10 @@ impl Command for OcrCheck {
         let bytes = sources::shrunk(attachment)
             .fetch(&cx.app.http)
             .await
-            .map_err(|_| Error::bare().title("image unreadable"))?;
+            .map_err(|_| Error::empty().title("image unreadable"))?;
 
         let Some(reading) = ocr::read(&bytes).await else {
-            return Err(Error::bare().title("image unreadable"));
+            return Err(Error::empty().title("image unreadable"));
         };
 
         Ok(Response::embed(

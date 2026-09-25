@@ -147,7 +147,7 @@ pub fn nav(owner: Snowflake, at: usize, total: usize) -> Vec<Button> {
 async fn load_offer(click: &Click, guild: u64, id: &str) -> Result<Offer> {
     let managed = managed::store::by_id(&click.app.pool, id)
         .await?
-        .ok_or_else(|| Error::bare().title("managed rule not found"))?;
+        .ok_or_else(|| Error::empty().title("managed rule not found"))?;
     let subscription = managed::store::subscription(&click.app.pool, guild, &managed.id).await?;
 
     Ok(Offer {
@@ -205,7 +205,7 @@ fn set_mode(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let mut offer = load_offer(click, guild, id).await?;
 
         if offer.subscription.is_none() {
-            return Err(Error::bare().title("server not subscribed to rule"));
+            return Err(Error::empty().title("server not subscribed to rule"));
         }
 
         managed::store::set_guild_mode(&click.app.pool, guild, &offer.managed.id, mode).await?;

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!\" FROM message_deletions d\n        JOIN messages m ON m.message_id = d.message_id\n        WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9a39f6ea4b98dffa77e54f3a00ca047b3358e98c8d45e716a13f560e57310cce"
+}

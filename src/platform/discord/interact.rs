@@ -151,7 +151,7 @@ impl Reaction {
 }
 
 pub fn stale() -> Embed {
-    render::render(&Error::bare().title("stale control"))
+    render::render(&Error::empty().title("stale control"))
 }
 
 pub type Handler = for<'a> fn(&'a Click) -> Boxed<'a, Result<Reaction>>;
@@ -201,11 +201,11 @@ fn allowed(click: &Click, control: &Control) -> Result<()> {
     let one_of = control.one_of.is_empty() || permissions.intersects(control.one_of);
 
     if !permissions.contains(control.user) || !one_of {
-        return Err(Error::bare().title("missing required permissions"));
+        return Err(Error::empty().title("missing required permissions"));
     }
 
     if control.strangers == Strangers::Deny && !click.raised_it() {
-        return Err(Error::bare().title("not your interaction"));
+        return Err(Error::empty().title("not your interaction"));
     }
 
     Ok(())

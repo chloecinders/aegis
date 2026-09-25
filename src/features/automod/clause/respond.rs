@@ -14,7 +14,7 @@ impl Draft {
         let rest = line.rest();
 
         if rest.is_empty() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(line.keyword().span, "missing channel")
                 .with_span_help(
@@ -39,7 +39,7 @@ impl Draft {
         let rest = line.rest();
 
         if rest.is_empty() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(line.keyword().span, "missing role, channel or permission")
                 .with_span_help(line.keyword().span, "provide one", "ignore role:<id>"));
@@ -48,7 +48,7 @@ impl Draft {
         for token in rest {
             if token.raw.starts_with("permission:") {
                 let flag = permission(&token.raw).ok_or_else(|| {
-                    Error::bare()
+                    Error::empty()
                         .title("invalid rule clause")
                         .with_span(token.span, "no permission found")
                         .with_span_help(
@@ -64,7 +64,7 @@ impl Draft {
             }
 
             let (kind, id) = mention(&token.raw).ok_or_else(|| {
-                Error::bare()
+                Error::empty()
                     .title("invalid rule clause")
                     .with_span(
                         token.span,
@@ -91,7 +91,7 @@ impl Draft {
         let here = rest.first().map_or(line.keyword().span, |token| token.span);
 
         if self.after.replace(here).is_some() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "duplicate after clause"));
         }
@@ -106,7 +106,7 @@ impl Draft {
                 None => "after 2 in 10m".to_string(),
             };
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "incomplete after clause")
                 .with_span_help(sweep, "provide a valid threshold", filled));
@@ -118,7 +118,7 @@ impl Draft {
                 false => "in".to_string(),
             };
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(joiner.span, "expected in")
                 .with_span_help(joiner.span, "join the timeframe with in", filled));
@@ -127,7 +127,7 @@ impl Draft {
         let count = count(times)?;
 
         if count < 2 {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(times.span, "count below 2")
                 .with_span_help(times.span, "provide 2 or more", "2"));
@@ -135,7 +135,7 @@ impl Draft {
 
         let at = written.first().map_or(joiner.span, |token| token.span);
         let counted = window(written).ok_or_else(|| {
-            let error = Error::bare()
+            let error = Error::empty()
                 .title("invalid rule clause")
                 .with_span(at, "not a duration");
 
@@ -155,7 +155,7 @@ impl Draft {
         if counted <= Duration::zero() {
             let last = written.last().map_or(at, |token| token.span);
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(at, "empty timeframe")
                 .with_span_help(
@@ -181,13 +181,13 @@ impl Draft {
         let here = rest.first().map_or(line.keyword().span, |token| token.span);
 
         if self.action.replace(here).is_some() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "duplicate then clause"));
         }
 
         let [verb, tail @ ..] = rest else {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "missing action")
                 .with_span_help(here, "provide an action", "then ban 7d"));
@@ -198,7 +198,7 @@ impl Draft {
 
             return match tail.is_empty() {
                 true => Ok(()),
-                false => Err(Error::bare()
+                false => Err(Error::empty()
                     .title("invalid rule clause")
                     .with_span(tail[0].span, "delete has no arguments")),
             };
@@ -207,7 +207,7 @@ impl Draft {
         let parsed = PunishmentType::parse(&verb.raw.to_lowercase())
             .filter(|verb| !matches!(verb, PunishmentType::Unban | PunishmentType::Unmute))
             .ok_or_else(|| {
-                Error::bare()
+                Error::empty()
                     .title("invalid rule clause")
                     .with_span(verb.span, "no action found")
                     .with_span_help(verb.span, "provide a valid action", "ban")
@@ -222,7 +222,7 @@ impl Draft {
         let at = tail.first().map_or(verb.span, |token| token.span);
 
         if !parsed.has_duration() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(at, "only bans and mutes have durations"));
         }
@@ -230,7 +230,7 @@ impl Draft {
         self.body.outcome.duration = window(tail).ok_or_else(|| {
             let last = tail.last().map_or(at, |token| token.span);
 
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(at, "not a duration")
                 .with_span_help(
@@ -251,7 +251,7 @@ impl Draft {
         let here = rest.first().map_or(line.keyword().span, |token| token.span);
 
         let Some(amount) = rest.first() else {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "missing days")
                 .with_span_help(here, "provide a number of days", "clear 1"));
@@ -269,7 +269,7 @@ impl Draft {
                 false => "7",
             };
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(amount.span, "discord clears at most 7 days")
                 .with_span_help(amount.span, "provide 0 to 7 days", filled));
@@ -284,7 +284,7 @@ impl Draft {
         let rest = line.rest();
         let here = rest.first().map_or(line.keyword().span, |token| token.span);
         let target = rest.first().ok_or_else(|| {
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "missing channel")
                 .with_span_help(here, "provide a channel or none", "notify channel:<id>")
@@ -300,14 +300,14 @@ impl Draft {
 
     pub fn reason(&mut self, line: &Line) -> Parsed<()> {
         let (text, span) = line.verbatim().ok_or_else(|| {
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(line.keyword().span, "missing reason")
                 .with_span_help(line.keyword().span, "provide a reason", "reason scam bot")
         })?;
 
         if self.reason.replace(span).is_some() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(span, "duplicate reason clause"));
         }

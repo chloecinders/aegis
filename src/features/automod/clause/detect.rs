@@ -13,7 +13,7 @@ impl Draft {
         let rest = line.rest();
 
         if rest.is_empty() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(line.keyword().span, "no source found")
                 .with_span_help(line.keyword().span, "provide a valid source", "on content"));
@@ -21,7 +21,7 @@ impl Draft {
 
         for token in rest {
             let source = Source::parse(&token.raw.to_lowercase()).ok_or_else(|| {
-                Error::bare()
+                Error::empty()
                     .title("invalid rule clause")
                     .with_span(token.span, "no source found")
                     .with_span_help(token.span, "provide a valid source", "content")
@@ -42,14 +42,14 @@ impl Draft {
                 false => "match \"free nitro\"",
             };
 
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(line.keyword().span, "missing pattern")
                 .with_span_help(line.keyword().span, "provide a pattern", filled)
         })?;
 
         let matcher = Matcher::parse(&raw).map_err(|problem| {
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(span, problem)
         })?;
@@ -60,7 +60,7 @@ impl Draft {
         };
 
         if into.len() >= 64 {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(span, "too many patterns"));
         }
@@ -88,14 +88,14 @@ impl Draft {
                 None => "when mentions > 5".to_string(),
             };
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(here, "incomplete when clause")
                 .with_span_help(written, "provide a valid when clause", filled));
         };
 
         let measure = Measure::parse(&subject.raw.to_lowercase()).ok_or_else(|| {
-            Error::bare()
+            Error::empty()
                 .title("invalid rule clause")
                 .with_span(subject.span, "no measure found")
                 .with_span_help(subject.span, "provide a valid measure", "mentions")
@@ -104,7 +104,7 @@ impl Draft {
         let condition = match measure {
             measure if measure.counts_record() => {
                 let cmp = Cmp::parse(&middle.raw).ok_or_else(|| {
-                    Error::bare()
+                    Error::empty()
                         .title("invalid rule clause")
                         .with_span(middle.span, "expected >, <, >= or <=")
                         .with_span_help(middle.span, "compare with an operator", ">=")
@@ -112,7 +112,7 @@ impl Draft {
                 let count = count(bound)?;
 
                 if count < 0 {
-                    return Err(Error::bare()
+                    return Err(Error::empty()
                         .title("invalid rule clause")
                         .with_span(bound.span, "negative count")
                         .with_span_help(
@@ -139,7 +139,7 @@ impl Draft {
                             false => "younger than",
                         };
 
-                        return Err(Error::bare()
+                        return Err(Error::empty()
                             .title("invalid rule clause")
                             .with_span(middle.span, "expected younger or older")
                             .with_span_help(middle.span, "provide younger or older", filled));
@@ -154,7 +154,7 @@ impl Draft {
                         false => "than".to_string(),
                     };
 
-                    return Err(Error::bare()
+                    return Err(Error::empty()
                         .title("invalid rule clause")
                         .with_span(bound.span, "expected than")
                         .with_span_help(bound.span, "join the age with than", filled));
@@ -162,7 +162,7 @@ impl Draft {
 
                 let at = amount.first().map_or(bound.span, |token| token.span);
                 let age = window(amount).ok_or_else(|| {
-                    let error = Error::bare()
+                    let error = Error::empty()
                         .title("invalid rule clause")
                         .with_span(at, "not a duration");
 
@@ -189,7 +189,7 @@ impl Draft {
             _ => Condition {
                 measure,
                 cmp: Cmp::parse(&middle.raw).ok_or_else(|| {
-                    Error::bare()
+                    Error::empty()
                         .title("invalid rule clause")
                         .with_span(middle.span, "expected >, <, >= or <=")
                         .with_span_help(middle.span, "compare with an operator", ">")
@@ -216,7 +216,7 @@ impl Draft {
                 false => "in".to_string(),
             };
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(joiner.span, "expected in")
                 .with_span_help(joiner.span, "join the window with in", filled));
@@ -224,7 +224,7 @@ impl Draft {
 
         let at = written.first().map_or(joiner.span, |token| token.span);
         let counted = window(written).ok_or_else(|| {
-            let error = Error::bare()
+            let error = Error::empty()
                 .title("invalid rule clause")
                 .with_span(at, "not a duration");
 
@@ -244,7 +244,7 @@ impl Draft {
         if counted <= Duration::zero() {
             let last = written.last().map_or(at, |token| token.span);
 
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(at, "empty window")
                 .with_span_help(

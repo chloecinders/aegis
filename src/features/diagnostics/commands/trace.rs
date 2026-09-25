@@ -26,7 +26,7 @@ impl Command for Trace {
         let message = self.message.into_value().get();
 
         let Some(run) = store::of_message(cx.pool(), message).await? else {
-            return Err(Error::bare().title("no trace found for message"));
+            return Err(Error::empty().title("no trace found for message"));
         };
 
         Ok(Response::embed(ui::timing(&run)))

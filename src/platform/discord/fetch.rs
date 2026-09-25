@@ -83,7 +83,7 @@ pub async fn channel(
 
     match fetched.base.guild_id == guild {
         true => Ok(fetched),
-        false => Err(Error::bare().title("channel not in this server")),
+        false => Err(Error::empty().title("channel not in this server")),
     }
 }
 

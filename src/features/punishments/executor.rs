@@ -80,13 +80,13 @@ pub async fn apply(
         if punishment.actor != cx.bot_id().get()
             && !cx.can_target(member, authority(punishment.verb)).await
         {
-            return Err(Error::bare().title("cannot target this member"));
+            return Err(Error::empty().title("cannot target this member"));
         }
 
         if punishment.verb != PunishmentType::Warn
             && !cx.bot_can_target(member, authority(punishment.verb)).await
         {
-            return Err(Error::bare().title("bot cannot target this member"));
+            return Err(Error::empty().title("bot cannot target this member"));
         }
     }
 

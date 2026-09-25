@@ -26,6 +26,7 @@ pub fn observe(dispatch: &mut Dispatch) {
 }
 
 pub fn control(router: &mut Router) {
+    archive::control(router);
     automod::control(router);
     help::control(router);
     records::control(router);

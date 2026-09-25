@@ -65,6 +65,27 @@ export async function kinds(files: string[]): Promise<Map<string, string>> {
     return found;
 }
 
+export async function optionKinds(files: string[]): Promise<Map<string, string>> {
+    const found = new Map<string, string>();
+
+    const KIND = /const\s+KIND\s*:\s*CommandOptionType\s*=\s*CommandOptionType::([A-Za-z0-9_]+)\s*;/;
+
+    for (const at of files) {
+        const src = decomment(await rust(at));
+
+        for (const match of src.matchAll(/impl\s+FromOption\s+for\s+([A-Za-z0-9_]+)\s*\{/g)) {
+            const body = inner(src, src.indexOf("{", match.index + match[0].length - 1));
+            const kind = KIND.exec(body);
+
+            if (!kind) throw new Error(`FromOption for ${match[1]} declares no KIND`);
+
+            found.set(match[1]!, kind[1]!);
+        }
+    }
+
+    return found;
+}
+
 function fields(body: string, at: string): Modeled[] {
     const found: Modeled[] = [];
 
@@ -202,32 +223,40 @@ function metaBlock(body: string, at: string): Omit<Parsed, "fields"> {
     };
 }
 
-export async function commands(files: string[]): Promise<Map<string, Parsed>> {
+async function structs(files: string[], attribute: string, implemented: string): Promise<Map<string, Parsed>> {
     const found = new Map<string, Parsed>();
+    const declared = new RegExp(`#\\[${attribute}\\]\\s*(?:pub(?:\\s*\\([^)]*\\))?\\s+)?struct\\s+([A-Za-z0-9_]+)\\s*([{;])`, "g");
 
     for (const at of files) {
         const src = decomment(await rust(at));
 
-        for (const match of src.matchAll(/#\[command\]\s*(?:pub(?:\s*\([^)]*\))?\s+)?struct\s+([A-Za-z0-9_]+)\s*\{/g)) {
+        for (const match of src.matchAll(declared)) {
             const struct = match[1]!;
-            const opened = src.indexOf("{", match.index + match[0].length - 1);
-            const impl = new RegExp(`impl\\s+Command\\s+for\\s+${struct}\\s*\\{`).exec(src);
+            const impl = new RegExp(`impl\\s+${implemented}\\s+for\\s+${struct}\\s*\\{`).exec(src);
 
-            if (!impl) throw new Error(`${struct} is a #[command] struct with no Command impl`);
+            if (!impl) throw new Error(`${struct} is a #[${attribute}] struct with no ${implemented} impl`);
 
             const body = inner(src, src.indexOf("{", impl.index + impl[0].length - 1));
             const meta = /const\s+META\s*:\s*Meta\s*=\s*meta!\s*\{/.exec(body);
 
-            if (!meta) throw new Error(`${struct} implements Command without a meta! block`);
+            if (!meta) throw new Error(`${struct} implements ${implemented} without a meta! block`);
 
-            if (found.has(struct)) throw new Error(`two #[command] structs are named ${struct}`);
+            if (found.has(struct)) throw new Error(`two #[${attribute}] structs are named ${struct}`);
 
             found.set(struct, {
-                fields: fields(inner(src, opened), struct),
+                fields: match[2] === ";" ? [] : fields(inner(src, match.index + match[0].length - 1), struct),
                 ...metaBlock(inner(body, body.indexOf("{", meta.index + meta[0].length - 1)), struct),
             });
         }
     }
 
     return found;
+}
+
+export function commands(files: string[]): Promise<Map<string, Parsed>> {
+    return structs(files, "command", "Command");
+}
+
+export function slashes(files: string[]): Promise<Map<string, Parsed>> {
+    return structs(files, "slash", "Slash");
 }

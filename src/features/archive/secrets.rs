@@ -132,6 +132,19 @@ impl Keys {
     }
 }
 
+pub fn open(key: Option<&Secret>, stored: Option<&[u8]>) -> String {
+    let Some(stored) = stored else {
+        return String::new();
+    };
+
+    let opened = match key {
+        Some(key) => crypto::decrypt(key, stored),
+        None => String::from_utf8(stored.to_vec()).ok(),
+    };
+
+    opened.unwrap_or_else(|| String::from("[unreadable]"))
+}
+
 enum Found {
     Key(Secret),
     Gone,

@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 
-import type { Documented, Flag, Token } from "./commands.ts";
+import type { Documented, Flag, SlashOption, Token } from "./commands.ts";
 import { highlightExample, highlightSyntax, titleCase } from "./commands.ts";
 
 function Highlighted(props: { tokens: Token[] }) {
@@ -63,9 +63,43 @@ function Parameters(props: { flags: Flag[] }) {
     );
 }
 
+function Options(props: { options: SlashOption[] }) {
+    return (
+        <Show when={props.options.length}>
+            <h2>Options</h2>
+            <table class="params-table">
+                <thead>
+                    <tr>
+                        <th class="params-table__head">Name</th>
+                        <th class="params-table__head">Type</th>
+                        <th class="params-table__head">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <For each={props.options}>
+                        {(option) => (
+                            <tr>
+                                <td class="params-table__cell">
+                                    <code>{option.name}</code>
+                                </td>
+                                <td class="params-table__cell">
+                                    <code>{option.kind}</code>
+                                </td>
+                                <td class="params-table__cell" innerHTML={option.desc} />
+                            </tr>
+                        )}
+                    </For>
+                </tbody>
+            </table>
+        </Show>
+    );
+}
+
 export function Command(props: { cmd: Documented; prose: string }) {
     const cmd = () => props.cmd;
     const invocation = (rest: string) => (rest ? "+" + cmd().name + " " + rest : "+" + cmd().name);
+    const slashed = (options: SlashOption[]) =>
+        ["/" + cmd().name, ...options.map((option) => (option.required ? `<${option.name}: ${option.kind}>` : `[${option.name}: ${option.kind}]`))].join(" ");
 
     return (
         <>
@@ -96,16 +130,28 @@ export function Command(props: { cmd: Documented; prose: string }) {
             </div>
 
             <h2>Usage</h2>
-            <div class="code-box">
-                <Highlighted tokens={highlightSyntax(invocation(cmd().syntax))} />
-            </div>
+            <Show when={cmd().syntax !== null}>
+                <div class="code-box">
+                    <Highlighted tokens={highlightSyntax(invocation(cmd().syntax!))} />
+                </div>
+            </Show>
+            <Show when={cmd().slash}>
+                {(options) => (
+                    <div class="code-box">
+                        <Highlighted tokens={highlightSyntax(slashed(options()))} />
+                    </div>
+                )}
+            </Show>
 
-            <h2>Examples</h2>
-            <div class="code-box code-box--examples">
-                <Highlighted tokens={highlightExample(invocation(cmd().example))} />
-            </div>
+            <Show when={cmd().example !== null}>
+                <h2>Examples</h2>
+                <div class="code-box code-box--examples">
+                    <Highlighted tokens={highlightExample(invocation(cmd().example!))} />
+                </div>
+            </Show>
 
             <Parameters flags={cmd().flags} />
+            <Options options={cmd().slash ?? []} />
 
             <Show when={props.prose}>
                 <div class="wiki-content__extra" style="margin-top: 40px" innerHTML={props.prose} />

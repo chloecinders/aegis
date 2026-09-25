@@ -25,7 +25,7 @@ impl Draft {
         if let Some(span) = self.matching
             && !sources.iter().any(Source::yields_text)
         {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(span, "source has no text"));
         }
@@ -35,13 +35,13 @@ impl Draft {
             .iter()
             .find(|(_, measure)| !sources.iter().any(|source| measure.available_on(*source)))
         {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(*span, "measure not available on this source"));
         }
 
         if self.body.matches.is_empty() && self.body.conditions.is_empty() {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(whole, "missing match or when clause"));
         }

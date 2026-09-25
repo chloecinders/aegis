@@ -12,7 +12,7 @@ use serenity::async_trait;
 use tracing::info;
 
 use crate::app::App;
-use crate::command::{amend, pipeline, retract};
+use crate::command::{amend, pipeline, retract, slash};
 use crate::features::punishments::sync;
 use crate::platform::discord::dispatch::{
     BulkDeletionCx, DeletionCx, Dispatch, MemberCx, MessageCx, VoiceCx,
@@ -121,13 +121,10 @@ impl Gateway {
         }
 
         tokio::spawn(sync::on_boot(Arc::clone(&self.app), Arc::clone(&ctx.http)));
-
-        #[cfg(feature = "web")]
-        if self.app.config.discord_client_id.is_some() {
-            let http = Arc::clone(&ctx.http);
-
-            tokio::spawn(async move { crate::web::entrypoint::install(&http).await });
-        }
+        tokio::spawn(slash::run::install(
+            Arc::clone(&self.app),
+            Arc::clone(&ctx.http),
+        ));
     }
 
     async fn message(&self, ctx: &Context, message: Message) {
@@ -268,8 +265,14 @@ impl Gateway {
             Interaction::Modal(modal) => {
                 interact::submitted(Arc::clone(&self.app), ctx.clone(), modal).await
             }
-            #[cfg(feature = "web")]
-            Interaction::Command(command) => crate::web::entrypoint::launched(ctx, &command).await,
+            Interaction::Command(command) => {
+                #[cfg(feature = "web")]
+                if command.data.name == "configure" {
+                    return crate::web::entrypoint::launched(ctx, &command).await;
+                }
+
+                slash::run::handle_command(Arc::clone(&self.app), ctx.clone(), command).await
+            }
             _ => (),
         }
     }

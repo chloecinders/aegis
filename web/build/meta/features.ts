@@ -24,10 +24,15 @@ function enabled(predicate: string, features: string[], at: string): boolean {
     return features.includes(literal(trimmed, trimmed.indexOf('"')).value);
 }
 
-export async function order(features: string[]): Promise<string[]> {
+export interface Registered {
+    commands: string[];
+    slashes: string[];
+}
+
+export async function order(features: string[]): Promise<Registered> {
     const root = decomment(await rust(path.join(SRC, "features", "mod.rs")));
     const body = item(root, /pub\s+fn\s+register\s*\(/);
-    const found: string[] = [];
+    const found: Registered = { commands: [], slashes: [] };
 
     for (const feature of body.matchAll(/([A-Za-z0-9_]+)::register\s*\(/g)) {
         const at = path.join(SRC, "features", feature[1]!, "mod.rs");
@@ -38,7 +43,7 @@ export async function order(features: string[]): Promise<string[]> {
         let cursor = 0;
 
         while (cursor < register.length) {
-            const next = /#\[\s*cfg\s*\(|(?:crate::)?register!\s*\(/.exec(register.slice(cursor));
+            const next = /#\[\s*cfg\s*\(|(?:crate::)?register(_slash)?!\s*\(/.exec(register.slice(cursor));
 
             if (!next) break;
 
@@ -55,7 +60,7 @@ export async function order(features: string[]): Promise<string[]> {
             const listed = pieces(inner(register, opened), ",").slice(1);
 
             if (!required || enabled(required, features, `${feature[1]}::register`))
-                found.push(...listed.map((one) => one.split("::").pop()!.trim()));
+                (next[1] ? found.slashes : found.commands).push(...listed.map((one) => one.split("::").pop()!.trim()));
 
             required = null;
             cursor = block(register, opened);

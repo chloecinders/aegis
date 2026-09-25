@@ -67,13 +67,13 @@ pub struct Error(Box<Diagnostic>);
 
 impl Error {
     pub fn new(source: impl Into<String>) -> Self {
-        let mut error = Self::bare();
+        let mut error = Self::empty();
 
         error.0.source = Some(source.into());
         error
     }
 
-    pub fn bare() -> Self {
+    pub fn empty() -> Self {
         Self::default()
     }
 
@@ -131,7 +131,7 @@ impl Error {
     }
 
     pub fn internal(context: &'static str) -> Self {
-        Error::bare()
+        Error::empty()
             .title("internal error")
             .caused(Cause::Internal { context })
     }
@@ -266,7 +266,7 @@ pub trait Ctx<T> {
 impl<T> Ctx<T> for std::result::Result<T, sqlx::Error> {
     fn ctx(self, op: &'static str) -> Result<T> {
         self.map_err(|source| {
-            Error::bare()
+            Error::empty()
                 .title("database request failed")
                 .caused(Cause::Store {
                     op,
@@ -279,7 +279,7 @@ impl<T> Ctx<T> for std::result::Result<T, sqlx::Error> {
 impl<T> Ctx<T> for std::result::Result<T, serenity::Error> {
     fn ctx(self, op: &'static str) -> Result<T> {
         self.map_err(|source| {
-            Error::bare()
+            Error::empty()
                 .title("discord request failed")
                 .caused(Cause::Discord {
                     op,

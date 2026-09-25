@@ -24,7 +24,7 @@ impl Command for SetDuration {
         short: "Edits the duration of a punishment",
         full: "Edits the duration of a punishment. The new duration is calculated from when the duration command is ran, \
         not from when the punishment started. For example if you ban someone for 1 week, wait a day then change the \
-        duration to 5d the member will stay banned for 6 days total, from the time the punishment happened.\
+        duration to 5d the member will stay banned for 6 days total, from the time the punishment happened. \
         Passing 0 will make the duration permanent.",
         category: Records,
         one_of: [MODERATE_MEMBERS, KICK_MEMBERS, BAN_MEMBERS, MANAGE_NICKNAMES],
@@ -37,15 +37,15 @@ impl Command for SetDuration {
         let id = self.id.into_value();
 
         let Some(action) = store::load(cx.pool(), guild, &id).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         if !action.verb.has_duration() {
-            return Err(Error::bare().title("only bans and mutes have durations"));
+            return Err(Error::empty().title("only bans and mutes have durations"));
         }
 
         if !action.state.active() {
-            return Err(Error::bare().title("action no longer active"));
+            return Err(Error::empty().title("action no longer active"));
         }
 
         let change = Change {

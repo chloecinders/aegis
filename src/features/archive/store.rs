@@ -228,3 +228,66 @@ pub async fn disable(pool: &PgPool, guild: Snowflake) -> Result<u64> {
 
     Ok(wiped.rows_affected())
 }
+
+pub struct DeletedMessage {
+    pub message: Snowflake,
+    pub author: Snowflake,
+    pub author_name: String,
+    pub author_display_name: Option<String>,
+    pub author_avatar_url: Option<String>,
+    pub parent: Option<Snowflake>,
+    pub body: Option<Vec<u8>>,
+    pub attachments: Option<serde_json::Value>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub async fn count_deleted(pool: &PgPool, guild: Snowflake, channel: Snowflake) -> Result<u64> {
+    let counted = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM message_deletions d
+        JOIN messages m ON m.message_id = d.message_id
+        WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system"#,
+        guild as i64,
+        channel as i64
+    )
+    .fetch_one(pool)
+    .await
+    .ctx("count deleted messages")?;
+
+    Ok(counted as u64)
+}
+
+pub async fn nth_deleted(
+    pool: &PgPool,
+    guild: Snowflake,
+    channel: Snowflake,
+    at: u64,
+) -> Result<Option<DeletedMessage>> {
+    let row = sqlx::query!(
+        "SELECT m.message_id, m.author_id, m.author_name, m.author_display_name,
+            m.author_avatar_url, m.referenced_message_id, m.content, m.attachment_urls,
+            m.created_at
+        FROM message_deletions d
+        JOIN messages m ON m.message_id = d.message_id
+        WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system
+        ORDER BY d.deleted_at DESC, d.message_id DESC
+        OFFSET $3 LIMIT 1",
+        guild as i64,
+        channel as i64,
+        at as i64
+    )
+    .fetch_optional(pool)
+    .await
+    .ctx("read a deleted message")?;
+
+    Ok(row.map(|row| DeletedMessage {
+        message: row.message_id as Snowflake,
+        author: row.author_id as Snowflake,
+        author_name: row.author_name,
+        author_display_name: row.author_display_name,
+        author_avatar_url: row.author_avatar_url,
+        parent: row.referenced_message_id.map(|id| id as Snowflake),
+        body: row.content,
+        attachments: row.attachment_urls,
+        created_at: row.created_at,
+    }))
+}

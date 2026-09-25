@@ -42,7 +42,7 @@ impl Command for SetSticky {
             }
 
             if !store::clear(cx.pool(), channel).await? {
-                return Err(Error::bare().title("sticky not found"));
+                return Err(Error::empty().title("sticky not found"));
             }
 
             cx.app.stickies.forget(channel);

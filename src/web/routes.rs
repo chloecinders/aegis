@@ -6,8 +6,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::Snowflake;
+use crate::features::archive::secrets::open;
 use crate::features::archive::transcript::{self, store};
-use crate::platform::crypto;
 use crate::web::Shared;
 use crate::web::directory::Entry;
 use crate::web::session::{Membership, Session};
@@ -258,17 +258,4 @@ fn links(stored: serde_json::Value) -> Vec<String> {
             _ => None,
         })
         .collect()
-}
-
-fn open(key: Option<&crypto::Secret>, stored: Option<&[u8]>) -> String {
-    let Some(stored) = stored else {
-        return String::new();
-    };
-
-    let opened = match key {
-        Some(key) => crypto::decrypt(key, stored),
-        None => String::from_utf8(stored.to_vec()).ok(),
-    };
-
-    opened.unwrap_or_else(|| String::from("[unreadable]"))
 }

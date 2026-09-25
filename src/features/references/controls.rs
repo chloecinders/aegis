@@ -61,7 +61,7 @@ fn view(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let action = ActionId::from(id.to_string());
 
         let Some(mut captured) = store::load(&click.app.pool, guild, &action).await? else {
-            return Err(Error::bare().title("reference not found"));
+            return Err(Error::empty().title("reference not found"));
         };
 
         references::confirm(&click.app.pool, &click.ctx, &action, &mut captured).await?;

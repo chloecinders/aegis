@@ -127,7 +127,7 @@ async fn show(cx: &Cx, guild: Snowflake, tail: Option<&str>, tokens: &[Token]) -
 
     let found = store::resolve(cx.pool(), guild, cx.author_id().get(), name)
         .await?
-        .ok_or_else(|| Error::bare().title("snippet not found"))?;
+        .ok_or_else(|| Error::empty().title("snippet not found"))?;
 
     Ok(Response::embed(ui::shown(&found, cx.app.prefix())))
 }
@@ -149,7 +149,7 @@ async fn remove(
     };
 
     if !store::delete(cx.pool(), scope, name).await? {
-        return Err(Error::bare().title("snippet not found"));
+        return Err(Error::empty().title("snippet not found"));
     }
 
     Ok(Response::embed(ui::deleted(name, scope)))
@@ -228,20 +228,26 @@ async fn save(
 
     let leading = body.split_whitespace().next().unwrap_or_default();
 
-    let Some(entry) = cx.app.registry.find(leading).copied() else {
+    let Some(entry) = cx
+        .app
+        .registry
+        .find(leading)
+        .filter(|entry| entry.text.is_some())
+        .copied()
+    else {
         return Err(Error::new(cx.input())
             .title("expected a command")
             .with_span(spanned(tokens, at + 1), "unknown command")
             .with_span_help(spanned(tokens, at + 1), "provide a valid command", "ban"));
     };
 
-    permissions::may(cx, &entry.meta).await?;
+    permissions::check_member_access(cx, &entry.meta).await?;
 
     let body = String::from(body);
     let existing = store::find(cx.pool(), scope, name).await?;
 
     if existing.is_none() && store::count(cx.pool(), scope).await? >= scope.limit() {
-        return Err(Error::bare().title(format!("{} snippet limit reached", scope.limit())));
+        return Err(Error::empty().title(format!("{} snippet limit reached", scope.limit())));
     }
 
     store::save(cx.pool(), scope, name, &body).await?;

@@ -27,7 +27,7 @@ impl Command for ViewRef {
         let guild = cx.guild_snowflake()?;
 
         let Some(mut captured) = store::load(cx.pool(), guild, &id).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         references::confirm(cx.pool(), &cx.ctx, &id, &mut captured).await?;

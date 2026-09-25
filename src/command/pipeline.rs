@@ -5,10 +5,10 @@ use serenity::all::{Context, Message, MessageId};
 use crate::app::App;
 use crate::command::cx::Cx;
 use crate::command::error::{Error, Result};
-use crate::command::registry::Entry;
+use crate::command::registry::{Entry, Text};
 use crate::command::stream::Stream;
 use crate::command::typing::Typing;
-use crate::command::{EditMode, Response, permissions};
+use crate::command::{EditMode, Meta, Response, permissions};
 use crate::domain::ids::ActionId;
 use crate::features::diagnostics::store::TraceRow;
 use crate::features::records::store as invocations;
@@ -81,13 +81,17 @@ pub async fn run(
         return;
     };
 
+    let Some(text) = entry.text else {
+        return;
+    };
+
     let mut cx =
         Cx::reading(Arc::clone(&app), ctx.clone(), Arc::clone(&msg), input).amending(revising);
 
     cx.trace("resolve");
     open(&cx, &entry).await;
 
-    let outcome = execute(&mut cx, &entry, &mut stream).await;
+    let outcome = execute(&mut cx, &entry.meta, text, &mut stream).await;
     let verdict = match &outcome {
         Ok(_) => None,
         Err(failure) => Some(failure.headline().to_string()),
@@ -153,13 +157,13 @@ async fn close(
     }
 }
 
-async fn execute(cx: &mut Cx, entry: &Entry, stream: &mut Stream) -> Result<Response> {
-    permissions::statics(cx, &entry.meta).await?;
+async fn execute(cx: &mut Cx, meta: &Meta, text: Text, stream: &mut Stream) -> Result<Response> {
+    permissions::check_invocation(cx, meta).await?;
     cx.trace("gate_static");
 
     let _signal = Typing::watch(&cx.ctx, cx.channel_id());
 
-    (entry.execute)(cx, stream).await
+    (text.execute)(cx, stream).await
 }
 
 async fn post(cx: &Cx, embed: &Embed) -> Option<MessageId> {

@@ -32,7 +32,7 @@ impl Command for SetNote {
         let id = self.id.into_value();
 
         let Some(before) = store::load(cx.pool(), guild, &id).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         store::set_note(cx.pool(), guild, &id, self.note.as_ref()).await?;

@@ -59,7 +59,7 @@ async fn opened(cx: &Cx, guild: Snowflake, target: Snowflake, id: &ActionId) -> 
     let found = store::load(cx.pool(), guild, id).await?;
 
     let Some(action) = found.filter(|action| action.target == target) else {
-        return Err(Error::bare().title("log not found"));
+        return Err(Error::empty().title("log not found"));
     };
 
     let (embed, buttons) = controls::panel(&cx.app, cx.author_id().get(), &action, None).await?;

@@ -1,6 +1,6 @@
 use serenity::all::Permissions;
 
-use crate::command::registry::{Entry, Registry};
+use crate::command::registry::{Entry, Registry, Text};
 use crate::command::{CATEGORIES, Category};
 use crate::platform::ui::embed::{Embed, codeblock};
 use crate::platform::ui::tone::Tone;
@@ -13,6 +13,7 @@ pub struct Page {
 fn section(registry: &Registry, category: Category, developer: bool) -> Option<Page> {
     let lines: Vec<String> = registry
         .in_category(category)
+        .filter(|entry| entry.text.is_some())
         .filter(|entry| (developer || !entry.meta.developer) && !entry.meta.hidden)
         .map(|entry| format!("`{}` - {}", entry.meta.name, entry.meta.short))
         .collect();
@@ -67,10 +68,10 @@ fn invocation(entry: &Entry, prefix: &str, rest: String) -> String {
     }
 }
 
-pub fn detail(entry: &Entry, prefix: &str) -> Embed {
+pub fn detail(entry: &Entry, text: &Text, prefix: &str) -> Embed {
     let mut body = entry.meta.full.replace("/p/", prefix);
 
-    let parameters: Vec<String> = entry
+    let parameters: Vec<String> = text
         .parameters()
         .map(|flag| {
             format!(
@@ -90,8 +91,8 @@ pub fn detail(entry: &Entry, prefix: &str) -> Embed {
 
     body.push_str(&format!(
         "\n\nSyntax:\n{}\nExample:\n{}",
-        codeblock(&invocation(entry, prefix, entry.syntax())),
-        codeblock(&invocation(entry, prefix, entry.example()))
+        codeblock(&invocation(entry, prefix, text.syntax())),
+        codeblock(&invocation(entry, prefix, text.example()))
     ));
 
     let required = permission_names(entry.meta.user);

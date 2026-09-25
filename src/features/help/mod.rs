@@ -1,5 +1,4 @@
 pub mod controls;
-pub mod dump;
 
 use crate::command::cx::Cx;
 use crate::command::error::{Error, Result};
@@ -40,11 +39,11 @@ impl Command for Help {
             .find(&wanted)
             .filter(|entry| developer || !entry.meta.developer);
 
-        let Some(entry) = found else {
-            return Err(Error::bare().title("command not found"));
+        let Some((entry, text)) = found.and_then(|entry| Some((entry, entry.text?))) else {
+            return Err(Error::empty().title("command not found"));
         };
 
-        Ok(Response::embed(help::detail(entry, prefix)))
+        Ok(Response::embed(help::detail(entry, &text, prefix)))
     }
 }
 

@@ -98,7 +98,7 @@ impl Command for ManagedRules {
                         .find(|found| {
                             found.keyword == name && clause::Part::Response.allows(found.keyword)
                         })
-                        .ok_or_else(|| Error::bare().title("clause not found"))?,
+                        .ok_or_else(|| Error::empty().title("clause not found"))?,
                 ))),
                 None => Ok(Response::embed(managed::ui::clauses())),
             },
@@ -113,7 +113,7 @@ impl Command for ManagedRules {
                 let lowered = self.rest.as_deref().map(|raw| raw.trim().to_lowercase());
 
                 let Some(mode) = lowered.as_deref().and_then(Mode::parse) else {
-                    return Err(Error::bare().title("expected active or disabled"));
+                    return Err(Error::empty().title("expected active or disabled"));
                 };
 
                 managed::store::set_mode(cx.pool(), &managed.id, mode).await?;
@@ -133,20 +133,20 @@ impl Command for ManagedRules {
 fn developer(cx: &Cx) -> Result<()> {
     match cx.app.is_developer(cx.author_id().get()) {
         true => Ok(()),
-        false => Err(Error::bare().title("👽")),
+        false => Err(Error::empty().title("👽")),
     }
 }
 
 async fn offered(cx: &Cx, guild: Snowflake, name: Option<&str>) -> Result<Offer> {
-    let name = name.ok_or_else(|| Error::bare().title("provide the managed rule"))?;
+    let name = name.ok_or_else(|| Error::empty().title("provide the managed rule"))?;
 
     let managed = managed::store::find(cx.pool(), name)
         .await?
-        .ok_or_else(|| Error::bare().title("managed rule not found"))?;
+        .ok_or_else(|| Error::empty().title("managed rule not found"))?;
     let subscription = managed::store::subscription(cx.pool(), guild, &managed.id).await?;
 
     if managed.mode != Mode::Active && subscription.is_none() {
-        return Err(Error::bare().title("managed rule not found"));
+        return Err(Error::empty().title("managed rule not found"));
     }
 
     Ok(Offer {
@@ -158,11 +158,11 @@ async fn offered(cx: &Cx, guild: Snowflake, name: Option<&str>) -> Result<Offer>
 async fn authored(cx: &Cx, name: Option<&str>) -> Result<Managed> {
     developer(cx)?;
 
-    let name = name.ok_or_else(|| Error::bare().title("provide the managed rule"))?;
+    let name = name.ok_or_else(|| Error::empty().title("provide the managed rule"))?;
 
     managed::store::find(cx.pool(), name)
         .await?
-        .ok_or_else(|| Error::bare().title("managed rule not found"))
+        .ok_or_else(|| Error::empty().title("managed rule not found"))
 }
 
 async fn posted(cx: &Cx, embed: Embed, buttons: Vec<Button>) -> Result<Response> {
@@ -208,11 +208,11 @@ async fn add(cx: &Cx, guild: Snowflake, name: Option<&str>) -> Result<Response> 
     let mut offer = offered(cx, guild, name).await?;
 
     if offer.managed.mode != Mode::Active {
-        return Err(Error::bare().title("rule not published"));
+        return Err(Error::empty().title("rule not published"));
     }
 
     if !managed::store::subscribe(cx.pool(), guild, &offer.managed.id).await? {
-        return Err(Error::bare().title("already subscribed to rule"));
+        return Err(Error::empty().title("already subscribed to rule"));
     }
 
     cx.app.rules.forget(guild);
@@ -231,7 +231,7 @@ async fn remove(cx: &Cx, guild: Snowflake, name: Option<&str>) -> Result<Respons
     let offer = offered(cx, guild, name).await?;
 
     if !managed::store::unsubscribe(cx.pool(), guild, &offer.managed.id).await? {
-        return Err(Error::bare().title("server not subscribed to rule"));
+        return Err(Error::empty().title("server not subscribed to rule"));
     }
 
     cx.app.rules.forget(guild);
@@ -252,13 +252,13 @@ async fn mode(
     let mut offer = offered(cx, guild, name).await?;
 
     if offer.subscription.is_none() {
-        return Err(Error::bare().title("server not subscribed to rule"));
+        return Err(Error::empty().title("server not subscribed to rule"));
     }
 
     let lowered = raw.map(|raw| raw.trim().to_lowercase());
 
     let Some(mode) = lowered.as_deref().and_then(Mode::parse) else {
-        return Err(Error::bare().title("expected active or disabled"));
+        return Err(Error::empty().title("expected active or disabled"));
     };
 
     managed::store::set_guild_mode(cx.pool(), guild, &offer.managed.id, mode).await?;
@@ -278,7 +278,7 @@ async fn respond(cx: &Cx, guild: Snowflake, name: Option<&str>) -> Result<Respon
     let mut offer = offered(cx, guild, name).await?;
 
     if offer.subscription.is_none() {
-        return Err(Error::bare().title("server not subscribed to rule"));
+        return Err(Error::empty().title("server not subscribed to rule"));
     }
 
     let Some((block, offset)) = clauses(cx.input()) else {
@@ -305,10 +305,10 @@ async fn respond(cx: &Cx, guild: Snowflake, name: Option<&str>) -> Result<Respon
 async fn write(cx: &Cx, name: Option<&str>) -> Result<Response> {
     developer(cx)?;
 
-    let name = name.ok_or_else(|| Error::bare().title("provide the managed rule"))?;
+    let name = name.ok_or_else(|| Error::empty().title("provide the managed rule"))?;
 
     if RESERVED.contains(&name.to_lowercase().as_str()) {
-        return Err(Error::bare().title("name is reserved"));
+        return Err(Error::empty().title("name is reserved"));
     }
 
     let Some((block, offset)) = clauses(cx.input()) else {
@@ -351,7 +351,7 @@ async fn description(cx: &Cx, name: Option<&str>, raw: Option<&str>) -> Result<R
     let written = raw.map(str::trim).unwrap_or_default();
 
     if written.is_empty() {
-        return Err(Error::bare().title("no description provided"));
+        return Err(Error::empty().title("no description provided"));
     }
 
     let trimmed = truncate::clamp(written, 300);

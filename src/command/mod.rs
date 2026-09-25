@@ -1,5 +1,6 @@
 pub mod amend;
 pub mod args;
+pub mod caller;
 pub mod cx;
 pub mod edit;
 pub mod error;
@@ -9,6 +10,7 @@ pub mod permissions;
 pub mod pipeline;
 pub mod registry;
 pub mod retract;
+pub mod slash;
 pub mod stream;
 pub mod typing;
 pub mod value;
@@ -90,7 +92,7 @@ pub const BASELINE: Permissions = Permissions::from_bits_truncate(
         | Permissions::ADD_REACTIONS.bits(),
 );
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Meta {
     pub name: &'static str,
     pub aliases: &'static [&'static str],

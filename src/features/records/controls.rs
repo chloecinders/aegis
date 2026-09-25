@@ -206,7 +206,7 @@ fn open(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let found = store::load(&click.app.pool, guild, &ActionId::from(id.to_string())).await?;
 
         let Some(action) = found else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         let (embed, buttons) = panel(&click.app, click.owner(), &action, back).await?;
@@ -225,7 +225,7 @@ fn show(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let found = store::load(&click.app.pool, guild, &action).await?;
 
         let Some(note) = found.and_then(|action| action.note) else {
-            return Err(Error::bare().title("note not found"));
+            return Err(Error::empty().title("note not found"));
         };
 
         Ok(Reaction::private(ui::note(&action, &note)))
@@ -242,15 +242,15 @@ fn ask_duration(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let back = click.part(1).and_then(|raw| raw.parse::<u32>().ok());
 
         let Some(action) = store::load(&click.app.pool, guild, &record).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         if !action.verb.has_duration() {
-            return Err(Error::bare().title("only bans and mutes have durations"));
+            return Err(Error::empty().title("only bans and mutes have durations"));
         }
 
         if !action.state.active() {
-            return Err(Error::bare().title("action no longer active"));
+            return Err(Error::empty().title("action no longer active"));
         }
 
         let Some(custom) =
@@ -281,15 +281,15 @@ fn set_duration(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let back = click.part(1).and_then(|raw| raw.parse::<u32>().ok());
 
         let Some(action) = store::load(&click.app.pool, guild, &record).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         if !action.state.active() {
-            return Err(Error::bare().title("action no longer active"));
+            return Err(Error::empty().title("action no longer active"));
         }
 
         let Some(window) = click.chosen().first().and_then(|raw| duration::parse(raw)) else {
-            return Err(Error::bare().title("unreadable duration"));
+            return Err(Error::empty().title("unreadable duration"));
         };
 
         let change = Change {
@@ -325,7 +325,7 @@ fn ask_reason(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let back = click.part(1).and_then(|raw| raw.parse::<u32>().ok());
 
         let Some(action) = store::load(&click.app.pool, guild, &record).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         let Some(custom) =
@@ -356,7 +356,7 @@ fn set_reason(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let back = click.part(1).and_then(|raw| raw.parse::<u32>().ok());
 
         let Some(action) = store::load(&click.app.pool, guild, &record).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         let reason = Reason::new(click.chosen().first().unwrap_or(&""));
@@ -382,7 +382,7 @@ fn delete_record(click: &Click) -> Boxed<'_, Result<Reaction>> {
         let record = ActionId::from(id.to_string());
 
         let Some(action) = store::load(&click.app.pool, guild, &record).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         store::delete(&click.app.pool, guild, &record).await?;

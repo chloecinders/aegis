@@ -1,6 +1,7 @@
 pub mod automod;
 pub mod cache;
 pub mod commands;
+pub mod controls;
 pub mod deletion;
 pub mod edit;
 pub mod secrets;
@@ -19,6 +20,7 @@ use crate::command::registry::Registry;
 use crate::platform::discord::dispatch::{
     BulkDeletionCx, DeletionCx, Dispatch, MessageCx, Observer,
 };
+use crate::platform::discord::interact::Router;
 use crate::platform::discord::partial::PartialMessage;
 use crate::platform::ui::embed;
 
@@ -161,6 +163,12 @@ pub fn register(registry: &mut Registry) {
         commands::purge::Purge,
     );
 
+    crate::register_slash!(registry, commands::snipe::Snipe);
+
     #[cfg(feature = "web")]
     crate::register!(registry, commands::message_log::MessageLog);
+}
+
+pub fn control(router: &mut Router) {
+    controls::register(router);
 }

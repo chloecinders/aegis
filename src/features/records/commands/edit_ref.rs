@@ -33,11 +33,11 @@ impl Command for EditRef {
         let id = self.id.into_value();
 
         let Some(action) = store::load(cx.pool(), guild, &id).await? else {
-            return Err(Error::bare().title("log not found"));
+            return Err(Error::empty().title("log not found"));
         };
 
         let Some(captured) = references::capture(cx, Some(self.reference)).await else {
-            return Err(Error::bare().title("message unreadable"));
+            return Err(Error::empty().title("message unreadable"));
         };
 
         references::store::save(cx.pool(), &action.id, &captured).await?;

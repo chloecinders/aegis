@@ -73,13 +73,13 @@ impl Command for Purge {
             let filtered = subject.is_some() || needle.is_some();
 
             return Err(match filtered {
-                true => Error::bare().title("no matches found in the last 100 messages"),
-                false => Error::bare().title("no messages younger than 2 weeks found"),
+                true => Error::empty().title("no matches found in the last 100 messages"),
+                false => Error::empty().title("no messages younger than 2 weeks found"),
             });
         }
 
         if doomed.len() < 2 {
-            return Err(Error::bare().title("discord will not bulk delete fewer than 2"));
+            return Err(Error::empty().title("discord will not bulk delete fewer than 2"));
         }
 
         cx.app

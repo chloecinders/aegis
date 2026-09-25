@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT m.message_id, m.author_id, m.author_name, m.author_display_name,\n            m.author_avatar_url, m.referenced_message_id, m.content, m.attachment_urls,\n            m.created_at\n        FROM message_deletions d\n        JOIN messages m ON m.message_id = d.message_id\n        WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system\n        ORDER BY d.deleted_at DESC, d.message_id DESC\n        OFFSET $3 LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "author_display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "author_avatar_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "referenced_message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "content",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 7,
+        "name": "attachment_urls",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "5d3f31179a5137a938d704184aa0ff3843fac96e7bc9e340873539ba3bb29f77"
+}

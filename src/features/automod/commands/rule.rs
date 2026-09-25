@@ -84,7 +84,7 @@ impl Command for Rules {
         let action = action.to_lowercase();
 
         if RESERVED.contains(&action.as_str()) && clauses(cx.input()).is_some() {
-            return Err(Error::bare().title("name is a subcommand"));
+            return Err(Error::empty().title("name is a subcommand"));
         }
 
         match action.as_str() {
@@ -95,7 +95,7 @@ impl Command for Rules {
                     CLAUSES
                         .iter()
                         .find(|clause| clause.keyword == name)
-                        .ok_or_else(|| Error::bare().title("clause not found"))?,
+                        .ok_or_else(|| Error::empty().title("clause not found"))?,
                 ))),
                 None => Ok(Response::embed(all_clauses())),
             },
@@ -123,11 +123,11 @@ async fn list(cx: &Cx, guild: u64) -> Result<Response> {
 }
 
 async fn load(cx: &Cx, guild: u64, name: Option<&str>) -> Result<Rule> {
-    let name = name.ok_or_else(|| Error::bare().title("provide a rule"))?;
+    let name = name.ok_or_else(|| Error::empty().title("provide a rule"))?;
 
     store::find(cx.pool(), guild, name)
         .await?
-        .ok_or_else(|| Error::bare().title("rule not found"))
+        .ok_or_else(|| Error::empty().title("rule not found"))
 }
 
 async fn show(cx: &Cx, guild: u64, name: Option<&str>) -> Result<Response> {
@@ -152,10 +152,10 @@ async fn posted(cx: &Cx, embed: Embed, buttons: Vec<Button>) -> Result<Response>
 }
 
 async fn remove(cx: &Cx, guild: u64, name: Option<&str>) -> Result<Response> {
-    let name = name.ok_or_else(|| Error::bare().title("provide a rule to delete"))?;
+    let name = name.ok_or_else(|| Error::empty().title("provide a rule to delete"))?;
 
     if !store::delete(cx.pool(), guild, name).await? {
-        return Err(Error::bare().title("rule not found"));
+        return Err(Error::empty().title("rule not found"));
     }
 
     cx.app.rules.forget(guild);
@@ -168,11 +168,11 @@ async fn remove(cx: &Cx, guild: u64, name: Option<&str>) -> Result<Response> {
 }
 
 async fn set(cx: &Cx, guild: u64, name: Option<&str>, raw: Option<&str>) -> Result<Response> {
-    let name = name.ok_or_else(|| Error::bare().title("provide a rule to change"))?;
+    let name = name.ok_or_else(|| Error::empty().title("provide a rule to change"))?;
     let lowered = raw.map(|raw| raw.trim().to_lowercase());
 
     let Some(mode) = lowered.as_deref().and_then(Mode::parse) else {
-        return Err(Error::bare().title("expected active or disabled"));
+        return Err(Error::empty().title("expected active or disabled"));
     };
 
     change_mode(cx, guild, name, mode).await

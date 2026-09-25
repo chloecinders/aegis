@@ -3,3 +3,4 @@ pub mod encrypt;
 pub mod message_log;
 pub mod msgdbg;
 pub mod purge;
+pub mod snipe;

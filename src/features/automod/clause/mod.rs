@@ -76,7 +76,7 @@ fn read(source: &str, offset: usize, part: Part) -> Parsed<Body> {
         let keyword = line.keyword().raw.to_lowercase();
 
         if !part.allows(&keyword) && CLAUSES.iter().any(|clause| clause.keyword == keyword) {
-            return Err(Error::bare()
+            return Err(Error::empty()
                 .title("invalid rule clause")
                 .with_span(line.keyword().span, part.refusal()));
         }
@@ -95,7 +95,7 @@ fn read(source: &str, offset: usize, part: Part) -> Parsed<Body> {
             "reason" => draft.reason(&line)?,
             "delete" => draft.body.outcome.delete = true,
             _ => {
-                return Err(Error::bare()
+                return Err(Error::empty()
                     .title("invalid rule clause")
                     .with_span(line.keyword().span, "no clause found"));
             }

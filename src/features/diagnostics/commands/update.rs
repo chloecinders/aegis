@@ -123,7 +123,7 @@ impl Command for Update {
 
     async fn run(self, cx: &mut Cx) -> Result<Response> {
         let Some(repository) = cx.app.config.repository.clone() else {
-            return Err(Error::bare().title("no `repository` set in Config.toml"));
+            return Err(Error::empty().title("no `repository` set in Config.toml"));
         };
 
         let announced = match self.announce {
@@ -157,13 +157,13 @@ impl Command for Update {
                     .http
                     .bytes(&attachment.url, 64 * 1024)
                     .await
-                    .map_err(|_| Error::bare().title("file unreadable"))?;
+                    .map_err(|_| Error::empty().title("file unreadable"))?;
 
                 let notes = String::from_utf8(bytes)
-                    .map_err(|_| Error::bare().title("file not valid utf-8"))?;
+                    .map_err(|_| Error::empty().title("file not valid utf-8"))?;
 
                 if notes.trim().is_empty() {
-                    return Err(Error::bare().title("file empty"));
+                    return Err(Error::empty().title("file empty"));
                 }
 
                 Some(announcement(&notes))

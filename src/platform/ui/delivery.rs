@@ -5,13 +5,14 @@ use serenity::all::{Context, Message, MessageId, UserId};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 
+use crate::command::cx::Cx;
 use crate::command::error::{Ctx, Result};
 use crate::domain::punishment::DmTiming;
 use crate::platform::ui::embed::Embed;
 use crate::platform::ui::marks::Marks;
 use crate::platform::ui::reply;
 
-pub type Witness = Arc<dyn Fn(&Message) + Send + Sync>;
+pub type NoticeCallback = Arc<dyn Fn(&Message) + Send + Sync>;
 
 pub struct Delivery {
     target: UserId,
@@ -19,7 +20,7 @@ pub struct Delivery {
     silent: bool,
     auto_delete: bool,
     notice: Option<Embed>,
-    witness: Option<Witness>,
+    on_notice: Option<NoticeCallback>,
     inflight: Option<JoinHandle<bool>>,
     outcome: Option<bool>,
 }
@@ -32,7 +33,7 @@ impl Delivery {
             silent: false,
             auto_delete: false,
             notice: None,
-            witness: None,
+            on_notice: None,
             inflight: None,
             outcome: None,
         }
@@ -43,8 +44,8 @@ impl Delivery {
         self
     }
 
-    pub fn witness(mut self, witness: Witness) -> Self {
-        self.witness = Some(witness);
+    pub fn on_notice(mut self, on_notice: NoticeCallback) -> Self {
+        self.on_notice = Some(on_notice);
         self
     }
 
@@ -62,7 +63,7 @@ impl Delivery {
         self.silent || self.timing == DmTiming::Never || self.notice.is_none()
     }
 
-    pub async fn notify(&mut self, ctx: &Context) {
+    pub async fn notify(&mut self, cx: &Cx) {
         if self.skips_dm() {
             return;
         }
@@ -71,24 +72,43 @@ impl Delivery {
             return;
         };
 
-        let http = ctx.clone();
+        if self.timing == DmTiming::Before {
+            let opened = self.target.create_dm_channel(&cx.ctx).await;
+
+            cx.trace("open_dm_channel");
+
+            let sent = match opened {
+                Ok(channel) => {
+                    channel
+                        .id
+                        .widen()
+                        .send_message(&cx.ctx.http, reply::plain(&embed))
+                        .await
+                }
+                Err(failure) => Err(failure),
+            };
+
+            if let (Ok(notice), Some(on_notice)) = (&sent, &self.on_notice) {
+                on_notice(notice);
+            }
+
+            self.outcome = Some(sent.is_ok());
+
+            return;
+        }
+
+        let http = cx.ctx.clone();
         let target = self.target;
-        let witness = self.witness.clone();
+        let on_notice = self.on_notice.clone();
         let sending = tokio::spawn(async move {
             let sent = target.direct_message(&http, reply::plain(&embed)).await;
 
-            if let (Ok(notice), Some(witness)) = (&sent, &witness) {
-                witness(notice);
+            if let (Ok(notice), Some(on_notice)) = (&sent, &on_notice) {
+                on_notice(notice);
             }
 
             sent.is_ok()
         });
-
-        if self.timing == DmTiming::Before {
-            self.outcome = Some(sending.await.unwrap_or(false));
-
-            return;
-        }
 
         self.inflight = Some(sending);
     }

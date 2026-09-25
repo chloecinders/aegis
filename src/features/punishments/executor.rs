@@ -128,7 +128,11 @@ pub async fn apply(
         cx.report(&failure);
     }
 
+    cx.trace("capture_reference");
+
     let guild_name = cx.guild_name().await;
+
+    cx.trace("fetch_guild_name");
 
     let invocation = cx.msg.id.get();
     let app = Arc::clone(&cx.app);
@@ -137,11 +141,11 @@ pub async fn apply(
         .notice(ui::notice(&punishment, &guild_name))
         .silent(punishment.silent)
         .auto_delete(reply == Reply::Temporary)
-        .witness(Arc::new(move |notice: &Message| {
+        .on_notice(Arc::new(move |notice: &Message| {
             app.notices.remember_notice(invocation, notice.into());
         }));
 
-    delivery.notify(&cx.ctx).await;
+    delivery.notify(cx).await;
     cx.trace("notify_target");
 
     if let Err(failure) = perform(cx, &punishment, &subject).await {

@@ -64,7 +64,7 @@ impl Measure {
         )
     }
 
-    pub fn tallies(&self, verb: PunishmentType) -> bool {
+    pub fn counts(&self, verb: PunishmentType) -> bool {
         match self {
             Measure::Warns => matches!(verb, PunishmentType::Warn),
             Measure::Mutes => matches!(verb, PunishmentType::Mute),

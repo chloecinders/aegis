@@ -61,17 +61,17 @@ impl Origin {
 }
 
 #[derive(Default)]
-pub struct Tallies {
-    tallies: Mutex<HashMap<String, Summary>>,
+pub struct Counts {
+    counts: Mutex<HashMap<String, Summary>>,
 }
 
-impl Tallies {
+impl Counts {
     pub fn record(&self, label: String, sample: Option<String>) {
-        let Ok(mut tallies) = self.tallies.lock() else {
+        let Ok(mut counts) = self.counts.lock() else {
             return;
         };
 
-        let entry = tallies.entry(label.clone()).or_insert(Summary {
+        let entry = counts.entry(label.clone()).or_insert(Summary {
             label,
             count: 0,
             sample: None,
@@ -85,11 +85,11 @@ impl Tallies {
     }
 
     pub fn drain(&self) -> Vec<Summary> {
-        let Ok(mut tallies) = self.tallies.lock() else {
+        let Ok(mut counts) = self.counts.lock() else {
             return Vec::new();
         };
 
-        let mut drained: Vec<Summary> = tallies.drain().map(|(_, summary)| summary).collect();
+        let mut drained: Vec<Summary> = counts.drain().map(|(_, summary)| summary).collect();
 
         drained.sort_by(|left, right| {
             right
@@ -105,7 +105,7 @@ impl Tallies {
 pub struct Reporter {
     http: Http,
     webhook: Option<String>,
-    pending: Tallies,
+    pending: Counts,
 }
 
 impl Reporter {
@@ -113,7 +113,7 @@ impl Reporter {
         Self {
             http,
             webhook,
-            pending: Tallies::default(),
+            pending: Counts::default(),
         }
     }
 

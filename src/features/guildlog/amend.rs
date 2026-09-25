@@ -29,7 +29,7 @@ struct Update {
 }
 
 #[derive(Clone, Debug)]
-struct Witness {
+struct AuditEntry {
     actor: Snowflake,
     reason: Option<String>,
 }
@@ -44,8 +44,8 @@ pub struct Awaiting {
     waiting: Cache<Key, Waiting>,
     bulk: Cache<Bulk, Waiting>,
     updates: Cache<Trace, Update>,
-    witnessed: Cache<Trace, Witness>,
-    witnessed_bulk: Cache<Bulk, Snowflake>,
+    early_audits: Cache<Trace, AuditEntry>,
+    early_bulk_audits: Cache<Bulk, Snowflake>,
 }
 
 impl Default for Awaiting {
@@ -60,8 +60,8 @@ impl Awaiting {
             waiting: Cache::new(2048, Some(Duration::from_secs(30))),
             bulk: Cache::new(2048, Some(Duration::from_secs(30))),
             updates: Cache::new(2048, Some(Duration::from_secs(30))),
-            witnessed: Cache::new(2048, Some(Duration::from_secs(10))),
-            witnessed_bulk: Cache::new(2048, Some(Duration::from_secs(10))),
+            early_audits: Cache::new(2048, Some(Duration::from_secs(10))),
+            early_bulk_audits: Cache::new(2048, Some(Duration::from_secs(10))),
         }
     }
 
@@ -98,7 +98,7 @@ impl Awaiting {
     }
 
     pub fn claim_bulk(&self, key: &Bulk) -> Attribution {
-        match self.witnessed_bulk.remove(key) {
+        match self.early_bulk_audits.remove(key) {
             Some(actor) => Attribution::Gateway(actor),
             None => Attribution::Unknown,
         }
@@ -136,17 +136,17 @@ impl Awaiting {
         };
 
         for part in parts {
-            let Some(witness) = self.witnessed.remove(&(guild, target, *part)) else {
+            let Some(audit) = self.early_audits.remove(&(guild, target, *part)) else {
                 continue;
             };
 
-            if found.reason.is_some() && witness.reason.is_none() {
+            if found.reason.is_some() && audit.reason.is_none() {
                 continue;
             }
 
             found = Claimed {
-                actor: Attribution::Gateway(witness.actor),
-                reason: witness.reason,
+                actor: Attribution::Gateway(audit.actor),
+                reason: audit.reason,
             };
         }
 
@@ -157,8 +157,8 @@ impl Awaiting {
         self.waiting.sweep();
         self.bulk.sweep();
         self.updates.sweep();
-        self.witnessed.sweep();
-        self.witnessed_bulk.sweep();
+        self.early_audits.sweep();
+        self.early_bulk_audits.sweep();
     }
 }
 
@@ -186,7 +186,7 @@ pub async fn attribute_bulk(
     bot: Snowflake,
 ) {
     let Some(waiting) = app.awaiting.bulk.remove(&key) else {
-        app.awaiting.witnessed_bulk.insert(key, actor);
+        app.awaiting.early_bulk_audits.insert(key, actor);
 
         return;
     };
@@ -242,9 +242,9 @@ pub async fn attribute_update(
         }
 
         let Some(update) = app.awaiting.updates.remove(&(guild, target, *part)) else {
-            app.awaiting.witnessed.insert(
+            app.awaiting.early_audits.insert(
                 (guild, target, *part),
-                Witness {
+                AuditEntry {
                     actor,
                     reason: reason.map(str::to_owned),
                 },

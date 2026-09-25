@@ -23,9 +23,7 @@ impl Record {
 
         self.punishments
             .iter()
-            .filter(|(verb, at)| {
-                measure.tallies(*verb) && cutoff.is_none_or(|cutoff| *at >= cutoff)
-            })
+            .filter(|(verb, at)| measure.counts(*verb) && cutoff.is_none_or(|cutoff| *at >= cutoff))
             .count() as i64
     }
 }

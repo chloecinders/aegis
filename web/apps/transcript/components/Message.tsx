@@ -53,7 +53,8 @@ export function Message(props: {
 
     const files = () => message().files || [];
     const edits = () => message().edits || [];
-    const jump = () => `https://discord.com/channels/${GUILD}/${message().channel}/${message().id}`;
+    const path = () => `/channels/${GUILD}/${message().channel}/${message().id}`;
+    const jump = () => `https://discord.com${path()}`;
     const [copied, setCopied] = createSignal(false);
 
     const copy = async (event: MouseEvent) => {
@@ -135,14 +136,19 @@ export function Message(props: {
             </div>
 
             <Show when={!gone() && props.jumpable}>
-                <a
-                    class="message__copy"
-                    href={jump()}
-                    rel="noreferrer"
-                    onClick={copy}
-                >
-                    {copied() ? "copied" : "copy link"}
-                </a>
+                <div class="message__acts">
+                    <a class="message__act" href={`discord://-${path()}`}>
+                        open discord
+                    </a>
+
+                    <a class="message__act" href={jump()} target="_blank" rel="noreferrer">
+                        open web
+                    </a>
+
+                    <a class="message__act" href={jump()} rel="noreferrer" onClick={copy}>
+                        {copied() ? "copied" : "copy link"}
+                    </a>
+                </div>
             </Show>
         </div>
     );

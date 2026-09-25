@@ -5,6 +5,7 @@ import { ACTIVITY } from "./api.ts";
 import { Errors } from "./components/Errors.tsx";
 import { Guild } from "./components/Guild.tsx";
 import { Logs } from "./components/Logs.tsx";
+import { MessageLog } from "./components/MessageLog.tsx";
 import { Permits } from "./components/Permits.tsx";
 import { Rules } from "./components/Rules.tsx";
 import { Servers } from "./components/Servers.tsx";
@@ -23,6 +24,7 @@ const routes = () => (
                 <Route path="/logs" component={Logs} />
                 <Route path="/permissions" component={Permits} />
                 <Route path="/errors" component={Errors} />
+                <Route path="/message_log" component={MessageLog} />
             </Route>
         </Route>
 

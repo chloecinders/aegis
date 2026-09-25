@@ -141,6 +141,30 @@ main {
     flex: 1;
 }
 
+@media (max-width: 700px) {
+    .top {
+        flex-wrap: wrap;
+        gap: 8px 12px;
+    }
+
+    .top__nav {
+        flex: 1 0 100%;
+        flex-wrap: nowrap;
+        gap: 16px;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .account {
+        flex-shrink: 0;
+    }
+}
+
 footer {
     display: flex;
     justify-content: space-between;

@@ -35,17 +35,14 @@ pub async fn administers(
     web: &Shared,
     headers: &HeaderMap,
     guild: Snowflake,
-) -> Result<(), Rejection> {
-    match signed(web, headers)
+) -> Result<Membership, Rejection> {
+    signed(web, headers)
         .await?
         .guilds
-        .iter()
+        .into_iter()
         .find(|membership| membership.id == guild)
-        .is_some_and(Membership::administers)
-    {
-        true => Ok(()),
-        false => Err(Rejection::forbidden()),
-    }
+        .filter(Membership::administers)
+        .ok_or(Rejection::forbidden())
 }
 
 pub fn authors(web: &Shared, session: &Session) -> bool {

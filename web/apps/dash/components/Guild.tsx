@@ -36,6 +36,9 @@ function Tabs(props: { guild: string }) {
             <A class="tabs__tab" href={tab(props.guild, "/errors")} activeClass="tabs__tab--on">
                 errors
             </A>
+            <A class="tabs__tab" href={tab(props.guild, "/message_log")} activeClass="tabs__tab--on">
+                message log
+            </A>
         </nav>
     );
 }

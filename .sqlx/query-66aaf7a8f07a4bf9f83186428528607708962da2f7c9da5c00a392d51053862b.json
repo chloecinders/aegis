@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT author_name FROM messages\n        WHERE guild_id = $1 AND author_id = $2\n        ORDER BY message_id DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "author_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "66aaf7a8f07a4bf9f83186428528607708962da2f7c9da5c00a392d51053862b"
+}

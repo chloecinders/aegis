@@ -9,6 +9,7 @@ export const API = {
     authored: (rule: string) => "/api/dash/managed_rules/" + encodeURIComponent(rule),
     logs: (id: string) => "/api/dash/guilds/" + encodeURIComponent(id) + "/logs",
     errors: (id: string) => "/api/dash/guilds/" + encodeURIComponent(id) + "/errors",
+    message_log: (id: string) => "/api/dash/guilds/" + encodeURIComponent(id) + "/message_log",
     permissions: (id: string) => "/api/dash/guilds/" + encodeURIComponent(id) + "/permissions",
     permission: (id: string, rule: number) => API.permissions(id) + "/" + encodeURIComponent(rule),
     commands: "/api/dash/commands",
@@ -77,6 +78,10 @@ export interface Trouble {
     detail?: string;
     delivered: boolean;
     at: string;
+}
+
+export interface Built {
+    id: string;
 }
 
 export interface Permission {

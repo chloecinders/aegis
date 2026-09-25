@@ -3,6 +3,7 @@ pub mod authoring;
 pub mod catalog;
 pub mod logging;
 pub mod managed;
+pub mod message_log;
 pub mod permissions;
 pub mod preview;
 pub mod rejection;

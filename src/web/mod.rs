@@ -115,6 +115,7 @@ pub fn router(state: Shared) -> Router {
         .route("/dashboard/:guild/logs", get(assets::dashboard))
         .route("/dashboard/:guild/permissions", get(assets::dashboard))
         .route("/dashboard/:guild/errors", get(assets::dashboard))
+        .route("/dashboard/:guild/message_log", get(assets::dashboard))
         .route("/api/dash/identity", get(dash::auth::identity))
         .route("/api/dash/guilds/:guild", get(dash::auth::guild))
         .route(
@@ -146,6 +147,10 @@ pub fn router(state: Shared) -> Router {
             get(dash::logging::logs).put(dash::logging::route),
         )
         .route("/api/dash/guilds/:guild/errors", get(dash::logging::errors))
+        .route(
+            "/api/dash/guilds/:guild/message_log",
+            post(dash::message_log::build),
+        )
         .route(
             "/api/dash/guilds/:guild/permissions",
             get(dash::permissions::all).post(dash::permissions::grant),

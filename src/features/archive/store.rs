@@ -229,6 +229,23 @@ pub async fn disable(pool: &PgPool, guild: Snowflake) -> Result<u64> {
     Ok(wiped.rows_affected())
 }
 
+pub async fn author_name(
+    pool: &PgPool,
+    guild: Snowflake,
+    author: Snowflake,
+) -> Result<Option<String>> {
+    sqlx::query_scalar!(
+        "SELECT author_name FROM messages
+        WHERE guild_id = $1 AND author_id = $2
+        ORDER BY message_id DESC LIMIT 1",
+        guild as i64,
+        author as i64
+    )
+    .fetch_optional(pool)
+    .await
+    .ctx("read stored author name")
+}
+
 pub struct DeletedMessage {
     pub message: Snowflake,
     pub author: Snowflake,

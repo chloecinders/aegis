@@ -6,7 +6,7 @@ export interface Token {
     kind: "str" | "rgx" | "word";
 }
 
-export type Kind = "literal" | "regex";
+export type Kind = "literal" | "regex" | "wildcard";
 
 export interface Matcher {
     kind: Kind;
@@ -81,6 +81,14 @@ export function readMatcher(rest: string): Read {
         }
 
         return { kind: "regex", text: pattern };
+    }
+
+    if (body.length >= 2 && body.startsWith("|") && body.endsWith("|")) {
+        const pattern = body.slice(1, -1);
+
+        if (!pattern) return { error: "empty pattern" };
+
+        return { kind: "wildcard", text: pattern };
     }
 
     if (!body) return { error: "empty pattern" };

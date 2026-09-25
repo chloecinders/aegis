@@ -112,20 +112,22 @@ export const CLAUSES: Clause[] = [
     },
     {
         keyword: "match",
-        takes: '"text" | /regex/',
+        takes: '"text" | /regex/ | |word|',
         about: "The matches of a rule. Writing multiple matches acts as OR and will match either one of them.",
         values: [
             ['"text"', "a text literal, matched loosely to prevent bad OCR reads from not matching"],
             ["/regex/", "a regular expression, matched exactly as written (uses the Rust regex engine)"],
+            ["|word|", "a literal word, 'nitro' would match 'free nitro' but not 'nitros'. Additionally accepts quanitifiers like '*' and '?'"],
         ],
     },
     {
         keyword: "never",
-        takes: '"text" | /regex/',
+        takes: '"text" | /regex/ | |word|',
         about: "An exception to match. If something matches a match, but also matches a never, the rule won't trigger.",
         values: [
             ['"text"', "a text literal, matched loosely to prevent bad OCR reads from not matching"],
             ["/regex/", "a regular expression, matched exactly as written (uses the Rust regex engine)"],
+            ["|word|", "a literal word, 'nitro' would match 'free nitro' but not 'nitros'. Additionally accepts quanitifiers like '*' and '?'"],
         ],
     },
     {

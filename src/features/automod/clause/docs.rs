@@ -28,7 +28,7 @@ pub const CLAUSES: [Clause; 12] = [
     },
     Clause {
         keyword: "match",
-        short: "\"text\" | /regex/",
+        short: "\"text\" | /regex/ | |word|",
         full: "The matches of a rule. Writing multiple matches acts as OR and will match either one of them.",
         params: &[
             (
@@ -39,12 +39,16 @@ pub const CLAUSES: [Clause; 12] = [
                 "/regex/",
                 "a regular expression, matched exactly as written (uses the Rust regex engine)",
             ),
+            (
+                "|word|",
+                "a literal word, 'nitro' would match 'free nitro' but not 'nitros'. Additionally accepts quanitifiers like '*' and '?'",
+            ),
         ],
         examples: &["match \"free nitro\"", "match /([A-Z])\\w+/"],
     },
     Clause {
         keyword: "never",
-        short: "\"text\" | /regex/",
+        short: "\"text\" | /regex/ | |word|",
         full: "An exception to match. If something matches a match, but also matches a never, the rule won't trigger.",
         params: &[
             (
@@ -54,6 +58,10 @@ pub const CLAUSES: [Clause; 12] = [
             (
                 "/regex/",
                 "a regular expression, matched exactly as written (uses the Rust regex engine)",
+            ),
+            (
+                "|word|",
+                "a literal word, 'nitro' would match 'free nitro' but not 'nitros'. Additionally accepts quanitifiers like '*' and '?'",
             ),
         ],
         examples: &["never \"nitro giveaway rules\""],

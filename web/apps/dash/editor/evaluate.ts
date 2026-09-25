@@ -89,11 +89,25 @@ export const MENTIONS = /<@!?\d+>|@everyone|@here/g;
 export const count = (text: string, pattern: RegExp) => (text.match(pattern) || []).length;
 
 function render(matcher: Matcher): string {
+    if (matcher.kind === "wildcard") return "|" + matcher.text + "|";
+
     return matcher.kind === "literal" ? '"' + matcher.text + '"' : "/" + matcher.text + "/";
 }
 
 function test(matcher: Matcher, text: string): boolean {
     if (matcher.kind === "literal") return loosely(matcher.text, text, FUZZ);
+
+    if (matcher.kind === "wildcard") {
+        const chars = [...matcher.text];
+        const word = /^[\p{L}\p{N}_]$/u;
+        const body = chars
+            .map((ch) => (ch === "*" ? ".*" : ch === "?" ? "." : ch.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")))
+            .join("");
+        const start = word.test(chars[0]) ? "(?<![\\p{L}\\p{N}_])" : "";
+        const end = word.test(chars[chars.length - 1]) ? "(?![\\p{L}\\p{N}_])" : "";
+
+        return new RegExp(start + body + end, "iu").test(text);
+    }
 
     try {
         return new RegExp(matcher.text).test(text);

@@ -44,6 +44,16 @@ impl Observer for Automod {
         }
     }
 
+    async fn on_message_edit(&self, cx: &MessageCx) {
+        if cx.msg.author.bot() || cx.msg.guild_id.is_none() || cx.msg.edited_timestamp.is_some() {
+            return;
+        }
+
+        if let Err(failure) = screen::screen_embeds(cx).await {
+            cx.app.reporter.record(&failure, origin(cx));
+        }
+    }
+
     async fn on_member_add(&self, cx: &MemberCx) {
         if cx.user.bot() {
             return;

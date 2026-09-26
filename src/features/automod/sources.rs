@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use regex::Regex;
-use serenity::all::{Attachment, AttachmentFlags, Message};
+use serenity::all::{Attachment, AttachmentFlags, EmbedMediaFlags, Message};
 
 use crate::features::automod::rule::{Measure, Rule, Source};
 use crate::platform::http::{Failure, Http};
@@ -211,6 +211,27 @@ pub fn counts(msg: &Message, needed: Required) -> Counts {
                     .flags
                     .is_some_and(|flags| flags.contains(AttachmentFlags::IS_ANIMATED))
             })
-            .count() as i64,
+            .count() as i64
+            + animated_embeds(msg),
     }
+}
+
+pub fn animated_embeds(msg: &Message) -> i64 {
+    msg.embeds
+        .iter()
+        .filter(|embed| match embed.kind.as_deref() {
+            Some("gifv") => true,
+            Some("image") => [
+                embed.image.as_ref().and_then(|image| image.flags),
+                embed
+                    .thumbnail
+                    .as_ref()
+                    .and_then(|thumbnail| thumbnail.flags),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|flags| flags.contains(EmbedMediaFlags::IS_ANIMATED)),
+            _ => false,
+        })
+        .count() as i64
 }

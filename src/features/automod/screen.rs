@@ -1,11 +1,12 @@
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use crate::command::error::Result;
 use crate::domain::Snowflake;
 use crate::features::automod::enforce::{Enforced, enforce};
 use crate::features::automod::eval::Hit;
 use crate::features::automod::images::Images;
-use crate::features::automod::rule::{self, Rule, Source};
+use crate::features::automod::rule::{self, Measure, Rule, Source};
 use crate::features::automod::subject::{Fixed, record_of, wielded};
 use crate::features::automod::{cache, eval, sources};
 use crate::platform::discord::dispatch::MessageCx;
@@ -16,11 +17,38 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
     let guild = cx.msg.guild_id.map(|guild| guild.get()).unwrap_or_default();
     let enabled = cx.app.rules.enabled(&cx.app.pool, guild).await?;
 
+    screen_rules(cx, &enabled, guild).await
+}
+
+pub async fn screen_embeds(cx: &MessageCx) -> Result<()> {
+    if sources::animated_embeds(&cx.msg) == 0 {
+        return Ok(());
+    }
+
+    let guild = cx.msg.guild_id.map(|guild| guild.get()).unwrap_or_default();
+    let enabled = cx.app.rules.enabled(&cx.app.pool, guild).await?;
+    let counting: cache::Enabled = Arc::new(
+        enabled
+            .iter()
+            .filter(|rule| {
+                rule.body
+                    .conditions
+                    .iter()
+                    .any(|condition| condition.measure == Measure::Animated)
+            })
+            .cloned()
+            .collect(),
+    );
+
+    screen_rules(cx, &counting, guild).await
+}
+
+async fn screen_rules(cx: &MessageCx, enabled: &cache::Enabled, guild: Snowflake) -> Result<()> {
     if enabled.is_empty() {
         return Ok(());
     }
 
-    let counts = sources::counts(&cx.msg, sources::needs(&enabled));
+    let counts = sources::counts(&cx.msg, sources::needs(enabled));
     let roles: Vec<Snowflake> = cx
         .msg
         .member
@@ -30,7 +58,7 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
     let age = rule::account_age(*cx.msg.author.id.created_at());
     let record = record_of(&cx.app, enabled.iter(), guild, cx.msg.author.id.get()).await?;
     let permissions = wielded(&cx.ctx, enabled.iter(), guild, cx.msg.author.id, &roles).await?;
-    let wanted = cache::wanted(&enabled);
+    let wanted = cache::wanted(enabled);
     let mut hits: Vec<Hit> = Vec::new();
 
     let fixed = Fixed {
@@ -53,7 +81,7 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
         };
 
         collect(
-            &enabled,
+            enabled,
             &fixed.observed(*source, Haystack::new(&text)),
             &mut hits,
         );
@@ -61,26 +89,26 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
 
     let mut enforced = Enforced::default();
 
-    enforce(cx, &enabled, &hits, &mut enforced).await;
+    enforce(cx, enabled, &hits, &mut enforced).await;
 
-    if !ocr::available() || !worth_reading(&enabled, &hits) {
+    if !ocr::available() || !should_read(enabled, &hits) {
         return Ok(());
     }
 
-    let Some(mut images) = Images::open(cx, &enabled) else {
+    let Some(mut images) = Images::open(cx, enabled) else {
         return Ok(());
     };
 
     while let Some(text) = images.next().await {
         collect(
-            &enabled,
+            enabled,
             &fixed.observed(Source::Image, Haystack::new(&text)),
             &mut hits,
         );
 
-        enforce(cx, &enabled, &hits, &mut enforced).await;
+        enforce(cx, enabled, &hits, &mut enforced).await;
 
-        if !worth_reading(&enabled, &hits) {
+        if !should_read(enabled, &hits) {
             break;
         }
     }
@@ -88,7 +116,7 @@ pub async fn screen(cx: &MessageCx) -> Result<()> {
     Ok(())
 }
 
-fn worth_reading(enabled: &[Rule], hits: &[Hit]) -> bool {
+fn should_read(enabled: &[Rule], hits: &[Hit]) -> bool {
     enabled
         .iter()
         .filter(|rule| rule.body.has_source(Source::Image))

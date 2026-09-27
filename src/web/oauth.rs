@@ -33,6 +33,7 @@ impl Oauth {
                 ("response_type", "code"),
                 ("scope", "identify guilds"),
                 ("state", state),
+                ("prompt", "none"),
             ],
         )
         .map(|built| built.to_string())

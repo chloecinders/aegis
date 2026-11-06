@@ -14,6 +14,7 @@ use crate::command::permissions;
 use crate::command::registry::ChatInput;
 use crate::command::slash::cx::SlashCx;
 use crate::command::slash::{Reply, definition};
+use crate::platform::observe::report::Origin;
 use crate::platform::ui::error as render;
 use crate::platform::ui::reply;
 
@@ -34,19 +35,30 @@ pub async fn handle_command(app: Arc<App>, ctx: Context, interaction: CommandInt
         return;
     };
 
-    let echo = (ctx.clone(), interaction.clone());
+    let echo = (Arc::clone(&app), ctx.clone(), interaction.clone());
     let attempt = tokio::spawn(run(app, ctx, interaction, entry.meta, slash));
 
     let Err(joined) = attempt.await else {
         return;
     };
 
-    if !joined.is_panic() {
+    let Ok(payload) = joined.try_into_panic() else {
         return;
-    }
+    };
 
-    let (ctx, interaction) = echo;
-    let failure = Error::internal("the command panicked");
+    let (app, ctx, interaction) = echo;
+    let failure = Error::panicked(payload);
+
+    app.reporter.record(
+        &failure,
+        Origin {
+            command: Some(entry.meta.name),
+            guild: Some(guild.get()),
+            channel: Some(interaction.channel_id.get()),
+            user: Some(interaction.user.id.get()),
+            message: None,
+        },
+    );
 
     respond(
         &ctx,

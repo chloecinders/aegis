@@ -13,6 +13,7 @@ use crate::domain::ids::ActionId;
 use crate::features::diagnostics::store::TraceRow;
 use crate::features::records::store as invocations;
 use crate::features::snippets;
+use crate::platform::observe::report::Origin;
 use crate::platform::ui::embed::Embed;
 use crate::platform::ui::{error as render, reply};
 
@@ -32,19 +33,31 @@ pub async fn guarded(app: Arc<App>, ctx: Context, msg: Arc<Message>) {
         return;
     }
 
-    let echo = (ctx.clone(), Arc::clone(&msg));
+    let echo = (Arc::clone(&app), ctx.clone(), Arc::clone(&msg));
     let attempt = tokio::spawn(handle(app, ctx, msg));
 
     let Err(joined) = attempt.await else {
         return;
     };
 
-    if !joined.is_panic() {
+    let Ok(payload) = joined.try_into_panic() else {
         return;
-    }
+    };
 
-    let (ctx, msg) = echo;
-    let failure = Error::internal("the command panicked").against(msg.content.as_str());
+    let (app, ctx, msg) = echo;
+    let failure = Error::panicked(payload).against(msg.content.as_str());
+
+    app.reporter.record(
+        &failure,
+        Origin {
+            command: None,
+            guild: msg.guild_id.map(|guild| guild.get()),
+            channel: Some(msg.channel_id.get()),
+            user: Some(msg.author.id.get()),
+            message: Some(msg.id.get()),
+        },
+    );
+
     let embed = render::render(&failure);
 
     let _ = msg

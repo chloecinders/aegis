@@ -83,6 +83,7 @@ pub async fn observe(
     before: Option<DateTime<Utc>>,
     after: Option<DateTime<Utc>>,
     reason: Option<&str>,
+    now: DateTime<Utc>,
 ) -> Result<()> {
     let Involved {
         guild,
@@ -91,7 +92,6 @@ pub async fn observe(
         bot,
     } = involved;
 
-    let now = Utc::now();
     let outcome = read(before, after, reason, actor == bot, now);
 
     let Some(mut recorded) = punishment(guild, actor, target, outcome, reason, now) else {

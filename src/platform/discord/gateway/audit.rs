@@ -113,6 +113,7 @@ pub async fn record(app: &Arc<App>, ctx: &Context, entry: AuditLogEntry, guild: 
                 before,
                 after,
                 reason,
+                *entry.id.created_at(),
             )
             .await;
 

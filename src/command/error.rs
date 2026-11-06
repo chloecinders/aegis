@@ -37,6 +37,9 @@ pub enum Cause {
     Internal {
         context: &'static str,
     },
+    Panic {
+        message: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -136,6 +139,20 @@ impl Error {
             .caused(Cause::Internal { context })
     }
 
+    pub fn panicked(payload: Box<dyn std::any::Any + Send>) -> Self {
+        let message = match payload.downcast::<String>() {
+            Ok(message) => *message,
+            Err(payload) => match payload.downcast::<&'static str>() {
+                Ok(message) => String::from(*message),
+                Err(_) => String::from("the command panicked"),
+            },
+        };
+
+        Error::empty()
+            .title("internal error")
+            .caused(Cause::Panic { message })
+    }
+
     pub fn missing(source: impl Into<String>, field: &str, kind: ArgKind, span: Span) -> Self {
         Error::new(source)
             .title("missing argument")
@@ -200,7 +217,7 @@ impl Error {
         match &self.0.cause {
             None => Severity::Expected,
             Some(Cause::Discord { .. } | Cause::Store { .. }) => Severity::Degraded,
-            Some(Cause::Internal { .. }) => Severity::Bug,
+            Some(Cause::Internal { .. } | Cause::Panic { .. }) => Severity::Bug,
         }
     }
 
@@ -223,6 +240,7 @@ impl Error {
             }
             Some(Cause::Store { op, source }) => Some(format!("{op}: {source}")),
             Some(Cause::Internal { context }) => Some(String::from(*context)),
+            Some(Cause::Panic { message }) => Some(format!("the command panicked: {message}")),
             None => None,
         }
     }

@@ -50,6 +50,9 @@ jobs:
             - name: Generate Wiki
               run: pnpm run build:site
 
+            - name: Install native libraries
+              run: sudo apt-get update && sudo apt-get install -y liblzma-dev
+
             - name: Build
               run: cargo build --release --verbose
 

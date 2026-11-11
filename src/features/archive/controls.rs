@@ -4,7 +4,9 @@ use crate::command::Boxed;
 use crate::command::error::{Error, Result};
 use crate::domain::Snowflake;
 use crate::features::archive::commands::snipe;
-use crate::platform::discord::interact::{Click, Control, Custom, Reaction, Router, Strangers};
+use crate::platform::discord::interact::{
+    Click, Control, Custom, Reaction, Rewrite, Router, Strangers,
+};
 use crate::platform::ui::reply::Button;
 
 pub fn nav(owner: Snowflake, at: u64, total: u64) -> Vec<Button> {
@@ -43,7 +45,7 @@ fn turn(click: &Click) -> Boxed<'_, Result<Reaction>> {
             .and_then(|raw| raw.parse::<u64>().ok())
             .unwrap_or_default();
 
-        let (embed, buttons) = snipe::page(
+        let (embed, buttons, files) = snipe::page(
             &click.app,
             &click.ctx,
             guild,
@@ -53,7 +55,11 @@ fn turn(click: &Click) -> Boxed<'_, Result<Reaction>> {
         )
         .await?;
 
-        Ok(Reaction::replace(embed, buttons))
+        Ok(Reaction::Replace(Box::new(Rewrite {
+            embed,
+            buttons,
+            files,
+        })))
     })
 }
 

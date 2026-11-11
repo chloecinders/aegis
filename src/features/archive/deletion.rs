@@ -4,7 +4,7 @@ use crate::app::App;
 use crate::command::error::Result;
 use crate::domain::Snowflake;
 use crate::domain::logtype::LogType;
-use crate::features::archive::{reply_line, store};
+use crate::features::archive::{images, reply_line, store};
 
 #[cfg(feature = "web")]
 use crate::features::archive::transcript::{self, Request};
@@ -21,6 +21,7 @@ pub fn entry(
     actor: Attribution,
     actor_name: Option<&str>,
     bot: Snowflake,
+    unavailable: usize,
 ) -> Embed {
     let embed = Embed::new("MESSAGE DELETED")
         .subtitle(format!("ID: `{}`", message.id))
@@ -29,6 +30,7 @@ pub fn entry(
             mention(message.author.id, Some(&message.author.name))
         ))
         .subtitle(format!("Channel: <#{}>", message.channel_id))
+        .maybe_subtitle((unavailable > 0).then(|| format!("Images unavailable: {unavailable}")))
         .maybe_subtitle(actor.line(bot, actor_name))
         .maybe_lead(reply_line(message))
         .tone(Tone::Danger);
@@ -81,24 +83,45 @@ pub async fn record(
         false => Attribution::Unknown,
     };
 
+    let mut recovered = images::recover(app, &cached.attachments).await;
+
+    if let Err(failure) = images::restore(app, ctx, guild, cached.id, &mut recovered).await {
+        app.reporter.record(&failure, Default::default());
+    }
+
+    let unavailable = recovered.unavailable.len();
+
     let actor = attribution::username(ctx, known, bot).await;
 
-    let Some(at) = guildlog::post(
+    let Some(at) = guildlog::attaching(
         app,
         ctx,
         guild,
         LogType::MessageUpdate,
-        &entry(&cached, known, actor.as_deref(), bot),
+        &entry(&cached, known, actor.as_deref(), bot, unavailable),
         guildlog::Subject {
             target: cached.author.id,
             moderator: known.actor(),
             action: None,
         },
+        recovered.files(),
+        &[],
     )
     .await?
     else {
         return Ok(());
     };
+
+    if !recovered.images.is_empty()
+        && let Err(failure) =
+            images::note_log(&app.pool, cached.id, at, recovered.images.len()).await
+    {
+        app.reporter.record(&failure, Default::default());
+    }
+
+    if let Err(failure) = images::discard(app, guild, cached.id).await {
+        app.reporter.record(&failure, Default::default());
+    }
 
     let key = (guild, cached.author.id, channel.get());
     let resolved = guildlog::resolve(app, ctx, guild, cached.author.id, channel.get(), known).await;
@@ -107,7 +130,7 @@ pub async fn record(
         app.awaiting.expect(
             key,
             at,
-            &entry(&cached, known, actor.as_deref(), bot),
+            &entry(&cached, known, actor.as_deref(), bot, unavailable),
             known,
         );
 
@@ -118,7 +141,12 @@ pub async fn record(
 
     app.awaiting.forget(&key);
     guildlog::store::attribute(&app.pool, at.message.get(), resolved.actor()).await?;
-    guildlog::rewrite(ctx, at, &entry(&cached, resolved, actor.as_deref(), bot)).await
+    guildlog::rewrite(
+        ctx,
+        at,
+        &entry(&cached, resolved, actor.as_deref(), bot, unavailable),
+    )
+    .await
 }
 
 pub async fn bulk(cx: &BulkDeletionCx, guild: GuildId) -> Result<()> {

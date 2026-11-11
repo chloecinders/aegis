@@ -1,13 +1,15 @@
 use axum::Json;
 use axum::extract::{Path, Query, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::Snowflake;
+use crate::features::archive::images;
 use crate::features::archive::secrets::open;
 use crate::features::archive::transcript::{self, store};
+use crate::platform::crypto;
 use crate::web::Shared;
 use crate::web::directory::Entry;
 use crate::web::session::{Membership, Session};
@@ -208,6 +210,9 @@ pub async fn messages(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    let logged = format!("/api/transcript/{guild}/{id}/logged");
+    let logged = logged.as_str();
+
     let messages: Vec<Rendered> = page
         .messages
         .into_iter()
@@ -221,7 +226,34 @@ pub async fn messages(
             reply_to: stored.referenced,
             reply_collected: stored.referenced_collected,
             content: open(key.as_ref(), stored.content.as_deref()),
-            files: stored.attachments.map(links).unwrap_or_default(),
+            files: stored
+                .attachments
+                .map(|attachments| {
+                    links(
+                        attachments,
+                        stored.log.is_none() && stored.images.is_empty(),
+                        stored.log.is_none(),
+                    )
+                })
+                .unwrap_or_default()
+                .into_iter()
+                .chain(stored.log.into_iter().flat_map(|(entry, images)| {
+                    let removed = stored.message;
+
+                    (0..images).map(move |index| format!("{logged}/{removed}/{entry}/{index}.webp"))
+                }))
+                .chain(
+                    stored
+                        .images
+                        .into_iter()
+                        .map(|image| match image.encrypted {
+                            true => {
+                                format!("/api/transcript/{guild}/{id}/images/{}.webp", image.token)
+                            }
+                            false => image.url,
+                        }),
+                )
+                .collect(),
             at: stored.created_at,
             removed: stored.removed,
             system: stored.system,
@@ -242,7 +274,94 @@ pub async fn messages(
     }))
 }
 
-fn links(stored: serde_json::Value) -> Vec<String> {
+pub async fn image(
+    State(web): State<Shared>,
+    headers: HeaderMap,
+    Path((guild, id, file)): Path<(Snowflake, String, String)>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let allowed = visible(&web, &headers, guild, &id).await?;
+    let token = file.strip_suffix(".webp").ok_or(StatusCode::NOT_FOUND)?;
+
+    let url = store::image(&web.pool, &id, token, &allowed)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let key = web
+        .keys
+        .key(guild)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let ciphertext = web
+        .client
+        .get(&url)
+        .send()
+        .await
+        .and_then(reqwest::Response::error_for_status)
+        .map_err(|_| StatusCode::NOT_FOUND)?
+        .bytes()
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let image = crypto::decrypt_bytes(&key, &ciphertext).ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok((
+        [
+            (header::CONTENT_TYPE, "image/webp"),
+            (header::CACHE_CONTROL, "private, max-age=3600"),
+        ],
+        image,
+    ))
+}
+
+pub async fn logged(
+    State(web): State<Shared>,
+    headers: HeaderMap,
+    Path((guild, id, message, entry, file)): Path<(
+        Snowflake,
+        String,
+        Snowflake,
+        Snowflake,
+        String,
+    )>,
+) -> Result<Redirect, StatusCode> {
+    let allowed = visible(&web, &headers, guild, &id).await?;
+
+    let index: usize = file
+        .strip_suffix(".webp")
+        .and_then(|index| index.parse().ok())
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let (channel, posted) = store::log_entry(&web.pool, &id, message, &allowed)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    if posted != entry {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let urls = match web.logged.get(&entry) {
+        Some(urls) => urls,
+        None => {
+            let urls = images::log_urls(&web.discord, channel, entry).await;
+
+            if !urls.is_empty() {
+                web.logged.insert(entry, urls.clone());
+            }
+
+            urls
+        }
+    };
+
+    urls.get(index)
+        .map(|url| Redirect::temporary(url))
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+fn links(stored: serde_json::Value, pictures: bool, stickers: bool) -> Vec<String> {
     let serde_json::Value::Array(listed) = stored else {
         return Vec::new();
     };
@@ -251,6 +370,23 @@ fn links(stored: serde_json::Value) -> Vec<String> {
         .into_iter()
         .filter_map(|entry| match entry {
             serde_json::Value::String(url) => Some(url),
+            serde_json::Value::Object(fields)
+                if fields
+                    .get("content_type")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|kind| kind.starts_with("image/"))
+                    && !match fields
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|url| {
+                            url.starts_with("https://media.discordapp.net/stickers/")
+                        }) {
+                        true => stickers,
+                        false => pictures,
+                    } =>
+            {
+                None
+            }
             serde_json::Value::Object(mut fields) => match fields.remove("url") {
                 Some(serde_json::Value::String(url)) => Some(url),
                 _ => None,

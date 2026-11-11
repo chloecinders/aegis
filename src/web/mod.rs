@@ -26,6 +26,7 @@ use crate::features::archive::secrets::Keys;
 use crate::features::automod::cache::Rules;
 use crate::features::permissions::cache::Permits;
 use crate::features::settings::cache::Settings;
+use crate::platform::cache::Cache;
 use crate::platform::crypto::Secret;
 use crate::web::directory::Directory;
 use crate::web::oauth::Oauth;
@@ -88,6 +89,8 @@ pub struct Web {
     pub permits: Arc<Permits>,
     pub sessions: Sessions,
     pub client: reqwest::Client,
+    pub discord: Arc<Http>,
+    pub logged: Cache<Snowflake, Vec<String>>,
     pub oauth: Option<Oauth>,
     pub site: String,
     pub developers: Vec<Snowflake>,
@@ -104,6 +107,14 @@ pub fn router(state: Shared) -> Router {
         .route("/transcript/:guild/:id", get(routes::page))
         .route("/api/transcript/:guild/:id", get(routes::meta))
         .route("/api/transcript/:guild/:id/messages", get(routes::messages))
+        .route(
+            "/api/transcript/:guild/:id/images/:file",
+            get(routes::image),
+        )
+        .route(
+            "/api/transcript/:guild/:id/logged/:message/:entry/:file",
+            get(routes::logged),
+        )
         .route("/health", get(routes::health))
         .route(SIGN_IN, get(dash::auth::sign_in))
         .route(CALLBACK, get(dash::auth::callback))

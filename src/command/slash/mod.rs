@@ -4,7 +4,9 @@ pub mod value;
 
 use std::future::Future;
 
-use serenity::all::{CommandOptionType, CommandType, CreateCommand, CreateCommandOption};
+use serenity::all::{
+    CommandOptionType, CommandType, CreateAttachment, CreateCommand, CreateCommandOption,
+};
 
 use crate::command::Meta;
 use crate::command::error::Result;
@@ -36,6 +38,7 @@ pub trait Slash: Options {
 pub struct Reply {
     pub embed: Embed,
     pub buttons: Vec<Button>,
+    pub files: Vec<CreateAttachment<'static>>,
     pub ephemeral: bool,
 }
 
@@ -44,12 +47,18 @@ impl Reply {
         Self {
             embed,
             buttons: Vec::new(),
+            files: Vec::new(),
             ephemeral: false,
         }
     }
 
     pub fn buttons(mut self, buttons: Vec<Button>) -> Self {
         self.buttons = buttons;
+        self
+    }
+
+    pub fn files(mut self, files: Vec<CreateAttachment<'static>>) -> Self {
+        self.files = files;
         self
     }
 

@@ -61,7 +61,10 @@ pub async fn run() -> Result<(), Failure> {
 
     #[cfg(feature = "web")]
     if let Some(port) = app.config.web_port {
-        use crate::web::{self, session::Sessions};
+        use crate::{
+            platform::cache::Cache,
+            web::{self, session::Sessions},
+        };
 
         tokio::spawn(web::serve(
             Arc::new(web::Web {
@@ -80,6 +83,8 @@ pub async fn run() -> Result<(), Failure> {
                 permits: Arc::clone(&app.permits),
                 sessions: Sessions::new(app.pool.clone()),
                 client: app.http.client().clone(),
+                discord: Arc::clone(&client.http),
+                logged: Cache::new(4096, Some(Duration::from_secs(3600))),
                 oauth: registered(&app.config),
                 site: app.config.site(),
                 developers: app.config.dev_ids.clone().unwrap_or_default(),

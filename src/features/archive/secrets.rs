@@ -126,7 +126,7 @@ impl Keys {
     ) -> Result<Option<Vec<u8>>> {
         match self.encryption(pool, http, guild).await? {
             Encryption::Off => Ok(Some(plaintext.as_bytes().to_vec())),
-            Encryption::On(key) => Ok(crypto::encrypt(&key, plaintext)),
+            Encryption::On(key) => Ok(crypto::encrypt(&key, plaintext.as_bytes())),
             Encryption::Lost => Ok(None),
         }
     }

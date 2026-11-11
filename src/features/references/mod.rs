@@ -204,7 +204,7 @@ pub async fn archive_image(cx: &Cx, guild: Snowflake, source: &str) -> Option<St
     let config = s3::settings(cx.app.config.s3.as_ref())?;
     let bytes = cx.app.http.bytes(source, 8 * 1024 * 1024).await.ok()?;
     let encoded = s3::to_webp(&bytes)?;
-    let (key, url) = s3::placement(config, guild, &s3::token());
+    let (key, url) = s3::placement(config, "refs", guild, &s3::token());
 
     match s3::store(config, &key, &encoded).await {
         true => Some(url),

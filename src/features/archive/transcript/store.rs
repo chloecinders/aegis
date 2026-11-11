@@ -6,6 +6,7 @@ use sqlx::PgPool;
 use crate::command::error::{Ctx, Result};
 use crate::domain::Snowflake;
 use crate::domain::ids::TranscriptId;
+use crate::features::archive::images;
 use crate::features::archive::transcript::{Meta, Page, Request, Scope};
 
 pub async fn build(pool: &PgPool, asked: &Request) -> Result<Option<TranscriptId>> {
@@ -139,6 +140,8 @@ pub struct Stored {
     pub removed: bool,
     pub system: bool,
     pub edits: Vec<Edit>,
+    pub images: Vec<images::Stored>,
+    pub log: Option<(Snowflake, i32)>,
 }
 
 pub async fn channels(pool: &PgPool, guild: Snowflake, id: &str) -> Result<Vec<Snowflake>> {
@@ -176,6 +179,7 @@ pub async fn page(
         "SELECT m.message_id, m.channel_id, m.author_id, m.author_name,
             m.author_display_name, m.author_avatar_url, m.referenced_message_id,
             m.content, m.attachment_urls, m.created_at, m.system,
+            d.log_message_id, d.log_images,
             (d.message_id IS NOT NULL) AS \"removed!\",
             (r.message_id IS NOT NULL) AS \"referenced_collected!\"
         FROM transcript_messages t
@@ -203,6 +207,12 @@ pub async fn page(
     )
     .await?;
 
+    let mut stored = images::stored(
+        pool,
+        &rows.iter().map(|row| row.message_id).collect::<Vec<_>>(),
+    )
+    .await?;
+
     let messages: Vec<Stored> = rows
         .into_iter()
         .rev()
@@ -221,10 +231,67 @@ pub async fn page(
             removed: row.removed,
             system: row.system,
             edits: edits.remove(&row.message_id).unwrap_or_default(),
+            images: stored.remove(&row.message_id).unwrap_or_default(),
+            log: row
+                .log_message_id
+                .zip(row.log_images)
+                .map(|(entry, images)| (entry as Snowflake, images)),
         })
         .collect();
 
     Ok(Page::of(messages, |message| message.message, limit))
+}
+
+pub async fn image(
+    pool: &PgPool,
+    id: &str,
+    token: &str,
+    visible: &[Snowflake],
+) -> Result<Option<String>> {
+    let visible: Vec<i64> = visible.iter().map(|id| *id as i64).collect();
+
+    sqlx::query_scalar!(
+        "SELECT i.url FROM message_images i
+        JOIN transcript_messages t ON t.message_id = i.message_id
+        JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at
+        WHERE t.transcript_id = $1 AND i.token = $2 AND i.encrypted
+            AND m.channel_id = ANY ($3)
+        LIMIT 1",
+        id,
+        token,
+        &visible
+    )
+    .fetch_optional(pool)
+    .await
+    .ctx("read a stored image")
+}
+
+pub async fn log_entry(
+    pool: &PgPool,
+    id: &str,
+    message: Snowflake,
+    visible: &[Snowflake],
+) -> Result<Option<(Snowflake, Snowflake)>> {
+    let visible: Vec<i64> = visible.iter().map(|id| *id as i64).collect();
+
+    let found = sqlx::query!(
+        r#"SELECT d.log_channel_id AS "channel!", d.log_message_id AS "entry!"
+        FROM message_deletions d
+        JOIN transcript_messages t ON t.message_id = d.message_id
+        JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at
+        WHERE t.transcript_id = $1 AND d.message_id = $2
+            AND d.log_channel_id IS NOT NULL AND d.log_message_id IS NOT NULL
+            AND m.channel_id = ANY ($3)
+        LIMIT 1"#,
+        id,
+        message as i64,
+        &visible
+    )
+    .fetch_optional(pool)
+    .await
+    .ctx("read the log entry of a message")?;
+
+    Ok(found.map(|row| (row.channel as Snowflake, row.entry as Snowflake)))
 }
 
 async fn revisions(pool: &PgPool, messages: &[i64]) -> Result<HashMap<i64, Vec<Edit>>> {

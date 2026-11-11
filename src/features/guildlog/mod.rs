@@ -53,7 +53,7 @@ pub async fn emit(
         kind,
         embed,
         subject,
-        None,
+        Vec::new(),
         controls,
     )
     .await
@@ -67,7 +67,7 @@ pub async fn post(
     embed: &Embed,
     subject: Subject,
 ) -> Result<Option<Posted>> {
-    attaching(app, http, guild, kind, embed, subject, None, &[]).await
+    attaching(app, http, guild, kind, embed, subject, Vec::new(), &[]).await
 }
 
 pub async fn attaching(
@@ -77,7 +77,7 @@ pub async fn attaching(
     kind: LogType,
     embed: &Embed,
     subject: Subject,
-    file: Option<CreateAttachment<'static>>,
+    files: Vec<CreateAttachment<'static>>,
     controls: &[Button],
 ) -> Result<Option<Posted>> {
     let pool = &app.pool;
@@ -85,17 +85,15 @@ pub async fn attaching(
         return Ok(None);
     };
 
-    let mut entry = reply::plain(embed).components(
-        controls
-            .chunks(5)
-            .take(5)
-            .map(reply::row)
-            .collect::<Vec<_>>(),
-    );
-
-    if let Some(file) = file {
-        entry = entry.add_file(file);
-    }
+    let entry = reply::plain(embed)
+        .components(
+            controls
+                .chunks(5)
+                .take(5)
+                .map(reply::row)
+                .collect::<Vec<_>>(),
+        )
+        .add_files(files);
 
     let posted = channel
         .widen()

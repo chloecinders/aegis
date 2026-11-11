@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE message_deletions\n        SET log_channel_id = $1, log_message_id = $2, log_images = $3\n        WHERE message_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "43141ca133b82991289d68754aaa315597754cdd9a543959a4d3becdbccff72a"
+}

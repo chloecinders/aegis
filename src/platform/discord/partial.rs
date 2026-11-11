@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serenity::all::Message;
+use serenity::all::{Message, StickerFormatType};
 
 use crate::domain::Snowflake;
 
@@ -77,12 +77,46 @@ impl From<&Message> for PartialMessage {
             attachments: message
                 .attachments
                 .iter()
+                .chain(
+                    message
+                        .message_snapshots
+                        .iter()
+                        .flat_map(|forwarded| forwarded.attachments.iter()),
+                )
                 .map(|attachment| PartialAttachment {
                     name: attachment.filename.to_string(),
                     url: attachment.url.to_string(),
                     size: attachment.size,
                     content_type: attachment.content_type.as_ref().map(ToString::to_string),
                 })
+                .chain(
+                    message
+                        .sticker_items
+                        .iter()
+                        .chain(
+                            message
+                                .message_snapshots
+                                .iter()
+                                .flat_map(|forwarded| forwarded.sticker_items.iter()),
+                        )
+                        .filter_map(|sticker| {
+                            let extension = match sticker.format_type {
+                                StickerFormatType::Png | StickerFormatType::Apng => "png",
+                                StickerFormatType::Gif => "gif",
+                                _ => return None,
+                            };
+
+                            Some(PartialAttachment {
+                                name: format!("{}.{extension}", sticker.name),
+                                url: format!(
+                                    "https://media.discordapp.net/stickers/{}.{extension}",
+                                    sticker.id
+                                ),
+                                size: 0,
+                                content_type: Some(format!("image/{extension}")),
+                            })
+                        }),
+                )
                 .collect(),
             created_at: *message.timestamp,
         }

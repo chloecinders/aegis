@@ -4,6 +4,7 @@ pub mod commands;
 pub mod controls;
 pub mod deletion;
 pub mod edit;
+pub mod images;
 pub mod secrets;
 pub mod store;
 
@@ -21,7 +22,8 @@ use crate::platform::discord::dispatch::{
     BulkDeletionCx, DeletionCx, Dispatch, MessageCx, Observer,
 };
 use crate::platform::discord::interact::Router;
-use crate::platform::discord::partial::PartialMessage;
+use crate::platform::discord::partial::{PartialAttachment, PartialMessage};
+use crate::platform::s3;
 use crate::platform::ui::embed;
 
 pub struct Storable {
@@ -130,6 +132,37 @@ impl Observer for Archive {
         let message = Arc::new(message);
 
         cx.app.recent.remember(Arc::clone(&message));
+
+        let uploaded: Vec<PartialAttachment> = cx
+            .msg
+            .attachments
+            .iter()
+            .chain(
+                cx.msg
+                    .message_snapshots
+                    .iter()
+                    .flat_map(|forwarded| forwarded.attachments.iter()),
+            )
+            .map(images::scaled)
+            .collect();
+
+        if s3::settings(cx.app.config.s3.as_ref()).is_some()
+            && !uploaded.is_empty()
+            && cx.msg.author.id != cx.ctx.cache.current_user().id
+        {
+            let (app, ctx) = (Arc::clone(&cx.app), cx.ctx.clone());
+            let message = message.id;
+
+            tokio::spawn(async move {
+                let recovered = images::recover(&app, &uploaded).await;
+
+                if let Err(failure) =
+                    images::preserve(&app, &ctx, guild.get(), message, &recovered.images).await
+                {
+                    app.reporter.record(&failure, Default::default());
+                }
+            });
+        }
 
         let kept = cx
             .app

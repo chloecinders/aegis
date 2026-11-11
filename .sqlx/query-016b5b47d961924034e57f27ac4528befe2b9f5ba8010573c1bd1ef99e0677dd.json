@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.url FROM message_images i\n        JOIN transcript_messages t ON t.message_id = i.message_id\n        JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at\n        WHERE t.transcript_id = $1 AND i.token = $2 AND i.encrypted\n            AND m.channel_id = ANY ($3)\n        LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "url",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "016b5b47d961924034e57f27ac4528befe2b9f5ba8010573c1bd1ef99e0677dd"
+}

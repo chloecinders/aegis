@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH removed AS (\n            DELETE FROM message_images WHERE message_id = $1 RETURNING token\n        )\n        SELECT DISTINCT removed.token AS \"token!\" FROM removed\n        WHERE NOT EXISTS (\n            SELECT 1 FROM message_images other\n            WHERE other.token = removed.token AND other.message_id <> $1\n        )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "token!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c7b2e565078af25ad200e8dc4a48783c534e4f11517465a0759f11521176de6e"
+}

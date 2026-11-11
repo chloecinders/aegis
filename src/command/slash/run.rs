@@ -110,6 +110,7 @@ async fn respond(ctx: &Context, interaction: &CommandInteraction, reply: Reply) 
                             .map(reply::row)
                             .collect::<Vec<_>>(),
                     )
+                    .add_files(reply.files)
                     .ephemeral(reply.ephemeral),
             ),
         )

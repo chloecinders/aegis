@@ -7,10 +7,10 @@ pub fn generate() -> Secret {
     Aes256Gcm::generate_key(OsRng).into()
 }
 
-pub fn encrypt(key: &Secret, plaintext: &str) -> Option<Vec<u8>> {
+pub fn encrypt(key: &Secret, plaintext: &[u8]) -> Option<Vec<u8>> {
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-    let ciphertext = cipher.encrypt(&nonce, plaintext.as_bytes()).ok()?;
+    let ciphertext = cipher.encrypt(&nonce, plaintext).ok()?;
     let mut combined = nonce.to_vec();
 
     combined.extend_from_slice(&ciphertext);
@@ -18,7 +18,7 @@ pub fn encrypt(key: &Secret, plaintext: &str) -> Option<Vec<u8>> {
     Some(combined)
 }
 
-pub fn decrypt(key: &Secret, ciphertext: &[u8]) -> Option<String> {
+pub fn decrypt_bytes(key: &Secret, ciphertext: &[u8]) -> Option<Vec<u8>> {
     if ciphertext.len() <= 12 {
         return None;
     }
@@ -26,5 +26,9 @@ pub fn decrypt(key: &Secret, ciphertext: &[u8]) -> Option<String> {
     let (nonce, body) = ciphertext.split_at(12);
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
 
-    String::from_utf8(cipher.decrypt(Nonce::from_slice(nonce), body).ok()?).ok()
+    cipher.decrypt(Nonce::from_slice(nonce), body).ok()
+}
+
+pub fn decrypt(key: &Secret, ciphertext: &[u8]) -> Option<String> {
+    String::from_utf8(decrypt_bytes(key, ciphertext)?).ok()
 }

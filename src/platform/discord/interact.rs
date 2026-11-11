@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serenity::all::{
-    ComponentInteraction, ComponentInteractionDataKind, Context, CreateInteractionResponse,
-    CreateInteractionResponseMessage, CreateModal, GenericChannelId, GuildId, LabelComponent,
-    Member, MessageId, ModalComponent, ModalInteraction, ModalInteractionData, Permissions, User,
+    ComponentInteraction, ComponentInteractionDataKind, Context, CreateAttachment,
+    CreateInteractionResponse, CreateInteractionResponseMessage, CreateModal, GenericChannelId,
+    GuildId, LabelComponent, Member, MessageId, ModalComponent, ModalInteraction,
+    ModalInteractionData, Permissions, User,
 };
 
 use crate::app::App;
@@ -121,6 +122,7 @@ impl Click {
 pub struct Rewrite {
     pub embed: Embed,
     pub buttons: Vec<Button>,
+    pub files: Vec<CreateAttachment<'static>>,
 }
 
 pub enum Reaction {
@@ -134,7 +136,11 @@ pub enum Reaction {
 
 impl Reaction {
     pub fn replace(embed: Embed, buttons: Vec<Button>) -> Self {
-        Reaction::Replace(Box::new(Rewrite { embed, buttons }))
+        Reaction::Replace(Box::new(Rewrite {
+            embed,
+            buttons,
+            files: Vec::new(),
+        }))
     }
 
     pub fn private(embed: Embed) -> Self {
@@ -334,7 +340,8 @@ fn answer(reaction: Reaction) -> CreateInteractionResponse<'static> {
                         .take(5)
                         .map(reply::row)
                         .collect::<Vec<_>>(),
-                ),
+                )
+                .files(rewrite.files),
         ),
         Reaction::Aside(rewrite) => CreateInteractionResponse::Message(
             CreateInteractionResponseMessage::new()
@@ -347,6 +354,7 @@ fn answer(reaction: Reaction) -> CreateInteractionResponse<'static> {
                         .map(reply::row)
                         .collect::<Vec<_>>(),
                 )
+                .add_files(rewrite.files)
                 .ephemeral(true),
         ),
         Reaction::Private(embed) => CreateInteractionResponse::Message(

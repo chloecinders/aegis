@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT d.log_channel_id AS \"channel!\", d.log_message_id AS \"entry!\"\n        FROM message_deletions d\n        JOIN transcript_messages t ON t.message_id = d.message_id\n        JOIN messages m ON m.message_id = t.message_id AND m.created_at = t.created_at\n        WHERE t.transcript_id = $1 AND d.message_id = $2\n            AND d.log_channel_id IS NOT NULL AND d.log_message_id IS NOT NULL\n            AND m.channel_id = ANY ($3)\n        LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "entry!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "b79b86396fb68e52b879fe309f809c5d2f2571828d1641516b7106e3118bb848"
+}

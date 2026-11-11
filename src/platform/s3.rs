@@ -19,12 +19,12 @@ pub fn token() -> String {
         })
 }
 
-pub fn placement(config: &S3, guild: Snowflake, token: &str) -> (String, String) {
+pub fn placement(config: &S3, folder: &str, guild: Snowflake, token: &str) -> (String, String) {
     let base = config
         .public_base_url
         .clone()
         .unwrap_or_else(|| config.endpoint.clone());
-    let key = format!("refs/{guild}/{token}.webp");
+    let key = format!("{folder}/{guild}/{token}.webp");
     let url = format!("{}/{key}", base.trim_end_matches('/'));
 
     (key, url)
@@ -110,6 +110,16 @@ mod backend {
             }
         }
     }
+
+    pub async fn remove(config: &S3, key: &str) {
+        let Some(bucket) = handle(config) else {
+            return;
+        };
+
+        if let Err(err) = bucket.delete_object(key).await {
+            warn!("could not remove {key}; err = {err:?}");
+        }
+    }
 }
 
 #[cfg(not(feature = "s3"))]
@@ -117,8 +127,14 @@ mod backend {
     pub async fn store(_config: &super::S3, _key: &str, _bytes: &[u8]) -> bool {
         false
     }
+
+    pub async fn remove(_config: &super::S3, _key: &str) {}
 }
 
 pub async fn store(config: &S3, key: &str, bytes: &[u8]) -> bool {
     backend::store(config, key, bytes).await
+}
+
+pub async fn remove(config: &S3, key: &str) {
+    backend::remove(config, key).await
 }

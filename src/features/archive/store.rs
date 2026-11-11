@@ -221,6 +221,14 @@ pub async fn disable(pool: &PgPool, guild: Snowflake) -> Result<u64> {
     .await
     .ctx("disable encryption")?;
 
+    sqlx::query!(
+        "DELETE FROM message_images WHERE guild_id = $1",
+        guild as i64
+    )
+    .execute(pool)
+    .await
+    .ctx("erase stored images")?;
+
     let wiped = sqlx::query!("DELETE FROM messages WHERE guild_id = $1", guild as i64)
         .execute(pool)
         .await
@@ -256,6 +264,7 @@ pub struct DeletedMessage {
     pub body: Option<Vec<u8>>,
     pub attachments: Option<serde_json::Value>,
     pub created_at: chrono::DateTime<chrono::Utc>,
+    pub log: Option<(Snowflake, Snowflake)>,
 }
 
 pub async fn count_deleted(pool: &PgPool, guild: Snowflake, channel: Snowflake) -> Result<u64> {
@@ -282,7 +291,7 @@ pub async fn nth_deleted(
     let row = sqlx::query!(
         "SELECT m.message_id, m.author_id, m.author_name, m.author_display_name,
             m.author_avatar_url, m.referenced_message_id, m.content, m.attachment_urls,
-            m.created_at
+            m.created_at, d.log_channel_id, d.log_message_id
         FROM message_deletions d
         JOIN messages m ON m.message_id = d.message_id
         WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system
@@ -306,5 +315,9 @@ pub async fn nth_deleted(
         body: row.content,
         attachments: row.attachment_urls,
         created_at: row.created_at,
+        log: row
+            .log_channel_id
+            .zip(row.log_message_id)
+            .map(|(channel, message)| (channel as Snowflake, message as Snowflake)),
     }))
 }

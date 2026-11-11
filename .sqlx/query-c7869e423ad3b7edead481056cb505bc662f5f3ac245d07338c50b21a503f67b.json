@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT m.message_id, m.author_id, m.author_name, m.author_display_name,\n            m.author_avatar_url, m.referenced_message_id, m.content, m.attachment_urls,\n            m.created_at\n        FROM message_deletions d\n        JOIN messages m ON m.message_id = d.message_id\n        WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system\n        ORDER BY d.deleted_at DESC, d.message_id DESC\n        OFFSET $3 LIMIT 1",
+  "query": "SELECT m.message_id, m.author_id, m.author_name, m.author_display_name,\n            m.author_avatar_url, m.referenced_message_id, m.content, m.attachment_urls,\n            m.created_at, d.log_channel_id, d.log_message_id\n        FROM message_deletions d\n        JOIN messages m ON m.message_id = d.message_id\n        WHERE d.guild_id = $1 AND m.channel_id = $2 AND d.source = 'manual' AND NOT m.system\n        ORDER BY d.deleted_at DESC, d.message_id DESC\n        OFFSET $3 LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -47,6 +47,16 @@
         "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "log_channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "log_message_id",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -65,8 +75,10 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "5d3f31179a5137a938d704184aa0ff3843fac96e7bc9e340873539ba3bb29f77"
+  "hash": "c7869e423ad3b7edead481056cb505bc662f5f3ac245d07338c50b21a503f67b"
 }

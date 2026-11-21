@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 use serenity::all::{
-    Context, GenericChannelId, GuildId, Member, Message, MessageId, User, UserId, VoiceState,
+    Context, GenericChannelId, GuildId, Member, Message, MessageId, Reaction, User, UserId,
+    VoiceState,
 };
 use serenity::async_trait;
 
@@ -49,6 +50,12 @@ pub struct VoiceCx {
     pub current: VoiceState,
 }
 
+pub struct ReactionCx {
+    pub app: Arc<App>,
+    pub ctx: Context,
+    pub reaction: Reaction,
+}
+
 #[async_trait]
 pub trait Observer: Send + Sync {
     fn name(&self) -> &'static str;
@@ -68,6 +75,8 @@ pub trait Observer: Send + Sync {
     async fn on_member_update(&self, _cx: &MemberCx) {}
 
     async fn on_voice_state(&self, _cx: &VoiceCx) {}
+
+    async fn on_reaction_add(&self, _cx: &ReactionCx) {}
 }
 
 #[derive(Default)]
@@ -153,6 +162,15 @@ impl Dispatch {
             self.observers
                 .iter()
                 .map(|observer| observer.on_voice_state(cx)),
+        )
+        .await;
+    }
+
+    pub async fn reaction_add(&self, cx: &ReactionCx) {
+        join_all(
+            self.observers
+                .iter()
+                .map(|observer| observer.on_reaction_add(cx)),
         )
         .await;
     }

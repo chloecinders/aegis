@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use serenity::all::{
     ActivityData, AuditLogEntry, Client, ClientBuilder, Context, EventHandler, FullEvent,
     GatewayIntents, GenericChannelId, GuildId, GuildMemberUpdateEvent, HttpBuilder, Interaction,
-    Member, Message, MessageId, OnlineStatus, Ready, Settings, Token, User, VoiceState,
+    Member, Message, MessageId, OnlineStatus, Reaction, Ready, Settings, Token, User, VoiceState,
 };
 use serenity::async_trait;
 use tracing::info;
@@ -15,7 +15,7 @@ use crate::app::App;
 use crate::command::{amend, pipeline, retract, slash};
 use crate::features::punishments::sync;
 use crate::platform::discord::dispatch::{
-    BulkDeletionCx, DeletionCx, Dispatch, MemberCx, MessageCx, VoiceCx,
+    BulkDeletionCx, DeletionCx, Dispatch, MemberCx, MessageCx, ReactionCx, VoiceCx,
 };
 use crate::platform::discord::interact;
 
@@ -94,6 +94,9 @@ impl EventHandler for Gateway {
             }
             FullEvent::MessageUpdate { event, .. } => {
                 self.message_update(ctx, event.message.clone()).await
+            }
+            FullEvent::ReactionAdd { add_reaction, .. } => {
+                self.reaction_add(ctx, add_reaction.clone()).await
             }
             _ => (),
         }
@@ -300,6 +303,16 @@ impl Gateway {
 
         self.dispatch.message_edit(&cx).await;
         amend::reconsider(Arc::clone(&self.app), ctx.clone(), message).await;
+    }
+
+    async fn reaction_add(&self, ctx: &Context, reaction: Reaction) {
+        let cx = ReactionCx {
+            app: Arc::clone(&self.app),
+            ctx: ctx.clone(),
+            reaction,
+        };
+
+        self.dispatch.reaction_add(&cx).await;
     }
 }
 

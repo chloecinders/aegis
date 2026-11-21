@@ -41,7 +41,10 @@ impl Draft {
         if rest.is_empty() {
             return Err(Error::empty()
                 .title("invalid rule clause")
-                .with_span(line.keyword().span, "missing role, user, channel or permission")
+                .with_span(
+                    line.keyword().span,
+                    "missing role, user, channel or permission",
+                )
                 .with_span_help(line.keyword().span, "provide one", "ignore role:<id>"));
         }
 

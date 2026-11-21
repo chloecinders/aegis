@@ -27,6 +27,7 @@ use crate::features::guildlog::amend::Awaiting;
 use crate::features::guildlog::poller::{Count, Reader};
 use crate::features::permissions::cache::Permits;
 use crate::features::punishments::notices::Notices;
+use crate::features::selfreact::cache::SelfReactions;
 use crate::features::settings::cache::Settings;
 use crate::features::sticky::cache::Stickies;
 use crate::platform::cache::Debounce;
@@ -47,6 +48,7 @@ pub struct App {
     pub traces: Batched<TraceRow>,
     pub settings: Arc<Settings>,
     pub stickies: Stickies,
+    pub self_reactions: SelfReactions,
     pub permits: Arc<Permits>,
     pub audit: Reader,
     pub attributed: Count,
@@ -87,6 +89,7 @@ impl App {
             traces: store::sink(pool_for_traces),
             settings: Arc::new(Settings::new()),
             stickies: Stickies::new(),
+            self_reactions: SelfReactions::new(),
             permits: Arc::new(Permits::new()),
             audit: Reader::new(),
             attributed: Count::new(),

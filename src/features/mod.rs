@@ -9,6 +9,7 @@ pub mod permissions;
 pub mod punishments;
 pub mod records;
 pub mod references;
+pub mod selfreact;
 pub mod settings;
 pub mod snippets;
 pub mod sticky;
@@ -22,6 +23,7 @@ pub fn observe(dispatch: &mut Dispatch) {
     automod::observe(dispatch);
     guildlog::observe(dispatch);
     punishments::observe(dispatch);
+    selfreact::observe(dispatch);
     sticky::observe(dispatch);
 }
 
@@ -43,6 +45,7 @@ pub fn register(registry: &mut Registry) {
     permissions::register(registry);
     records::register(registry);
     references::register(registry);
+    selfreact::register(registry);
     settings::register(registry);
     snippets::register(registry);
     sticky::register(registry);

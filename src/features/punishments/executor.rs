@@ -141,6 +141,12 @@ pub async fn apply(
         .notice(ui::notice(&punishment, &guild_name))
         .silent(punishment.silent)
         .auto_delete(reply == Reply::Temporary)
+        .keep_command(
+            cx.msg
+                .referenced_message
+                .as_deref()
+                .is_some_and(|replied| replied.kind == MessageType::AutoModAction),
+        )
         .on_notice(Arc::new(move |notice: &Message| {
             app.notices.remember_notice(invocation, notice.into());
         }));

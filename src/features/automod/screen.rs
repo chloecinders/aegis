@@ -63,6 +63,7 @@ async fn screen_rules(cx: &MessageCx, enabled: &cache::Enabled, guild: Snowflake
 
     let fixed = Fixed {
         channel: cx.msg.channel_id.get(),
+        user: cx.msg.author.id.get(),
         roles: &roles,
         permissions,
         age,

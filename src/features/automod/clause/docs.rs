@@ -105,10 +105,11 @@ pub const CLAUSES: [Clause; 12] = [
     },
     Clause {
         keyword: "ignore",
-        short: "role:<id> | channel:<id> | permission:<name>",
+        short: "role:<id> | user:<id> | channel:<id> | permission:<name>",
         full: "Specifies when the rule is not applied, such as for members with specific roles or permissions or in entire channels.",
         params: &[
             ("role:<id>", "a role"),
+            ("user:<id>", "a user"),
             ("channel:<id>", "a channel"),
             ("permission:<name>", "a global Discord server permission"),
         ],

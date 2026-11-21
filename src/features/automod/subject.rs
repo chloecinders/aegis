@@ -12,6 +12,7 @@ use crate::platform::text::fuzzy::Haystack;
 
 pub struct Fixed<'a> {
     pub channel: Snowflake,
+    pub user: Snowflake,
     pub roles: &'a [Snowflake],
     pub permissions: Permissions,
     pub age: chrono::Duration,
@@ -25,6 +26,7 @@ impl<'a> Fixed<'a> {
             source,
             read,
             channel: self.channel,
+            user: self.user,
             roles: self.roles,
             permissions: self.permissions,
             age: self.age,

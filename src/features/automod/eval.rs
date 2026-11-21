@@ -33,6 +33,7 @@ pub struct Observed<'a> {
     pub source: Source,
     pub read: Haystack<'a>,
     pub channel: Snowflake,
+    pub user: Snowflake,
     pub roles: &'a [Snowflake],
     pub permissions: Permissions,
     pub age: Duration,
@@ -101,6 +102,10 @@ pub fn evaluate(rule: &Rule, observed: &Observed) -> Result<Hit, Miss> {
         .iter()
         .any(|role| observed.roles.contains(role))
     {
+        return Err(Miss::Exempt);
+    }
+
+    if rule.body.ignore_users.contains(&observed.user) {
         return Err(Miss::Exempt);
     }
 

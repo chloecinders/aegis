@@ -21,7 +21,7 @@ impl Slash for Snipe {
     const META: Meta = meta! {
         name: "snipe",
         short: "Shows recently deleted messages",
-        full: "Shows recently deleted messages. Basically a quick access to message logs. Always ephemeral.",
+        full: "Shows recently deleted messages in the current channel. Basically a quick access to message logs.",
         category: Moderation,
         user: [MANAGE_MESSAGES],
     };

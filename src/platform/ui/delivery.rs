@@ -19,6 +19,7 @@ pub struct Delivery {
     timing: DmTiming,
     silent: bool,
     auto_delete: bool,
+    keep_command: bool,
     notice: Option<Embed>,
     on_notice: Option<NoticeCallback>,
     inflight: Option<JoinHandle<bool>>,
@@ -32,6 +33,7 @@ impl Delivery {
             timing,
             silent: false,
             auto_delete: false,
+            keep_command: false,
             notice: None,
             on_notice: None,
             inflight: None,
@@ -56,6 +58,11 @@ impl Delivery {
 
     pub fn auto_delete(mut self, auto_delete: bool) -> Self {
         self.auto_delete = auto_delete;
+        self
+    }
+
+    pub fn keep_command(mut self, keep_command: bool) -> Self {
+        self.keep_command = keep_command;
         self
     }
 
@@ -167,9 +174,16 @@ impl Delivery {
         let ctx = ctx.clone();
         let original = original.clone();
         let posted = posted.clone();
+        let keep_command = self.keep_command;
 
         tokio::spawn(async move {
             sleep(Duration::from_secs(5)).await;
+
+            if keep_command {
+                let _ = posted.delete(&ctx.http, None).await;
+
+                return;
+            }
 
             let _ = tokio::join!(
                 original.delete(&ctx.http, None),

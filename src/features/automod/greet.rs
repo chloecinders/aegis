@@ -33,6 +33,7 @@ pub async fn greet(cx: &MemberCx) -> Result<()> {
         source: Source::Join,
         read: Haystack::new(""),
         channel: 0,
+        user: target,
         roles: &roles,
         permissions,
         age: rule::account_age(*cx.user.id.created_at()),

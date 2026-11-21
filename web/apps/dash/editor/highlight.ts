@@ -44,7 +44,7 @@ export function highlight(source: string, diags: Diag[]): string {
                             '</span><span class="code__str">' +
                             raw.slice(raw.indexOf(":") + 1) +
                             "</span>";
-                    else if (/^(role|channel):/.test(word))
+                    else if (/^(role|user|channel):/.test(word))
                         out +=
                             '<span class="code__arg">' +
                             raw.slice(0, raw.indexOf(":") + 1) +

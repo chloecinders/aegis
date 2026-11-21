@@ -30,6 +30,7 @@ export function parse(source: string, part: Part = "whole"): Parsed {
         when: [],
         only: [],
         ignoreRoles: [],
+        ignoreUsers: [],
         ignoreChannels: [],
         ignorePermissions: [],
         after: null,

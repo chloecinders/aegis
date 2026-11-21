@@ -4,7 +4,7 @@ import { bareChannel, idOf, permissionOf } from "../tokenise.ts";
 export function readScope(clause: Clause): void {
     if (clause.rest.length === 0) {
         if (clause.word === "only") clause.bad("missing channel", "provide a channel", "only channel:<id>");
-        else clause.bad("missing role, channel or permission", "provide one", "ignore role:<id>");
+        else clause.bad("missing role, user, channel or permission", "provide one", "ignore role:<id>");
 
         return;
     }
@@ -41,12 +41,16 @@ export function readScope(clause: Clause): void {
             continue;
         }
 
-        if (channel) {
+        const user = idOf(token, "user");
+
+        if (user) {
+            if (!clause.body.ignoreUsers.includes(user)) clause.body.ignoreUsers.push(user);
+        } else if (channel) {
             if (!clause.body.ignoreChannels.includes(channel)) clause.body.ignoreChannels.push(channel);
         } else if (role) {
             if (!clause.body.ignoreRoles.includes(role)) clause.body.ignoreRoles.push(role);
         } else {
-            clause.bad("expected role:<id>, channel:<id> or permission:<name>", "provide one", "role:<id>");
+            clause.bad("expected role:<id>, user:<id>, channel:<id> or permission:<name>", "provide one", "role:<id>");
         }
     }
 }

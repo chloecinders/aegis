@@ -52,6 +52,7 @@ pub fn combine(managed: &Managed, subscription: &Subscription) -> Rule {
         only: subscription.response.only.clone(),
         ignore_channels: subscription.response.ignore_channels.clone(),
         ignore_roles: subscription.response.ignore_roles.clone(),
+        ignore_users: subscription.response.ignore_users.clone(),
         ignore_permissions: subscription.response.ignore_permissions,
         outcome: subscription.response.outcome.clone(),
         after: subscription.response.after,

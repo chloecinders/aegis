@@ -109,10 +109,10 @@ export function idOf(tok: Token, prefix: string): string | null {
     const inner = raw.startsWith("<") && raw.endsWith(">") ? raw.slice(1, -1) : null;
 
     if (inner) {
-        const mark = prefix === "role" ? "@&" : "#";
+        const mark = prefix === "role" ? /^@&/ : prefix === "user" ? /^@!?/ : /^#/;
 
-        if (inner.startsWith(mark)) {
-            const id = inner.slice(mark.length);
+        if (mark.test(inner)) {
+            const id = inner.replace(mark, "");
 
             return /^\d{4,20}$/.test(id) ? id : null;
         }

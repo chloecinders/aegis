@@ -70,6 +70,8 @@ pub struct Body {
     #[serde(default)]
     pub ignore_roles: Vec<Snowflake>,
     #[serde(default)]
+    pub ignore_users: Vec<Snowflake>,
+    #[serde(default)]
     pub ignore_permissions: Permissions,
     #[serde(default)]
     pub outcome: Outcome,

@@ -7,7 +7,7 @@ use crate::platform::text::lexer::Span;
 
 use super::Parsed;
 use super::draft::Draft;
-use super::token::{Line, Mention, channel, count, mention, permission, window};
+use super::token::{Line, Mention, channel, count, mention, permission, user, window};
 
 impl Draft {
     pub fn only(&mut self, line: &Line) -> Parsed<()> {
@@ -41,7 +41,7 @@ impl Draft {
         if rest.is_empty() {
             return Err(Error::empty()
                 .title("invalid rule clause")
-                .with_span(line.keyword().span, "missing role, channel or permission")
+                .with_span(line.keyword().span, "missing role, user, channel or permission")
                 .with_span_help(line.keyword().span, "provide one", "ignore role:<id>"));
         }
 
@@ -63,12 +63,20 @@ impl Draft {
                 continue;
             }
 
+            if let Some(id) = user(&token.raw) {
+                if !self.body.ignore_users.contains(&id) {
+                    self.body.ignore_users.push(id);
+                }
+
+                continue;
+            }
+
             let (kind, id) = mention(&token.raw).ok_or_else(|| {
                 Error::empty()
                     .title("invalid rule clause")
                     .with_span(
                         token.span,
-                        "expected role:<id>, channel:<id> or permission:<name>",
+                        "expected role:<id>, user:<id>, channel:<id> or permission:<name>",
                     )
                     .with_span_help(token.span, "provide one", "role:<id>")
             })?;

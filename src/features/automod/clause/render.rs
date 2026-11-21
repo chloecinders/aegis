@@ -32,10 +32,12 @@ pub fn render(body: &Body) -> String {
     out.extend(body.conditions.iter().map(Condition::render));
 
     if !body.ignore_roles.is_empty()
+        || !body.ignore_users.is_empty()
         || !body.ignore_channels.is_empty()
         || !body.ignore_permissions.is_empty()
     {
         let roles = body.ignore_roles.iter().map(|id| Mention::Role.tag(*id));
+        let users = body.ignore_users.iter().map(|id| format!("user:{id}"));
         let channels = body
             .ignore_channels
             .iter()
@@ -49,6 +51,7 @@ pub fn render(body: &Body) -> String {
         out.push(format!(
             "ignore {}",
             roles
+                .chain(users)
                 .chain(channels)
                 .chain(permissions)
                 .collect::<Vec<String>>()

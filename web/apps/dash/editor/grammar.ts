@@ -90,7 +90,7 @@ export const RESPONSE: Stub[] = [
     { keyword: "reason", takes: "text", stub: "reason " },
     { keyword: "after", takes: "2 in 10m", stub: "after " },
     { keyword: "notify", takes: "channel:<id> | none", stub: "notify channel:" },
-    { keyword: "ignore", takes: "role:<id> | channel:<id> | permission:<name>", stub: "ignore " },
+    { keyword: "ignore", takes: "role:<id> | user:<id> | channel:<id> | permission:<name>", stub: "ignore " },
     { keyword: "only", takes: "channel:<id>", stub: "only channel:" },
 ];
 
@@ -156,10 +156,11 @@ export const CLAUSES: Clause[] = [
     },
     {
         keyword: "ignore",
-        takes: "role:<id> | channel:<id> | permission:<name>",
+        takes: "role:<id> | user:<id> | channel:<id> | permission:<name>",
         about: "Specifies when the rule is not applied, such as for members with specific roles or permissions or in entire channels.",
         values: [
             ["role:<id>", "a role"],
+            ["user:<id>", "a user"],
             ["channel:<id>", "a channel"],
             ["permission:<name>", "a global Discord server permission"],
         ],

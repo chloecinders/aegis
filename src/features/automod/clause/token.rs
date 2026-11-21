@@ -127,6 +127,16 @@ pub fn mention(raw: &str) -> Option<(Mention, Snowflake)> {
     None
 }
 
+pub fn user(raw: &str) -> Option<Snowflake> {
+    if let Some(id) = raw.strip_prefix("user:") {
+        return id.parse().ok();
+    }
+
+    let inner = raw.strip_prefix("<@")?.strip_suffix('>')?;
+
+    inner.strip_prefix('!').unwrap_or(inner).parse().ok()
+}
+
 pub fn permission(raw: &str) -> Option<Permissions> {
     let name = raw.strip_prefix("permission:")?;
 

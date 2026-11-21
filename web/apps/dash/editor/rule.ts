@@ -36,6 +36,7 @@ export interface Body {
     when: When[];
     only: string[];
     ignoreRoles: string[];
+    ignoreUsers: string[];
     ignoreChannels: string[];
     ignorePermissions: string[];
     after: After | null;

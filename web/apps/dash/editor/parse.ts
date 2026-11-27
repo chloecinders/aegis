@@ -117,7 +117,9 @@ export function parse(source: string, part: Part = "whole"): Parsed {
     if (joining && body.then && PUNISHMENTS.includes(body.then.verb))
         diags.push({ line: 0, level: "warn", msg: "join rules never act" });
 
-    if (!body.match.length && !body.when.length)
+    const gameOnly = body.sources.length > 0 && body.sources.every((source) => source === "game");
+
+    if (!body.match.length && !body.when.length && !gameOnly)
         diags.push({ line: 0, level: "error", msg: "missing match or when clause" });
 
     if (body.clear !== null && (!body.then || body.then.verb !== "ban"))

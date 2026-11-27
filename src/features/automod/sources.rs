@@ -69,6 +69,10 @@ pub fn text(msg: &Message, source: Source) -> Option<Cow<'_, str>> {
             .collect::<Vec<&str>>()
             .join("\n"),
         ),
+        Source::Game => match (&msg.activity, &msg.application) {
+            (Some(_), Some(application)) => Cow::Borrowed(application.name.as_str()),
+            _ => Cow::Borrowed(""),
+        },
         Source::Image | Source::Join | Source::Message => Cow::Borrowed(""),
     };
 

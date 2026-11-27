@@ -14,6 +14,7 @@ pub enum Source {
     Mimetype,
     Embed,
     Username,
+    Game,
     Join,
     Message,
 }
@@ -27,6 +28,7 @@ impl Source {
             Source::Mimetype => "mimetype",
             Source::Embed => "embed",
             Source::Username => "username",
+            Source::Game => "game",
             Source::Join => "join",
             Source::Message => "message",
         }
@@ -40,6 +42,7 @@ impl Source {
             "mimetype" => Some(Source::Mimetype),
             "embed" => Some(Source::Embed),
             "username" => Some(Source::Username),
+            "game" => Some(Source::Game),
             "join" => Some(Source::Join),
             "message" => Some(Source::Message),
             _ => None,

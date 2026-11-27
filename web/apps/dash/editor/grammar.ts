@@ -15,7 +15,7 @@ export const MAX_PATTERNS = 64;
 
 export const FUZZ = 0.95;
 
-export const SOURCES = ["content", "image", "filename", "mimetype", "embed", "username", "join", "message"];
+export const SOURCES = ["content", "image", "filename", "mimetype", "embed", "username", "game", "join", "message"];
 export const MEASURES = ["mentions", "links", "invites", "attachments", "animated"];
 export const RECORD = ["warns", "mutes", "kicks", "bans", "punishments"];
 
@@ -97,7 +97,7 @@ export const RESPONSE: Stub[] = [
 export const CLAUSES: Clause[] = [
     {
         keyword: "on",
-        takes: "image | content | filename | mimetype | embed | username | join | message",
+        takes: "image | content | filename | mimetype | embed | username | game | join | message",
         about: "Which source the rule reads from.",
         values: [
             ["content", "message content"],
@@ -106,6 +106,7 @@ export const CLAUSES: Clause[] = [
             ["mimetype", "attached file MIME types"],
             ["embed", "text inside of embeds"],
             ["username", "member usernames"],
+            ["game", "game invites"],
             ["join", "member join, can not be used with match"],
             ["message", "every message, can not be used with match (for use with 'when', 'after', etc.)"],
         ],

@@ -136,17 +136,16 @@ pub async fn apply(
 
     let invocation = cx.msg.id.get();
     let app = Arc::clone(&cx.app);
+    let replies_to_automod = cx
+        .msg
+        .referenced_message
+        .as_deref()
+        .is_some_and(|replied| replied.kind == MessageType::AutoModAction);
 
     let mut delivery = Delivery::new(subject.id(), punishment.verb.dm_timing())
         .notice(ui::notice(&punishment, &guild_name))
         .silent(punishment.silent)
-        .auto_delete(reply == Reply::Temporary)
-        .keep_command(
-            cx.msg
-                .referenced_message
-                .as_deref()
-                .is_some_and(|replied| replied.kind == MessageType::AutoModAction),
-        )
+        .auto_delete(reply == Reply::Temporary && !replies_to_automod)
         .on_notice(Arc::new(move |notice: &Message| {
             app.notices.remember_notice(invocation, notice.into());
         }));
